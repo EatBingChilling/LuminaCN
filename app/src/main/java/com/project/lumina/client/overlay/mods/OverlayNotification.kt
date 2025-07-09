@@ -151,9 +151,9 @@ fun NotificationCard(notification: NotificationItem, notificationState: Notifica
     LaunchedEffect(key1 = notification.id) {
         delay(50)
         visible = true
-        delay(2500)
+        delay(2000) // 通知显示时长
         exitState = true
-        delay(400)
+        delay(300) // 退出动画时长
         notificationState.removeNotification(notification.id)
     }
 
@@ -298,22 +298,27 @@ class NotificationState {
     val notifications: List<NotificationItem> get() = _notifications
 
     private var nextId = 0
-    private val activeModules = mutableSetOf<String>()
+    private val activeModules = mutableSetOf<String>() 
 
     fun addNotification(moduleName: String) {
         if (moduleName in activeModules) {
-            return
+            return 
         }
-
         activeModules.add(moduleName)
-        if (_notifications.size >= 3) _notifications.removeAt(0)
+
+        if (_notifications.size >= 3) {
+            val oldest = _notifications.removeFirst()
+            activeModules.remove(oldest.moduleName)
+        }
         _notifications.add(NotificationItem(nextId++, moduleName))
     }
 
     fun removeNotification(id: Int) {
         val notification = _notifications.find { it.id == id }
-        notification?.let { activeModules.remove(it.moduleName) }
-        _notifications.removeAll { it.id == id }
+        if (notification != null) {
+            _notifications.remove(notification)
+            activeModules.remove(notification.moduleName) 
+        }
     }
 }
 
@@ -337,4 +342,5 @@ fun NotificationCardPreview() {
         )
     }
 }
+
 data class NotificationItem(val id: Int, val moduleName: String)
