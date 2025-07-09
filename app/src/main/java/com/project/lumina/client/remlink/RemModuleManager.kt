@@ -32,6 +32,7 @@ import com.project.lumina.client.game.module.impl.motion.GlideElement
 import com.project.lumina.client.game.module.impl.motion.HighJumpElement
 import com.project.lumina.client.game.module.impl.world.JesusElement
 import com.project.lumina.client.game.module.impl.motion.JetPackElement
+import com.project.lumina.client.game.module.impl.combat.CrystalAuraElement
 import com.project.lumina.client.game.module.impl.motion.JitterFlyElement
 import com.project.lumina.client.game.module.impl.motion.LongJumpElement
 import com.project.lumina.client.game.module.impl.motion.MotionFlyElement
@@ -93,6 +94,7 @@ object RemModuleManager {
             add(StrafeElement())
             add(FullStopElement())
             add(JitterFlyElement())
+            add(CrystalAuraElement())
             add(PhaseElement())
             add(MaceAuraElement())
             add(TriggerBotElement())

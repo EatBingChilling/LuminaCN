@@ -29,6 +29,7 @@ import com.project.lumina.client.game.module.impl.motion.AirJumpElement
 import com.project.lumina.client.game.module.impl.motion.AntiAFKElement
 import com.project.lumina.client.game.module.impl.world.AutoWalkElement
 import com.project.lumina.client.game.module.impl.motion.BhopElement
+import com.project.lumina.client.game.module.impl.combat.CrystalAuraElement
 import com.project.lumina.client.game.module.impl.combat.DamageBoostElement
 import com.project.lumina.client.game.module.impl.combat.HitboxElement
 import com.project.lumina.client.game.module.impl.motion.FlyElement
@@ -66,7 +67,6 @@ import com.project.lumina.client.game.module.impl.misc.PingSpoofElement
 import com.project.lumina.client.game.module.impl.motion.FarSightElement
 import com.project.lumina.client.game.module.impl.visual.DamageTextElement
 import com.project.lumina.client.game.module.impl.world.JesusElement
-import com.project.lumina.client.game.module.impl.misc.ESPElement
 import com.project.lumina.client.game.module.impl.misc.PlayerTracerElement
 import com.project.lumina.client.game.module.impl.misc.ReplayElement
 import com.project.lumina.client.game.module.impl.misc.TimeShiftElement
@@ -119,6 +119,7 @@ object GameManager {
             add(PhaseElement())
             add(ReachElement())
             //add(MaceAuraElement())
+            add(CrystalAuraElement())
             add(TriggerBotElement())
             add(CritBotElement())
             add(InfiniteAuraElement())
@@ -157,7 +158,6 @@ object GameManager {
                 add(AntiBlindElement())
                 add(SprintElement())
                 add(JesusElement())
-                add(ESPElement())
                 add(PlayerTracerElement())
                 add(ReplayElement())
                 add(TimeShiftElement())
