@@ -152,7 +152,7 @@ class NetBound(val luminaRelaySession: LuminaRelaySession) : ComposedPacketHandl
             if (interceptablePacket.isIntercepted) return true
         }
 
-        displayClientMessage("[LuminaCN B1.0 - Phoen1x_]", TextPacket.Type.TIP)
+        displayClientMessage("[LuminaCN B1.1 - Phoen1x_]", TextPacket.Type.TIP)
 
         return false
     }

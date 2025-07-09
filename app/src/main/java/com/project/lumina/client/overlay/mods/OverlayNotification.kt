@@ -1,39 +1,3 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * You are free to use, modify, and redistribute this code under the terms
- * of the GNU General Public License v3. See the LICENSE file for details.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * This is open source — not open credit.
- *
- * If you're here to build, welcome. If you're here to repaint and reupload
- * with your tag slapped on it… you're not fooling anyone.
- *
- * Changing colors and class names doesn't make you a developer.
- * Copy-pasting isn't contribution.
- *
- * You have legal permission to fork. But ask yourself — are you improving,
- * or are you just recycling someone else's work to feed your ego?
- *
- * Open source isn't about low-effort clones or chasing clout.
- * It's about making things better. Sharper. Cleaner. Smarter.
- *
- * So go ahead, fork it — but bring something new to the table,
- * or don't bother pretending.
- *
- * This message is philosophical. It does not override your legal rights under GPLv3.
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * GPLv3 Summary:
- * - You have the freedom to run, study, share, and modify this software.
- * - If you distribute modified versions, you must also share the source code.
- * - You must keep this license and copyright intact.
- * - You cannot apply further restrictions — the freedom stays with everyone.
- * - This license is irrevocable, and applies to all future redistributions.
- *
- * Full text: https://www.gnu.org/licenses/gpl-3.0.html
- */
-
 package com.project.lumina.client.overlay.mods
 
 import android.view.Gravity
@@ -57,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -129,7 +94,7 @@ class OverlayNotification : OverlayWindow() {
                 modifier = Modifier
                     .wrapContentSize()
                     .padding(end = 20.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp), // 增加间距防止重叠
                 horizontalAlignment = Alignment.End
             ) {
                 notifications.forEach { notification ->
@@ -209,24 +174,26 @@ fun NotificationCard(notification: NotificationItem, notificationState: Notifica
             .alpha(alpha)
             .scale(scale)
             .shadow(
-                elevation = 8.dp,
+                elevation = 12.dp, // 增加阴影深度
                 shape = RoundedCornerShape(12.dp),
-                spotColor = Color.Black.copy(alpha = 0.6f),
-                ambientColor = Color.Black.copy(alpha = 0.4f)
+                spotColor = Color.Black.copy(alpha = 0.8f),
+                ambientColor = Color.Black.copy(alpha = 0.6f)
             )
             .clip(RoundedCornerShape(12.dp))
-            .requiredWidthIn(max = 130.dp)
-            .requiredHeightIn(max = 80.dp)
+            .width(140.dp) // 固定宽度防止重叠
+            .height(75.dp) // 固定高度防止重叠
     ) {
         Column(
             modifier = Modifier
-                .width(130.dp)
+                .fillMaxSize()
                 .background(
-                    color = baseColor.copy(alpha = 0.9f),
+                    color = baseColor.copy(alpha = 0.95f), // 增加不透明度
                     shape = RoundedCornerShape(12.dp)
                 )
-                .padding(8.dp)
+                .padding(10.dp), // 增加内边距
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // 上部分：模块名称和指示器
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -235,53 +202,67 @@ fun NotificationCard(notification: NotificationItem, notificationState: Notifica
                 Text(
                     text = notification.moduleName,
                     color = ONotifText,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp, // 稍微增大字体
                     fontWeight = FontWeight.SemiBold,
                     style = TextStyle(
                         shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.5f),
+                            color = Color.Black.copy(alpha = 0.7f),
                             offset = Offset(0f, 1f),
                             blurRadius = 2f
                         )
-                    )
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
 
                 Box(
                     modifier = Modifier
-                        .size(4.dp)
+                        .size(6.dp) // 增大指示器
                         .background(
                             color = accentColor,
-                            shape = RoundedCornerShape(2.dp)
+                            shape = RoundedCornerShape(3.dp)
                         )
                 )
             }
 
+            // 中间：状态文本
             Text(
                 text = "Enabled",
-                color = ONotifText.copy(alpha = 0.7f),
-                fontSize = 9.sp,
+                color = ONotifText.copy(alpha = 0.8f),
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(top = 1.dp)
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        offset = Offset(0f, 0.5f),
+                        blurRadius = 1f
+                    )
+                )
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
-
+            // 下部分：进度条
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(3.dp) // 增加进度条高度
                     .background(
-                        color = ONotifProgressbar.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(1.dp)
+                        color = ONotifProgressbar.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(1.5.dp)
                     )
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(progressAnimation.value)
-                        .height(2.dp)
+                        .height(3.dp)
                         .background(
-                            color = ONotifProgressbar,
-                            shape = RoundedCornerShape(1.dp)
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    ONotifProgressbar,
+                                    ONotifProgressbar.copy(alpha = 0.8f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(1.5.dp)
                         )
                 )
             }
@@ -306,6 +287,7 @@ class NotificationState {
         }
         activeModules.add(moduleName)
 
+        // 限制最多显示3个通知，防止过度重叠
         if (_notifications.size >= 3) {
             val oldest = _notifications.removeFirst()
             activeModules.remove(oldest.moduleName)

@@ -187,7 +187,7 @@ fun SessionStatsCard(
         ) {
             
             Text(
-                text = "Statistics",
+                text = "游玩信息",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color.White,
