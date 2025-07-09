@@ -2,14 +2,14 @@
 <resources>
     <string name="home">主页</string>
     <string name="what_is_this">这是什么？</string>
-    <string name="introduction">LuminaClient 是一个使用 MITM 攻击实现的 Minecraft Bedrock 插件，它允许您在不修改游戏内存的情况下作弊。</string>
-    <string name="backend_introduction">通过几个简单的步骤实现 MITM 攻击。</string>
+    <string name="introduction">LuminaCN 是一个使用 MITM 攻击实现的 Minecraft 基岩版客户端，它允许您在不修改游戏内存的情况下作弊。</string>
+    <string name="backend_introduction">通过几个简单的步骤实现中间人攻击。</string>
     <string name="recommended_version">推荐版本：%s</string>
     <string name="capturing_game_packets">捕获游戏数据包中...</string>
     <string name="stop">停止</string>
     <string name="overlay_permission_denied">遮罩权限被拒绝</string>
     <string name="notification_permission_denied">通知权限被拒绝</string>
-    <string name="request_overlay_permission">我们需要遮罩权限显示悬浮窗</string>
+    <string name="request_overlay_permission">我们需要悬浮窗权限显示悬浮窗</string>
     <string name="game_settings">游戏设置</string>
     <string name="confirm">确认</string>
     <string name="cancel">取消</string>
@@ -189,7 +189,7 @@
     <string name="crash_description">发生了意外错误。以下详细信息可帮助您识别问题：</string>
     <string name="device_info">设备信息</string>
     <string name="thread_info">线程信息</string>
-    <string name="stack_trace">栈追溯</string>
+    <string name="stack_trace">栈追溯（我需要这个）</string>
     <string name="title_remlink">远程链接</string>
     <string name="module_absorption_display_name">生命提升</string>
     <string name="module_bad_omen_display_name">凶兆</string>
@@ -228,12 +228,12 @@
     <string name="no_account_added">没有添加账号</string>
     <string name="add_a_gaming_account_to_get_started">添加一个游戏账号以开始</string>
     <string name="no_account_added_yet">还没有添加账号</string>
-    <string name="about_lumina">关于 Lumina</string>
-    <string name="lumina_introduction">Lumina 是一款适用于 Minecraft 基岩版 (MCBE) 的 PvP 作弊客户端，可跨多个操作系统运行。我们专注于提升战斗性能，并巧妙绕过迷你游戏服务器。</string>
-    <string name="lumina_expectation">我们的目标是提供一种轻量级、稳定且功能丰富的解决方案，在不影响系统性能或安全性的情况下增强游戏体验。</string>
-    <string name="lumina_compatibility">兼容 Android 9+ 设备以及 64 位和 32 位版本的 Minecraft Pocket Edition，建议使用最新的 Minecraft 版本以获得最佳体验。</string>
-    <string name="lumina_copyright">© 2025 Project Lumina — 根据 GNU GPLv3 许可</string>
-    <string name="lumina_team">由 Project Lumina 团队倾情打造</string>
+    <string name="about_lumina">关于 LuminaCN</string>
+    <string name="lumina_introduction">LuminaCN 是一款适用于 Minecraft 基岩版 (MCBE) 的 PvP 作弊客户端，可跨多个操作系统运行。我们专注于提升战斗性能，并巧妙绕过服务器，我们不支持单人游戏。</string>
+    <string name="lumina_expectation">我们的目标是提供一种轻量级、稳定且功能丰富的解决方案，在不影响系统性能或安全性的情况下增强游戏体验，并添加了完全的中文支持。</string>
+    <string name="lumina_compatibility">兼容 Android 9+ 设备以及 64 位和 32 位版本的 Minecraft 基岩版，建议使用最新的 Minecraft 版本以获得最佳体验。</string>
+    <string name="lumina_copyright">© 2025 Project LuminaCN — 根据 GNU GPLv3 许可</string>
+    <string name="lumina_team">由 Project Lumina 团队倾情打造，LuminaCN 团队提供完全翻译。</string>
     <string name="connect_with_us">联系我们</string>
     
     <!-- 凤凰_ 新增翻译 -->
