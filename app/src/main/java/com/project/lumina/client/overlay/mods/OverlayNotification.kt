@@ -34,7 +34,7 @@
  * Full text: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
-package com.project.lumina.client.overlay
+package com.project.lumina.client.overlay.mods
 
 import android.view.Gravity
 import android.view.WindowManager
