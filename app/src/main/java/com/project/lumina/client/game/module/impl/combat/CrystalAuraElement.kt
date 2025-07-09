@@ -21,7 +21,6 @@ class CrystalAuraElement(iconResId: Int = AssetManager.getAsset("ic_sword_cross_
 
     private var rangeValue by floatValue("范围", 6.0f, 3f..10f)
     private var cpsValue by intValue("CPS", 15, 1..30)
-    private var suicideValue by boolValue("自杀", false)
 
     private var lastAttackTime = 0L
     private var tickCounter = 0
@@ -39,7 +38,7 @@ class CrystalAuraElement(iconResId: Int = AssetManager.getAsset("ic_sword_cross_
             for (crystal in crystals) {
                 val damage = calculateCrystalDamage(crystal)
 
-                if (damage > 0f && (suicideValue || damage < session.localPlayer.health)) {
+                if (damage > 0f) {
                     spoofRotationTo(crystal)
                     session.localPlayer.attack(crystal)
                     lastAttackTime = currentTime
