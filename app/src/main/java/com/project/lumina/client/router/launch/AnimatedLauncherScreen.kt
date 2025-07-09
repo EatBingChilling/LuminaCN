@@ -3,7 +3,6 @@ package com.project.lumina.client.router.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -16,20 +15,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.window.layout.WindowMetricsCalculator
-import kotlinx.coroutines.delay
 
 @Composable
 fun AnimatedLauncherScreen() {
-    var isPreloading by remember { mutableStateOf(true) }
     var showContent by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    
+    // 屏幕方向检测
     val windowMetrics = remember {
         WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(context)
     }
@@ -37,23 +35,18 @@ fun AnimatedLauncherScreen() {
     val screenHeight = with(LocalDensity.current) { windowMetrics.bounds.height().toDp() }
     val isLandscape = screenWidth > screenHeight
 
+    // 直接显示内容动画
     LaunchedEffect(Unit) {
-        delay(3000)
-        isPreloading = false
-        delay(500)
+        // 极短延迟确保动画可以触发
+        delay(10)
         showContent = true
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AnimatedBackground(isPreloading)
-        AnimatedVisibility(
-            visible = isPreloading,
-            enter = fadeIn(),
-            exit = fadeOut(animationSpec = tween(500)),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            PreloaderAnimation()
-        }
+        // 背景视图保持不变
+        AnimatedBackground()
+        
+        // 根据屏幕方向显示内容
         AnimatedVisibility(
             visible = showContent,
             enter = fadeIn(animationSpec = tween(800)),
@@ -65,14 +58,15 @@ fun AnimatedLauncherScreen() {
                 PortraitLauncherContent()
             }
         }
+        
+        // 版权信息
         Text(
-            text = "© Project Lumina 2025",
-            color = Color.White.copy(alpha = 0.5f),
+            text = "Translate: Phoen1x_ 丨 © Project Lumina 2025",
+            color = Color.White.copy(alpha = 0.7f),
             fontSize = 10.sp,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(8.dp)
-                .alpha(if (isPreloading) 0.3f else 0.7f)
         )
     }
 }

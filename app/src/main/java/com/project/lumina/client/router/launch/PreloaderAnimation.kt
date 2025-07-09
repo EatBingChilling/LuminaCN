@@ -151,7 +151,7 @@ fun LoadingText() {
     )
 
     Text(
-        text = "Loading",
+        text = "加载中",
         color = TextColor.copy(alpha = alpha),
         fontSize = 16.sp,
         fontWeight = FontWeight.Medium,
