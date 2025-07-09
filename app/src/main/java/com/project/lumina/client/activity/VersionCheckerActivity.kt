@@ -1,8 +1,6 @@
 package com.project.lumina.client.activity
 
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -48,6 +47,7 @@ import com.project.lumina.client.util.API
 import com.project.lumina.client.util.HashCat
 import com.project.lumina.client.util.UpdateCheck
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -68,16 +68,12 @@ class VersionCheckerViewModel : ViewModel() {
     fun loadVersionConfig(context: android.content.Context, configUrl: String) {
         viewModelScope.launch {
             _versionConfig.value = try {
-
-
-
                 val configFile = File(context.filesDir, "version_config.json")
                 if (configFile.exists()) {
                     configFile.delete()
                     println("Deleted existing version_config.json")
                 }
 
-                
                 val jsonString = withContext(Dispatchers.IO) {
                     val client = OkHttpClient.Builder()
                         .connectTimeout(10, TimeUnit.SECONDS)
@@ -96,13 +92,11 @@ class VersionCheckerViewModel : ViewModel() {
                     body
                 }
 
-                
                 withContext(Dispatchers.IO) {
                     configFile.writeText(jsonString)
                     println("Saved JSON to ${configFile.absolutePath}")
                 }
 
-                
                 val jsonFromFile = withContext(Dispatchers.IO) {
                     if (!configFile.exists()) {
                         throw IOException("Config file not found after saving")
@@ -139,7 +133,6 @@ class VersionCheckerViewModel : ViewModel() {
 }
 
 class VersionCheckerActivity : ComponentActivity() {
-    private val minecraftPackage = "com.mojang.minecraftpe"
     private val configUrl = API.FILES_VERSION_CONFIG_JSON
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -150,6 +143,7 @@ class VersionCheckerActivity : ComponentActivity() {
         viewModel.loadVersionConfig(this, configUrl)
         val updateCheck = UpdateCheck()
         updateCheck.initiateHandshake(this)
+        
         setContent {
             LuminaClientTheme {
                 Surface(
@@ -157,32 +151,17 @@ class VersionCheckerActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val versionConfig by viewModel.versionConfig.collectAsState()
-                    when {
-                        versionConfig == null -> {
+                    
+                    // 一直显示加载屏幕
+                    LoadingConfigurationScreen()
+                    
+                    // 配置加载完成后直接启动主活动
+                    versionConfig?.let {
+                        LaunchedEffect(Unit) {
                             val kson = HashCat.getInstance()
-                            val matchJson = kson.LintHashInit(this)
-
-                            LoadingConfigurationScreen()
-                        }
-
-                        else -> {
-                            val kson = HashCat.getInstance()
-                            kson.LintHashInit(this)
-
-                            val installedVersion = getInstalledMinecraftVersion()
-                            if (isCompatibleVersion(installedVersion, versionConfig!!)) {
-                                startMainActivity()
-                            } else {
-                                IncompatibleVersionScreen(
-                                    installedVersion = installedVersion ?: "Unknown",
-                                    requiredVersion = versionConfig!!.minimumVersion,
-                                    versionMessage = String.format(
-                                        versionConfig!!.versionMessage,
-                                        versionConfig!!.minimumVersion
-                                    ),
-                                    onUpdateClick = { openPlayStore() }
-                                )
-                            }
+                            kson.LintHashInit(this@VersionCheckerActivity)
+                            delay(500) // 短暂延迟确保初始化完成
+                            startMainActivity()
                         }
                     }
                 }
@@ -190,84 +169,10 @@ class VersionCheckerActivity : ComponentActivity() {
         }
     }
 
-    private fun getInstalledMinecraftVersion(): String? {
-        return try {
-            val packageInfo = packageManager.getPackageInfo(minecraftPackage, 0)
-            packageInfo.versionName
-        } catch (e: PackageManager.NameNotFoundException) {
-            null
-        }
-    }
-
-    private fun isCompatibleVersion(version: String?, config: VersionConfig): Boolean {
-        if (version == null) return false
-        return config.supportedVersions.contains(version)
-    }
-
     private fun startMainActivity() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
         finish()
-    }
-
-    private fun openPlayStore() {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse("https://play.google.com/store/apps/details?id=$minecraftPackage&hl=en&pli=1")
-            setPackage("com.android.vending")
-        }
-
-        if (intent.resolveActivity(packageManager) != null) {
-            startActivity(intent)
-        } else {
-            val webIntent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse("https://play.google.com/store/apps/details?id=$minecraftPackage&hl=en&pli=1")
-            }
-            startActivity(webIntent)
-        }
-    }
-}
-
-@Composable
-fun IncompatibleVersionScreen(
-    installedVersion: String,
-    requiredVersion: String,
-    versionMessage: String,
-    onUpdateClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "不兼容的 Minecraft 版本",
-            style = MaterialTheme.typography.headlineLarge,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Lumina 未支持你的 Minecraft 版本 ($installedVersion) ",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = versionMessage,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Button(onClick = onUpdateClick) {
-            Text(text = "更新 Minecraft 客户端")
-        }
     }
 }
 
@@ -296,7 +201,6 @@ fun LoadingConfigurationScreen() {
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp)
         ) {
-            
             val infiniteTransition = rememberInfiniteTransition(label = "loading_transition")
             val rotation by infiniteTransition.animateFloat(
                 initialValue = 0f,
