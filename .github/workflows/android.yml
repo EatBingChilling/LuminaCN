@@ -1,0 +1,41 @@
+name: Build APK Packages
+
+on:
+  push:
+    branches:
+      - main  # 当推送到 main 分支时触发
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"  # 禁用 Gradle 守护进程
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 Java 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      # 给 gradlew 执行权限
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # 构建 Release APK
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      # 上传构建产物
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-artifacts
+          path: |
+            app/build/outputs/apk/release/*.apk
+          retention-days: 7  # 产物保留7天
