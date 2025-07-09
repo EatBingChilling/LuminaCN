@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -31,7 +30,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,133 +37,34 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.project.lumina.client.model.VersionConfig
 import com.project.lumina.client.ui.theme.LuminaClientTheme
-import com.project.lumina.client.util.API
 import com.project.lumina.client.util.HashCat
-import com.project.lumina.client.util.UpdateCheck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.File
-import java.io.IOException
-import java.util.concurrent.TimeUnit
-
-class VersionCheckerViewModel : ViewModel() {
-    private val _versionConfig = MutableStateFlow<VersionConfig?>(null)
-    val versionConfig: StateFlow<VersionConfig?> = _versionConfig.asStateFlow()
-
-    fun loadVersionConfig(context: android.content.Context, configUrl: String) {
-        viewModelScope.launch {
-            _versionConfig.value = try {
-                val configFile = File(context.filesDir, "version_config.json")
-                if (configFile.exists()) {
-                    configFile.delete()
-                    println("Deleted existing version_config.json")
-                }
-
-                val jsonString = withContext(Dispatchers.IO) {
-                    val client = OkHttpClient.Builder()
-                        .connectTimeout(10, TimeUnit.SECONDS)
-                        .readTimeout(10, TimeUnit.SECONDS)
-                        .build()
-                    val request = Request.Builder()
-                        .url(configUrl)
-                        .build()
-                    val response = client.newCall(request).execute()
-                    if (!response.isSuccessful) {
-                        println("HTTP Error: ${response.code} ${response.message}")
-                        throw IOException("Unexpected code ${response.code}")
-                    }
-                    val body = response.body?.string() ?: throw IOException("Empty response body")
-                    println("Downloaded JSON: $body")
-                    body
-                }
-
-                withContext(Dispatchers.IO) {
-                    configFile.writeText(jsonString)
-                    println("Saved JSON to ${configFile.absolutePath}")
-                }
-
-                val jsonFromFile = withContext(Dispatchers.IO) {
-                    if (!configFile.exists()) {
-                        throw IOException("Config file not found after saving")
-                    }
-                    configFile.readText()
-                }
-                println("Read JSON from file: $jsonFromFile")
-
-                val jsonObject = JSONObject(jsonFromFile)
-                val supportedVersionsJson = jsonObject.optJSONArray("supportedVersions") ?: JSONArray()
-                val supportedVersions = mutableListOf<String>()
-                for (i in 0 until supportedVersionsJson.length()) {
-                    supportedVersions.add(supportedVersionsJson.getString(i))
-                }
-
-                VersionConfig(
-                    minimumVersion = jsonObject.optString("minimumVersion", "-1"),
-                    recommendedVersion = jsonObject.optString("recommendedVersion", "-1"),
-                    supportedVersions = supportedVersions,
-                    versionMessage = jsonObject.optString("versionMessage", "Lumina requires Minecraft version %s or later to function properly.")
-                )
-            } catch (e: Exception) {
-                println("Error loading version config: ${e.message}")
-                e.printStackTrace()
-                VersionConfig(
-                    minimumVersion = "Dead API",
-                    recommendedVersion = "API Is Offline",
-                    supportedVersions = listOf("-1"),
-                    versionMessage = "Api Config Failed."
-                )
-            }
-        }
-    }
-}
 
 class VersionCheckerActivity : ComponentActivity() {
-    private val configUrl = API.FILES_VERSION_CONFIG_JSON
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        val viewModel: VersionCheckerViewModel by viewModels()
-        viewModel.loadVersionConfig(this, configUrl)
-        val updateCheck = UpdateCheck()
-        updateCheck.initiateHandshake(this)
-        
         setContent {
             LuminaClientTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val versionConfig by viewModel.versionConfig.collectAsState()
-                    
-                    // 一直显示加载屏幕
-                    LoadingConfigurationScreen()
-                    
-                    // 配置加载完成后直接启动主活动
-                    versionConfig?.let {
-                        LaunchedEffect(Unit) {
-                            val kson = HashCat.getInstance()
-                            kson.LintHashInit(this@VersionCheckerActivity)
-                            delay(500) // 短暂延迟确保初始化完成
-                            startMainActivity()
-                        }
+                    LoadingConfigurationScreen {
+                        startMainActivity()
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun initializeApp() {
+        withContext(Dispatchers.IO) {
+            val kson = HashCat.getInstance()
+            kson.LintHashInit(this@VersionCheckerActivity)
         }
     }
 
@@ -177,12 +76,19 @@ class VersionCheckerActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoadingConfigurationScreen() {
+fun LoadingConfigurationScreen(onLoadingComplete: () -> Unit) {
     val gradientColors = listOf(
         MaterialTheme.colorScheme.background,
         MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
         MaterialTheme.colorScheme.background
     )
+    
+    // 使用LaunchedEffect在动画显示完成后触发回调
+    LaunchedEffect(Unit) {
+        // 模拟短暂加载过程
+        delay(1500)
+        onLoadingComplete()
+    }
     
     Box(
         modifier = Modifier
@@ -201,6 +107,7 @@ fun LoadingConfigurationScreen() {
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp)
         ) {
+            // 无限旋转动画
             val infiniteTransition = rememberInfiniteTransition(label = "loading_transition")
             val rotation by infiniteTransition.animateFloat(
                 initialValue = 0f,
@@ -233,7 +140,7 @@ fun LoadingConfigurationScreen() {
             )
             
             Text(
-                text = "正在加载配置...",
+                text = "正在加载应用...",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = alpha),
                 textAlign = TextAlign.Center
