@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.window.layout.WindowMetricsCalculator
+import kotlinx.coroutines.delay  // 添加缺失的导入
 
 @Composable
 fun AnimatedLauncherScreen() {
@@ -43,8 +44,8 @@ fun AnimatedLauncherScreen() {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 背景视图保持不变
-        AnimatedBackground()
+        // 修正：添加 false 参数
+        AnimatedBackground(false)
         
         // 根据屏幕方向显示内容
         AnimatedVisibility(
