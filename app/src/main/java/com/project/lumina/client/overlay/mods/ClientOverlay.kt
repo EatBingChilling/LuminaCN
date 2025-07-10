@@ -1,6 +1,5 @@
 package com.project.lumina.client.overlay.mods
 
-import android.app.Activity
 import android.app.AlertDialog
 import android.app.Application
 import android.content.Context
@@ -11,12 +10,12 @@ import android.view.LayoutInflater
 import android.view.WindowManager
 import android.widget.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.project.lumina.client.R
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
+import kotlinx.coroutines.delay
 
 class ClientOverlay : OverlayWindow() {
 
@@ -33,7 +33,8 @@ class ClientOverlay : OverlayWindow() {
     private var watermarkText by mutableStateOf(prefs.getString("text", "") ?: "")
     private var textColor by mutableStateOf(prefs.getInt("color", Color.WHITE))
     private var shadowEnabled by mutableStateOf(prefs.getBoolean("shadow", true))
-    private var fontSize by mutableStateOf(prefs.getInt("size", 18))
+    private var fontSize by mutableStateOf(prefs.getInt("size", 28)) 
+    private var rainbowEnabled by mutableStateOf(prefs.getBoolean("rainbow", false))
 
     private val _layoutParams by lazy {
         super.layoutParams.apply {
@@ -43,8 +44,8 @@ class ClientOverlay : OverlayWindow() {
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.WRAP_CONTENT
-            gravity = Gravity.TOP or Gravity.START
+            height = WindowManager.LayoutParams.MATCH_PARENT
+            gravity = Gravity.CENTER
             x = 0
             y = 0
         }
@@ -57,7 +58,6 @@ class ClientOverlay : OverlayWindow() {
         private var overlayInstance: ClientOverlay? = null
         private var shouldShowOverlay = true
 
-        // 获取全局 Application Context
         private val appContext: Context by lazy {
             val appClass = Class.forName("android.app.ActivityThread")
             val method = appClass.getMethod("currentApplication")
@@ -105,6 +105,8 @@ class ClientOverlay : OverlayWindow() {
         val seekBlue = dialogView.findViewById<SeekBar>(R.id.seekBlue)
         val switchShadow = dialogView.findViewById<Switch>(R.id.switchShadow)
         val seekSize = dialogView.findViewById<SeekBar>(R.id.seekSize)
+        val switchRainbow = dialogView.findViewById<Switch>(R.id.switchRainbow)
+        val colorPreview = dialogView.findViewById<TextView>(R.id.colorPreview)
 
         editText.setText(watermarkText)
         seekRed.progress = Color.red(textColor)
@@ -112,6 +114,41 @@ class ClientOverlay : OverlayWindow() {
         seekBlue.progress = Color.blue(textColor)
         switchShadow.isChecked = shadowEnabled
         seekSize.progress = fontSize
+        switchRainbow.isChecked = rainbowEnabled
+
+        fun updateColorPreview() {
+            val color = Color.rgb(seekRed.progress, seekGreen.progress, seekBlue.progress)
+            colorPreview.setBackgroundColor(color)
+        }
+
+        updateColorPreview()
+
+        seekRed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                updateColorPreview()
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        seekGreen.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                updateColorPreview()
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        seekBlue.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                updateColorPreview()
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         val dialog = AlertDialog.Builder(appContext)
             .setTitle("配置水印")
@@ -124,12 +161,14 @@ class ClientOverlay : OverlayWindow() {
                 textColor = Color.rgb(red, green, blue)
                 shadowEnabled = switchShadow.isChecked
                 fontSize = seekSize.progress
+                rainbowEnabled = switchRainbow.isChecked
 
                 prefs.edit()
                     .putString("text", watermarkText)
                     .putInt("color", textColor)
                     .putBoolean("shadow", shadowEnabled)
                     .putInt("size", fontSize)
+                    .putBoolean("rainbow", rainbowEnabled)
                     .apply()
             }
             .setNegativeButton("取消", null)
@@ -143,27 +182,38 @@ class ClientOverlay : OverlayWindow() {
     override fun Content() {
         if (!isOverlayEnabled()) return
 
-        val firaSansFamily = FontFamily.Default
+        val fontFamily = FontFamily.Default
+        val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
+        var rainbowColor by remember { mutableStateOf(ComposeColor.White)) }
+
+        LaunchedEffect(rainbowEnabled) {
+            if (rainbowEnabled) {
+                while (true) {
+                    val hue = (System.currentTimeMillis() % 3600L) / 10f
+                    rainbowColor = ComposeColor.hsv(hue, 1f, 1f)
+                    delay(50L)
+                }
+            }
+        }
+
+        val finalColor = if (rainbowEnabled) rainbowColor else ComposeColor(textColor).copy(alpha = 0.25f)
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 0.dp),
-            contentAlignment = Alignment.TopStart
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
-
             if (shadowEnabled) {
                 for (i in 1..5) {
                     Text(
                         text = text,
                         fontSize = fontSize.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = firaSansFamily,
+                        fontFamily = fontFamily,
                         color = ComposeColor.Black.copy(alpha = 0.15f),
                         modifier = Modifier
-                            .padding(start = 8.dp, top = 13.dp, bottom = 8.dp)
                             .offset(x = (i * 0.5f).dp, y = (i * 0.5f).dp)
                     )
                 }
@@ -173,10 +223,8 @@ class ClientOverlay : OverlayWindow() {
                 text = text,
                 fontSize = fontSize.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = firaSansFamily,
-                color = ComposeColor(textColor),
-                modifier = Modifier
-                    .padding(start = 8.dp, top = 13.dp, bottom = 8.dp)
+                fontFamily = fontFamily,
+                color = finalColor
             )
         }
     }

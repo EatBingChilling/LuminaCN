@@ -109,6 +109,12 @@ fun AboutScreen() {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                
+                     Text(
+                        stringResource(R.string.luminacn_dev),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Text(
                         stringResource(R.string.lumina_introduction),
                         style = MaterialTheme.typography.bodyLarge,

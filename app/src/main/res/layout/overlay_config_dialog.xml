@@ -39,11 +39,24 @@
             android:layout_height="wrap_content"
             android:max="255" />
 
+        <TextView
+            android:id="@+id/colorPreview"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:background="#FFFFFF"
+            android:layout_marginTop="8dp" />
+
         <Switch
             android:id="@+id/switchShadow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="启用阴影" />
+
+        <Switch
+            android:id="@+id/switchRainbow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="彩虹色" />
 
         <TextView
             android:text="字体大小"
@@ -56,6 +69,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:max="50"
-            android:progress="18" />
+            android:progress="28" />
     </LinearLayout>
 </ScrollView>
