@@ -193,7 +193,7 @@ class ClientOverlay : OverlayWindow() {
         // 修复字体问题
         val unifontFamily = FontFamily(Font(R.font.unifont))
 
-        val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
+        val text = "L u m i n a C N${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
         var rainbowColor by remember { mutableStateOf(ComposeColor.White) }
 
@@ -226,6 +226,7 @@ class ClientOverlay : OverlayWindow() {
                     fontFamily = unifontFamily,
                     color = ComposeColor.Black.copy(alpha = 0.15f),
                     textAlign = TextAlign.Center,
+                    lineHeight = (fontSize * 1.5).sp, // 设置1.5倍行距
                     modifier = Modifier.offset(x = 1.dp, y = 1.dp)
                 )
             }
@@ -236,7 +237,8 @@ class ClientOverlay : OverlayWindow() {
                 fontWeight = FontWeight.Bold,
                 fontFamily = unifontFamily,
                 color = finalColor,
-                textAlign = TextAlign.Center // 确保文本居中
+                textAlign = TextAlign.Center, // 确保文本居中
+                lineHeight = (fontSize * 1.5).sp // 设置1.5倍行距
             )
         }
     }
