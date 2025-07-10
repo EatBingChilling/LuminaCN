@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -189,7 +190,8 @@ class ClientOverlay : OverlayWindow() {
     override fun Content() {
         if (!isOverlayEnabled()) return
 
-        val FontFamily = FontFamily(Font(R.font.unifont))
+        // 修复字体问题
+        val unifontFamily = FontFamily(Font(R.font.unifont))
 
         val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
@@ -221,7 +223,7 @@ class ClientOverlay : OverlayWindow() {
                     text = text,
                     fontSize = fontSize.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = fontFamily,
+                    fontFamily = unifontFamily,
                     color = ComposeColor.Black.copy(alpha = 0.15f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.offset(x = 1.dp, y = 1.dp)
@@ -232,7 +234,7 @@ class ClientOverlay : OverlayWindow() {
                 text = text,
                 fontSize = fontSize.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = fontFamily,
+                fontFamily = unifontFamily,
                 color = finalColor,
                 textAlign = TextAlign.Center // 确保文本居中
             )
