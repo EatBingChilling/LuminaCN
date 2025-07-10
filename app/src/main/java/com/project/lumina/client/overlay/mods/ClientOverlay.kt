@@ -33,7 +33,7 @@ class ClientOverlay : OverlayWindow() {
 
     private var watermarkText by mutableStateOf(prefs.getString("text", "") ?: "")
     private var textColor by mutableStateOf(prefs.getInt("color", Color.WHITE))
-    private var shadowEnabled by mutableStateOf(prefs.getBoolean("shadow", true))
+    private var shadowEnabled by mutableStateOf(prefs.getBoolean("shadow", false))
     // 字体范围扩大到5-300sp
     private var fontSize by mutableStateOf(prefs.getInt("size", 28).coerceIn(5, 300)) 
     private var rainbowEnabled by mutableStateOf(prefs.getBoolean("rainbow", false))
@@ -189,7 +189,8 @@ class ClientOverlay : OverlayWindow() {
     override fun Content() {
         if (!isOverlayEnabled()) return
 
-        val fontFamily = FontFamily.Default
+        val FontFamily = FontFamily(Font(R.font.unifont))
+
         val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
         var rainbowColor by remember { mutableStateOf(ComposeColor.White) }
