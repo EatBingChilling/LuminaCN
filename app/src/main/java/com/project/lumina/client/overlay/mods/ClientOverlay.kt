@@ -147,7 +147,7 @@ class ClientOverlay : OverlayWindow() {
 
             for (i in 1..5) {
                 Text(
-                    text = "Project Lumina",
+                    text = " LuminaCN",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = firaSansFamily,
@@ -160,7 +160,7 @@ class ClientOverlay : OverlayWindow() {
 
 
             Text(
-                text = "Project Lumina",
+                text = " LuminaCN",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = firaSansFamily,
