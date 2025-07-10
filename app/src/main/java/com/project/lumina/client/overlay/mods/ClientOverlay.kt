@@ -187,59 +187,67 @@ class ClientOverlay : OverlayWindow() {
     }
 
     @Composable
-    override fun Content() {
-        if (!isOverlayEnabled()) return
+override fun Content() {
+    if (!isOverlayEnabled()) return
 
-        // 修复字体问题
-        val unifontFamily = FontFamily(Font(R.font.unifont))
+    // 修复字体问题
+    val unifontFamily = FontFamily(Font(R.font.unifert))
 
-        val text = "L u m i n a C N${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
+    val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
-        var rainbowColor by remember { mutableStateOf(ComposeColor.White) }
+    var rainbowColor by remember { mutableStateOf(ComposeColor.White) }
 
-        LaunchedEffect(rainbowEnabled) {
-            if (rainbowEnabled) {
-                while (true) {
-                    val hue = (System.currentTimeMillis() % 3600L) / 10f
-                    rainbowColor = ComposeColor.hsv(hue, 1f, 1f)
-                    delay(50L)
-                }
+    LaunchedEffect(rainbowEnabled) {
+        if (rainbowEnabled) {
+            while (true) {
+                val hue = (System.currentTimeMillis() % 3600L) / 10f
+                rainbowColor = ComposeColor.hsv(hue, 1f, 1f)
+                delay(50L)
             }
         }
+    }
 
-        // 统一透明度设置（25%透明度）
-        val baseColor = if (rainbowEnabled) rainbowColor else ComposeColor(textColor)
-        val finalColor = baseColor.copy(alpha = 0.25f)
+    // 统一透明度设置（25%透明度）
+    val baseColor = if (rainbowEnabled) rainbowColor else ComposeColor(textColor)
+    val finalColor = baseColor.copy(alpha = 0.25f)
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            if (shadowEnabled) {
-                // 使用轻量阴影效果（避免偏移导致居中问题）
-                Text(
-                    text = text,
-                    fontSize = fontSize.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = unifontFamily,
-                    color = ComposeColor.Black.copy(alpha = 0.15f),
-                    textAlign = TextAlign.Center,
-                    lineHeight = (fontSize * 1.5).sp, // 设置1.5倍行距
-                    modifier = Modifier.offset(x = 1.dp, y = 1.dp)
-                )
-            }
-
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (shadowEnabled) {
+            // 使用轻量阴影效果（避免偏移导致居中问题）
             Text(
                 text = text,
                 fontSize = fontSize.sp,
-                fontWeight = FontWeight.Bold,
+                // 取消粗体
+                // fontWeight = FontWeight.Bold,
                 fontFamily = unifontFamily,
-                color = finalColor,
-                textAlign = TextAlign.Center, // 确保文本居中
-                lineHeight = (fontSize * 1.5).sp // 设置1.5倍行距
+                color = ComposeColor.Black.copy(alpha = 0.15f),
+                textAlign = TextAlign.Center,
+                lineHeight = (fontSize * 1.5).sp, // 设置1.5倍行距
+                // 增加50%字间距
+                letterSpacing = (fontSize * 0.5).sp,
+                modifier = Modifier.offset(x = 1.dp, y = 1.dp)
             )
         }
+
+        Text(
+            text = text,
+            fontSize = fontSize.sp,
+            // 取消粗体
+            // fontWeight = FontWeight.Bold,
+            fontFamily = unifontFamily,
+            color = finalColor,
+            textAlign = TextAlign.Center, // 确保文本居中
+            lineHeight = (fontSize * 1.5).sp, // 设置1.5倍行距
+            // 增加50%字间距
+            letterSpacing = (fontSize * 0.5).sp
+        )
     }
 }
+
+    }
+
