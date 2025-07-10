@@ -36,18 +36,20 @@
 
 package com.project.lumina.client.overlay.mods
 
-
+import android.app.AlertDialog
+import android.content.Context
+import android.content.SharedPreferences
+import android.graphics.Color
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.WindowManager
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
+import android.widget.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -57,8 +59,16 @@ import com.project.lumina.client.R
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
 
+class ClientOverlay(private val context: Context) : OverlayWindow() {
 
-class ClientOverlay : OverlayWindow() {
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("lumina_overlay_prefs", Context.MODE_PRIVATE)
+
+    private var watermarkText by mutableStateOf(prefs.getString("text", "") ?: "")
+    private var textColor by mutableStateOf(prefs.getInt("color", Color.WHITE))
+    private var shadowEnabled by mutableStateOf(prefs.getBoolean("shadow", true))
+    private var fontSize by mutableStateOf(prefs.getInt("size", 18))
+
     private val _layoutParams by lazy {
         super.layoutParams.apply {
             flags = flags or
@@ -78,47 +88,25 @@ class ClientOverlay : OverlayWindow() {
         get() = _layoutParams
 
     companion object {
-        private val overlayInstance by lazy { ClientOverlay() }
+        private var overlayInstance: ClientOverlay? = null
         private var shouldShowOverlay = true
 
-
-        /*private fun hsvToRgb(h: Float, s: Float, v: Float): Color {
-            val hDegrees = h * 360f
-            val c = v * s
-            val x = c * (1 - abs((hDegrees / 60f) % 2 - 1))
-            val m = v - c
-
-            val (r, g, b) = when {
-                hDegrees < 60 -> Triple(c, x, 0f)
-                hDegrees < 120 -> Triple(x, c, 0f)
-                hDegrees < 180 -> Triple(0f, c, x)
-                hDegrees < 240 -> Triple(0f, x, c)
-                hDegrees < 300 -> Triple(x, 0f, c)
-                else -> Triple(c, 0f, x)
-            }
-
-            return Color(
-                red = (r + m).coerceIn(0f, 1f),
-                green = (g + m).coerceIn(0f, 1f),
-                blue = (b + m).coerceIn(0f, 1f)
-            )
-        }*/
-
-        fun showOverlay() {
+        fun showOverlay(context: Context) {
             if (shouldShowOverlay) {
+                overlayInstance = ClientOverlay(context)
                 try {
-                    OverlayManager.showOverlayWindow(overlayInstance)
+                    OverlayManager.showOverlayWindow(overlayInstance!!)
                 } catch (e: Exception) {
-
+                    e.printStackTrace()
                 }
             }
         }
 
         fun dismissOverlay() {
             try {
-                OverlayManager.dismissOverlayWindow(overlayInstance)
+                overlayInstance?.let { OverlayManager.dismissOverlayWindow(it) }
             } catch (e: Exception) {
-
+                e.printStackTrace()
             }
         }
 
@@ -130,6 +118,48 @@ class ClientOverlay : OverlayWindow() {
         }
 
         fun isOverlayEnabled(): Boolean = shouldShowOverlay
+    }
+
+    fun showConfigDialog() {
+        val dialogView = LayoutInflater.from(context).inflate(R.layout.overlay_config_dialog, null)
+        val editText = dialogView.findViewById<EditText>(R.id.editText)
+        val seekRed = dialogView.findViewById<SeekBar>(R.id.seekRed)
+        val seekGreen = dialogView.findViewById<SeekBar>(R.id.seekGreen)
+        val seekBlue = dialogView.findViewById<SeekBar>(R.id.seekBlue)
+        val switchShadow = dialogView.findViewById<Switch>(R.id.switchShadow)
+        val seekSize = dialogView.findViewById<SeekBar>(R.id.seekSize)
+
+        editText.setText(watermarkText)
+        seekRed.progress = Color.red(textColor)
+        seekGreen.progress = Color.green(textColor)
+        seekBlue.progress = Color.blue(textColor)
+        switchShadow.isChecked = shadowEnabled
+        seekSize.progress = fontSize
+
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("配置水印")
+            .setView(dialogView)
+            .setPositiveButton("确定") { _, _ ->
+                watermarkText = editText.text.toString()
+                val red = seekRed.progress
+                val green = seekGreen.progress
+                val blue = seekBlue.progress
+                textColor = Color.rgb(red, green, blue)
+                shadowEnabled = switchShadow.isChecked
+                fontSize = seekSize.progress
+
+                prefs.edit()
+                    .putString("text", watermarkText)
+                    .putInt("color", textColor)
+                    .putBoolean("shadow", shadowEnabled)
+                    .putInt("size", fontSize)
+                    .apply()
+            }
+            .setNegativeButton("取消", null)
+            .create()
+
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.show()
     }
 
     @Composable
@@ -144,33 +174,32 @@ class ClientOverlay : OverlayWindow() {
                 .padding(top = 0.dp),
             contentAlignment = Alignment.TopStart
         ) {
+            val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
-            for (i in 1..5) {
-                Text(
-                    text = " LuminaCN",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = firaSansFamily,
-                    color = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier
-                        .padding(start = 8.dp, top = 13.dp, bottom = 8.dp)
-                        .offset(x = (i * 0.5f).dp, y = (i * 0.5f).dp)
-                )
+            if (shadowEnabled) {
+                for (i in 1..5) {
+                    Text(
+                        text = text,
+                        fontSize = fontSize.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = firaSansFamily,
+                        color = ComposeColor.Black.copy(alpha = 0.15f),
+                        modifier = Modifier
+                            .padding(start = 8.dp, top = 13.dp, bottom = 8.dp)
+                            .offset(x = (i * 0.5f).dp, y = (i * 0.5f).dp)
+                    )
+                }
             }
 
-
             Text(
-                text = " LuminaCN",
-                fontSize = 18.sp,
+                text = text,
+                fontSize = fontSize.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = firaSansFamily,
-                color = Color.White,
+                color = ComposeColor(textColor),
                 modifier = Modifier
                     .padding(start = 8.dp, top = 13.dp, bottom = 8.dp)
             )
         }
     }
-
-
-
 }
