@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.project.lumina.client.R
@@ -33,7 +34,8 @@ class ClientOverlay : OverlayWindow() {
     private var watermarkText by mutableStateOf(prefs.getString("text", "") ?: "")
     private var textColor by mutableStateOf(prefs.getInt("color", Color.WHITE))
     private var shadowEnabled by mutableStateOf(prefs.getBoolean("shadow", true))
-    private var fontSize by mutableStateOf(prefs.getInt("size", 28)) 
+    // 字体范围扩大到5-300sp
+    private var fontSize by mutableStateOf(prefs.getInt("size", 28).coerceIn(5, 300)) 
     private var rainbowEnabled by mutableStateOf(prefs.getBoolean("rainbow", false))
 
     private val _layoutParams by lazy {
@@ -104,7 +106,10 @@ class ClientOverlay : OverlayWindow() {
         val seekGreen = dialogView.findViewById<SeekBar>(R.id.seekGreen)
         val seekBlue = dialogView.findViewById<SeekBar>(R.id.seekBlue)
         val switchShadow = dialogView.findViewById<Switch>(R.id.switchShadow)
-        val seekSize = dialogView.findViewById<SeekBar>(R.id.seekSize)
+        // 字体大小范围扩大到5-300sp
+        val seekSize = dialogView.findViewById<SeekBar>(R.id.seekSize).apply {
+            max = 295 // 300 - 5 = 295
+        }
         val switchRainbow = dialogView.findViewById<Switch>(R.id.switchRainbow)
         val colorPreview = dialogView.findViewById<TextView>(R.id.colorPreview)
 
@@ -113,7 +118,8 @@ class ClientOverlay : OverlayWindow() {
         seekGreen.progress = Color.green(textColor)
         seekBlue.progress = Color.blue(textColor)
         switchShadow.isChecked = shadowEnabled
-        seekSize.progress = fontSize
+        // 映射字体大小到控件范围
+        seekSize.progress = fontSize - 5
         switchRainbow.isChecked = rainbowEnabled
 
         fun updateColorPreview() {
@@ -160,7 +166,8 @@ class ClientOverlay : OverlayWindow() {
                 val blue = seekBlue.progress
                 textColor = Color.rgb(red, green, blue)
                 shadowEnabled = switchShadow.isChecked
-                fontSize = seekSize.progress
+                // 反映射字体大小到实际值 (5-300sp)
+                fontSize = seekSize.progress + 5
                 rainbowEnabled = switchRainbow.isChecked
 
                 prefs.edit()
@@ -197,7 +204,9 @@ class ClientOverlay : OverlayWindow() {
             }
         }
 
-        val finalColor = if (rainbowEnabled) rainbowColor else ComposeColor(textColor).copy(alpha = 0.25f)
+        // 统一透明度设置（25%透明度）
+        val baseColor = if (rainbowEnabled) rainbowColor else ComposeColor(textColor)
+        val finalColor = baseColor.copy(alpha = 0.25f)
 
         Box(
             modifier = Modifier
@@ -206,17 +215,16 @@ class ClientOverlay : OverlayWindow() {
             contentAlignment = Alignment.Center
         ) {
             if (shadowEnabled) {
-                for (i in 1..5) {
-                    Text(
-                        text = text,
-                        fontSize = fontSize.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = fontFamily,
-                        color = ComposeColor.Black.copy(alpha = 0.15f),
-                        modifier = Modifier
-                            .offset(x = (i * 0.5f).dp, y = (i * 0.5f).dp)
-                    )
-                }
+                // 使用轻量阴影效果（避免偏移导致居中问题）
+                Text(
+                    text = text,
+                    fontSize = fontSize.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = fontFamily,
+                    color = ComposeColor.Black.copy(alpha = 0.15f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.offset(x = 1.dp, y = 1.dp)
+                )
             }
 
             Text(
@@ -224,7 +232,8 @@ class ClientOverlay : OverlayWindow() {
                 fontSize = fontSize.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = fontFamily,
-                color = finalColor
+                color = finalColor,
+                textAlign = TextAlign.Center // 确保文本居中
             )
         }
     }
