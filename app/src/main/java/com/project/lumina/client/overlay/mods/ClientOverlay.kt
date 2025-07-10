@@ -1,42 +1,8 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * You are free to use, modify, and redistribute this code under the terms
- * of the GNU General Public License v3. See the LICENSE file for details.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * This is open source — not open credit.
- *
- * If you're here to build, welcome. If you're here to repaint and reupload
- * with your tag slapped on it… you're not fooling anyone.
- *
- * Changing colors and class names doesn't make you a developer.
- * Copy-pasting isn't contribution.
- *
- * You have legal permission to fork. But ask yourself — are you improving,
- * or are you just recycling someone else's work to feed your ego?
- *
- * Open source isn't about low-effort clones or chasing clout.
- * It's about making things better. Sharper. Cleaner. Smarter.
- *
- * So go ahead, fork it — but bring something new to the table,
- * or don’t bother pretending.
- *
- * This message is philosophical. It does not override your legal rights under GPLv3.
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * GPLv3 Summary:
- * - You have the freedom to run, study, share, and modify this software.
- * - If you distribute modified versions, you must also share the source code.
- * - You must keep this license and copyright intact.
- * - You cannot apply further restrictions — the freedom stays with everyone.
- * - This license is irrevocable, and applies to all future redistributions.
- *
- * Full text: https://www.gnu.org/licenses/gpl-3.0.html
- */
-
 package com.project.lumina.client.overlay.mods
 
+import android.app.Activity
 import android.app.AlertDialog
+import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Color
@@ -59,10 +25,10 @@ import com.project.lumina.client.R
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
 
-class ClientOverlay(private val context: Context) : OverlayWindow() {
+class ClientOverlay : OverlayWindow() {
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("lumina_overlay_prefs", Context.MODE_PRIVATE)
+        appContext.getSharedPreferences("lumina_overlay_prefs", Context.MODE_PRIVATE)
 
     private var watermarkText by mutableStateOf(prefs.getString("text", "") ?: "")
     private var textColor by mutableStateOf(prefs.getInt("color", Color.WHITE))
@@ -91,9 +57,16 @@ class ClientOverlay(private val context: Context) : OverlayWindow() {
         private var overlayInstance: ClientOverlay? = null
         private var shouldShowOverlay = true
 
-        fun showOverlay(context: Context) {
+        // 获取全局 Application Context
+        private val appContext: Context by lazy {
+            val appClass = Class.forName("android.app.ActivityThread")
+            val method = appClass.getMethod("currentApplication")
+            method.invoke(null) as Application
+        }
+
+        fun showOverlay() {
             if (shouldShowOverlay) {
-                overlayInstance = ClientOverlay(context)
+                overlayInstance = ClientOverlay()
                 try {
                     OverlayManager.showOverlayWindow(overlayInstance!!)
                 } catch (e: Exception) {
@@ -118,10 +91,14 @@ class ClientOverlay(private val context: Context) : OverlayWindow() {
         }
 
         fun isOverlayEnabled(): Boolean = shouldShowOverlay
+
+        fun showConfigDialog() {
+            overlayInstance?.showConfigDialog()
+        }
     }
 
     fun showConfigDialog() {
-        val dialogView = LayoutInflater.from(context).inflate(R.layout.overlay_config_dialog, null)
+        val dialogView = LayoutInflater.from(appContext).inflate(R.layout.overlay_config_dialog, null)
         val editText = dialogView.findViewById<EditText>(R.id.editText)
         val seekRed = dialogView.findViewById<SeekBar>(R.id.seekRed)
         val seekGreen = dialogView.findViewById<SeekBar>(R.id.seekGreen)
@@ -136,7 +113,7 @@ class ClientOverlay(private val context: Context) : OverlayWindow() {
         switchShadow.isChecked = shadowEnabled
         seekSize.progress = fontSize
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = AlertDialog.Builder(appContext)
             .setTitle("配置水印")
             .setView(dialogView)
             .setPositiveButton("确定") { _, _ ->
@@ -166,7 +143,8 @@ class ClientOverlay(private val context: Context) : OverlayWindow() {
     override fun Content() {
         if (!isOverlayEnabled()) return
 
-        val firaSansFamily = FontFamily(Font(R.font.packet))
+        val firaSansFamily = FontFamily.Default
+
 
         Box(
             modifier = Modifier
