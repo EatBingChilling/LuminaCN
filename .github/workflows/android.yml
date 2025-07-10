@@ -27,9 +27,9 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # 构建 Release APK
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      # 构建
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       # 上传构建产物
       - name: Upload APKs
@@ -37,5 +37,5 @@ jobs:
         with:
           name: apk-artifacts
           path: |
-            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
           retention-days: 7  # 产物保留7天

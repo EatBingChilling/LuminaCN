@@ -185,7 +185,7 @@ class ClientOverlay : OverlayWindow() {
         val fontFamily = FontFamily.Default
         val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
-        var rainbowColor by remember { mutableStateOf(ComposeColor.White)) }
+        var rainbowColor by remember { mutableStateOf(ComposeColor.White) }
 
         LaunchedEffect(rainbowEnabled) {
             if (rainbowEnabled) {
