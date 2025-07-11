@@ -191,7 +191,7 @@ override fun Content() {
     if (!isOverlayEnabled()) return
 
     // 修复字体问题
-    val unifontFamily = FontFamily(Font(R.font.unifert))
+    val unifontFamily = FontFamily(Font(R.font.unifont))
 
     val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 

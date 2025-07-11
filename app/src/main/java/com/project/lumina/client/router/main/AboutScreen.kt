@@ -53,25 +53,70 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Help
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.project.lumina.client.R
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 @Composable
 fun AboutScreen() {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    // 用于控制使用教程对话框的显示状态
+    val showTutorialDialog = remember { mutableStateOf(false) }
+    // 存储教程文本内容
+    val tutorialText = remember { mutableStateOf("") }
+
+    // 如果对话框需要显示，读取教程内容
+    if (showTutorialDialog.value && tutorialText.value.isEmpty()) {
+        try {
+            // 从 raw 资源中读取 t.txt 文件内容
+            val inputStream = context.resources.openRawResource(R.raw.t)
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            val text = reader.use { it.readText() }
+            tutorialText.value = text
+        } catch (e: Exception) {
+            tutorialText.value = "无法加载教程内容"
+            e.printStackTrace()
+        }
+    }
+
+    // 使用教程对话框
+    if (showTutorialDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showTutorialDialog.value = false },
+            title = { Text("使用教程") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(tutorialText.value)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTutorialDialog.value = false }) {
+                    Text("确定")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -216,6 +261,73 @@ fun AboutScreen() {
                 }
             }
         }
+
+        // 添加实用工具卡片
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+            ) {
+                // 主标题：实用工具
+                Text(
+                    "实用工具",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // 副标题：推荐使用
+                Text(
+                    "推荐使用",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                
+                Spacer(modifier = Modifier.padding(8.dp))
+                
+                // 工具按钮区域
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 下载客户端按钮
+                    ToolButton(
+                        icon = Icons.Filled.Download,
+                        text = "下载客户端",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net"))
+                            context.startActivity(intent)
+                        }
+                    )
+                    
+                    // 加入群聊按钮
+                    ToolButton(
+                        icon = Icons.Filled.Group,
+                        text = "加入群聊",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/dxqhrjC9Nu"))
+                            context.startActivity(intent)
+                        }
+                    )
+                    
+                    // 使用教程按钮
+                    ToolButton(
+                        icon = Icons.Filled.Help,
+                        text = "使用教程",
+                        onClick = { showTutorialDialog.value = true }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -277,4 +389,46 @@ private fun SocialMediaIcon(
             color = MaterialTheme.colorScheme.primary
         )
     }
-} 
+}
+
+// 新增的工具按钮组件
+@Composable
+private fun ToolButton(
+    icon: Any,
+    text: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        when (icon) {
+            is androidx.compose.ui.graphics.painter.Painter -> {
+                Icon(
+                    painter = icon,
+                    contentDescription = text,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            is androidx.compose.ui.graphics.vector.ImageVector -> {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = text,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
