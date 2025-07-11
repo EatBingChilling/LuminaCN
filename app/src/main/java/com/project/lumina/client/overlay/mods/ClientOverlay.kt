@@ -229,7 +229,7 @@ override fun Content() {
                 textAlign = TextAlign.Center,
                 lineHeight = (fontSize * 1.5).sp, // 设置1.5倍行距
                 // 增加50%字间距
-                letterSpacing = (fontSize * 0.5).sp,
+                letterSpacing = (fontSize * 0.2).sp,
                 modifier = Modifier.offset(x = 1.dp, y = 1.dp)
             )
         }
@@ -242,7 +242,7 @@ override fun Content() {
             fontFamily = unifontFamily,
             color = finalColor,
             textAlign = TextAlign.Center, // 确保文本居中
-            lineHeight = (fontSize * 1.5).sp, // 设置1.5倍行距
+            lineHeight = (fontSize * 1.2).sp, // 设置1.5倍行距
             // 增加50%字间距
             letterSpacing = (fontSize * 0.5).sp
         )

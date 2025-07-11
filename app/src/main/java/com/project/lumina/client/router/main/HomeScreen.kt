@@ -439,7 +439,7 @@ fun HomeScreen(
 
 
                                             Text(
-                                                text = "Hello!",
+                                                text = "你好!",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurface.copy(
                                                     alpha = 0.7f
@@ -485,7 +485,7 @@ fun HomeScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text(
-                                                    text = "Hello!",
+                                                    text = "你好!",
                                                     style = MaterialTheme.typography.titleMedium,
                                                     color = MaterialTheme.colorScheme.onSurface.copy(
                                                         alpha = 0.7f
@@ -538,7 +538,7 @@ fun HomeScreen(
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
-                                            text = "Select an Account",
+                                            text = "选择一个账号",
                                             style = if (isCompactScreen)
                                                 MaterialTheme.typography.bodyLarge else
                                                 MaterialTheme.typography.titleMedium,
@@ -776,7 +776,7 @@ fun HomeScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Pause,
-                                        contentDescription = "Stop",
+                                        contentDescription = "停止",
                                         modifier = Modifier.size(if (isCompactScreen) 20.dp else 24.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -851,7 +851,7 @@ fun HomeScreen(
                                                                     } catch (e: Exception) {
                                                                         showProgressDialog = false
                                                                         showNotification(
-                                                                            "Failed to download pack: ${e.message}",
+                                                                            "材质包下载失败: ${e.message}",
                                                                             NotificationType.ERROR
                                                                         )
                                                                     }
@@ -868,7 +868,7 @@ fun HomeScreen(
                                                                     )
                                                                 } catch (e: Exception) {
                                                                     showNotification(
-                                                                        "Failed to inject Neko: ${e.message}",
+                                                                        "Neko 注入失败: ${e.message}",
                                                                         NotificationType.ERROR
                                                                     )
                                                                 }
@@ -883,7 +883,7 @@ fun HomeScreen(
                                                                         )
                                                                     } catch (e: Exception) {
                                                                         showNotification(
-                                                                            "Failed to initialize server: ${e.message}",
+                                                                            "服务器初始化失败: ${e.message}",
                                                                             NotificationType.ERROR
                                                                         )
                                                                     }
@@ -892,13 +892,13 @@ fun HomeScreen(
                                                         }
                                                     } catch (e: Exception) {
                                                         showNotification(
-                                                            "An unexpected error occurred: ${e.message}",
+                                                            "一个未预料的错误发生: ${e.message}",
                                                             NotificationType.ERROR
                                                         )
                                                     }
                                                 } else {
                                                     showNotification(
-                                                        "Failed to launch game",
+                                                        "游戏启动失败，请检查是否安装 Minecraft 或在 App 管理器中正确添加了客户端",
                                                         NotificationType.ERROR
                                                     )
                                                 }
@@ -943,7 +943,7 @@ fun HomeScreen(
                                                 horizontalAlignment = Alignment.CenterHorizontally
                                             ) {
                                                 Text(
-                                                    text = "Downloading: $currentPackName",
+                                                    text = "正在下载: $currentPackName",
                                                     style = MaterialTheme.typography.titleMedium
                                                 )
                                                 Spacer(modifier = Modifier.height(16.dp))
@@ -959,7 +959,7 @@ fun HomeScreen(
                                                 )
                                                 Spacer(modifier = Modifier.height(8.dp))
                                                 Text(
-                                                    text = if (downloadProgress < 1f) "Downloading..." else "Launching Minecraft...",
+                                                    text = if (downloadProgress < 1f) "正在下载..." else "正在启动 Minecraft ...",
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
                                             }
@@ -994,26 +994,26 @@ fun ZeqaSubServerBottomSheet(
     onSelect: (SubServerInfo) -> Unit
 ) {
     val subServers = listOf(
-        SubServerInfo("AS1", "Asia", "104.234.6.50", 10001),
-        SubServerInfo("AS2", "Asia", "104.234.6.50", 10002),
-        SubServerInfo("AS3", "Asia", "104.234.6.50", 10003),
-        SubServerInfo("AS4", "Asia", "104.234.6.50", 10004),
-        SubServerInfo("AS5", "Asia", "104.234.6.50", 10005),
-        SubServerInfo("EU1", "Europe", "178.32.145.167", 10001),
-        SubServerInfo("EU2", "Europe", "178.32.145.167", 10002),
-        SubServerInfo("EU3", "Europe", "178.32.145.167", 10003),
-        SubServerInfo("EU4", "Europe", "178.32.145.167", 10004),
-        SubServerInfo("EU5", "Europe", "178.32.145.167", 10005),
-        SubServerInfo("NA1", "North America", "51.79.62.8", 10001),
-        SubServerInfo("NA2", "North America", "51.79.62.8", 10002),
-        SubServerInfo("NA3", "North America", "51.79.62.8", 10003),
-        SubServerInfo("NA4", "North America", "51.79.62.8", 10004),
-        SubServerInfo("NA5", "North America", "51.79.62.8", 10005),
-        SubServerInfo("SA1", "South Africa", "38.54.63.126", 10001),
-        SubServerInfo("SA2", "South Africa", "38.54.63.126", 10002),
-        SubServerInfo("SA3", "South Africa", "38.54.63.126", 10003),
-        SubServerInfo("SA4", "South Africa", "38.54.63.126", 10004),
-        SubServerInfo("SA5", "South Africa", "38.54.63.126", 10005)
+        SubServerInfo("AS1", "亚洲", "104.234.6.50", 10001),
+        SubServerInfo("AS2", "亚洲", "104.234.6.50", 10002),
+        SubServerInfo("AS3", "亚洲", "104.234.6.50", 10003),
+        SubServerInfo("AS4", "亚洲", "104.234.6.50", 10004),
+        SubServerInfo("AS5", "亚洲", "104.234.6.50", 10005),
+        SubServerInfo("EU1", "欧洲", "178.32.145.167", 10001),
+        SubServerInfo("EU2", "欧洲", "178.32.145.167", 10002),
+        SubServerInfo("EU3", "欧洲", "178.32.145.167", 10003),
+        SubServerInfo("EU4", "欧洲", "178.32.145.167", 10004),
+        SubServerInfo("EU5", "欧洲", "178.32.145.167", 10005),
+        SubServerInfo("NA1", "北美", "51.79.62.8", 10001),
+        SubServerInfo("NA2", "北美", "51.79.62.8", 10002),
+        SubServerInfo("NA3", "北美", "51.79.62.8", 10003),
+        SubServerInfo("NA4", "北美", "51.79.62.8", 10004),
+        SubServerInfo("NA5", "北美", "51.79.62.8", 10005),
+        SubServerInfo("SA1", "南非", "38.54.63.126", 10001),
+        SubServerInfo("SA2", "南非", "38.54.63.126", 10002),
+        SubServerInfo("SA3", "南非", "38.54.63.126", 10003),
+        SubServerInfo("SA4", "南非", "38.54.63.126", 10004),
+        SubServerInfo("SA5", "南非", "38.54.63.126", 10005)
     )
 
     ModalBottomSheet(
@@ -1043,7 +1043,7 @@ fun ZeqaSubServerBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Select Zeqa Sub-Server",
+                    "选择 Zeqa 分服",
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1051,7 +1051,7 @@ fun ZeqaSubServerBottomSheet(
 
                 TextButton(onClick = onDismiss) {
                     Text(
-                        "Cancel",
+                        "取消",
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -1059,7 +1059,7 @@ fun ZeqaSubServerBottomSheet(
             }
 
             Text(
-                "Choose a sub-server based on your region",
+                "基于你的地理位置选择一个分服",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -1113,7 +1113,7 @@ fun ZeqaSubServerBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Port: ${subServer.serverPort}",
+                                    text = "端口: ${subServer.serverPort}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

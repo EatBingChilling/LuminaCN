@@ -126,7 +126,74 @@ fun AboutScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        
+        // === 实用工具卡片放在最上方 ===
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+            ) {
+                // 主标题：实用工具
+                Text(
+                    "实用工具",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // 副标题：推荐使用
+                Text(
+                    "推荐使用",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                
+                Spacer(modifier = Modifier.padding(8.dp))
+                
+                // 工具按钮区域
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 下载客户端按钮
+                    ToolButton(
+                        icon = Icons.Filled.Download,
+                        text = "下载客户端",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net"))
+                            context.startActivity(intent)
+                        }
+                    )
+                    
+                    // 加入群聊按钮
+                    ToolButton(
+                        icon = Icons.Filled.Group,
+                        text = "加入群聊",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/dxqhrjC9Nu"))
+                            context.startActivity(intent)
+                        }
+                    )
+                    
+                    // 使用教程按钮
+                    ToolButton(
+                        icon = Icons.Filled.Help,
+                        text = "使用教程",
+                        onClick = { showTutorialDialog.value = true }
+                    )
+                }
+            }
+        }
+
+        // 关于 Lumina 卡片（原第一个卡片）
         ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -174,7 +241,7 @@ fun AboutScreen() {
                     
                     Text(
                         stringResource(R.string.lumina_compatibility),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style极MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -258,73 +325,6 @@ fun AboutScreen() {
                             }
                         )
                     }
-                }
-            }
-        }
-
-        // 添加实用工具卡片
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth(),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-            ) {
-                // 主标题：实用工具
-                Text(
-                    "实用工具",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                // 副标题：推荐使用
-                Text(
-                    "推荐使用",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                
-                Spacer(modifier = Modifier.padding(8.dp))
-                
-                // 工具按钮区域
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // 下载客户端按钮
-                    ToolButton(
-                        icon = Icons.Filled.Download,
-                        text = "下载客户端",
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    
-                    // 加入群聊按钮
-                    ToolButton(
-                        icon = Icons.Filled.Group,
-                        text = "加入群聊",
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/dxqhrjC9Nu"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    
-                    // 使用教程按钮
-                    ToolButton(
-                        icon = Icons.Filled.Help,
-                        text = "使用教程",
-                        onClick = { showTutorialDialog.value = true }
-                    )
                 }
             }
         }
