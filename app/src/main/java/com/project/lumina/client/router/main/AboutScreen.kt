@@ -241,7 +241,7 @@ fun AboutScreen() {
                     
                     Text(
                         stringResource(R.string.lumina_compatibility),
-                        style极MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
