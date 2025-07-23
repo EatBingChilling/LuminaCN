@@ -262,5 +262,11 @@
     
     <string name="module_antibot_display_name">防假人</string>
         <string name="module_killauracd_display_name">杀戮光环3（测试）</string>
+        
+        
+        <!-- 占位 -->
+         <string name="account_icon">Account</string>
+    <string name="hello">Hello</string>
+    <string name="server_icon">Server</string>
     
 </resources>

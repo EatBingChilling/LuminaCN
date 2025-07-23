@@ -264,4 +264,8 @@
     <string name="luminacn_dev">LuminaCN Developers: ShiYi, Phoen1x_</string>
     <string name="module_antibot_display_name">AntiBot</string>
     <string name="module_killauracd_display_name">KillauraCD</string>
+    
+     <string name="account_icon">Account</string>
+    <string name="hello">Hello</string>
+    <string name="server_icon">Server</string>
 </resources>
