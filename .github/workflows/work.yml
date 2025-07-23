@@ -1,0 +1,51 @@
+name: Choose APK Type
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: '选择构建类型'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+      java_version:
+        description: '选择 JDK 版本'
+        required: true
+        default: '21'
+        type: choice
+        options:
+          - 17
+          - 21
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ github.event.inputs.java_version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ github.event.inputs.java_version }}
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build APK
+        run: ./gradlew assemble${{ github.event.inputs.build_type }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ github.event.inputs.build_type }}-jdk${{ github.event.inputs.java_version }}
+          path: |
+            app/build/outputs/apk/${{ github.event.inputs.build_type }}/*.apk
+          retention-days: 7
