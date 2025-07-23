@@ -59,14 +59,14 @@
             android:exported="false" />
         <activity
             android:name=".activity.LaunchActivity"
-            android:exported="true"
+            android:exported="false"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+            </activity>
         <activity
             android:name=".activity.VersionCheckerActivity"
             android:exported="false"
@@ -86,9 +86,24 @@
             </intent-filter>
         </activity>
         <activity android:name=".activity.CrashHandlerActivity" />
-                <activity
-    android:name=".WebviewDownloader"
-    android:exported="false" />
+ 
+
+        <activity
+            android:name=".phoenix.PhoenixActivity"
+            android:theme="@style/Theme.PhoenixD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.OPEN_DOCUMENT" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.OPENABLE" />
+
+
+                
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
 
         <service
             android:name=".service.Services"

@@ -22,5 +22,9 @@
           <item name="windowActionBar">false</item>
           <item name="windowNoTitle">true</item>
     </style>
+    
+        <style name="Theme.PhoenixD" parent="Theme.Material3.DynamicColors.DayNight">
+        
+    </style>
 
 </resources>
