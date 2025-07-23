@@ -4,7 +4,7 @@
 extern "C" {
 
 JNIEXPORT void JNICALL
-Java_com.project.luminacn_game_EspNative_drawLine(
+Java_com_project_luminacn_game_EspNative_drawLine(
     JNIEnv*, jclass,
     jfloat x1, jfloat y1, jfloat x2, jfloat y2,
     jint color, jfloat thick) {
@@ -13,7 +13,7 @@ Java_com.project.luminacn_game_EspNative_drawLine(
 }
 
 JNIEXPORT void JNICALL
-Java_com.project.luminacn_game_EspNative_drawRect(
+Java_com_project_luminacn_game_EspNative_drawRect(
     JNIEnv*, jclass,
     jfloat x, jfloat y, jfloat w, jfloat h,
     jint color, jfloat thick) {
