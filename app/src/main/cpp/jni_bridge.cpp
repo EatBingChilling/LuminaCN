@@ -41,7 +41,7 @@
 #include "hsv_to_rgb.h"
 
 extern "C" JNIEXPORT jfloatArray JNICALL
-Java_com.project.luminacn_CPPBridge_NativeHsvToRgb_hsvToRgb(JNIEnv* env, jclass, jfloat h) {
+Java_com_project_luminacn_CPPBridge_NativeHsvToRgb_hsvToRgb(JNIEnv* env, jclass, jfloat h) {
 
     RGB rgb = hsvToRgb(h);
 
