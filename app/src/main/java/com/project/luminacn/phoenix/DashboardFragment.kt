@@ -6,27 +6,30 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.runtime.*
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.compose.ui.platform.ComposeView
+import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import com.project.luminacn.R
 import com.project.luminacn.constructors.Account
 import com.project.luminacn.constructors.AccountManager
 import com.project.luminacn.databinding.FragmentDashboardBinding
 import com.project.luminacn.databinding.ItemAccountBinding
 import com.project.luminacn.overlay.manager.ConnectionInfoOverlay
+import com.project.luminacn.overlay.mods.NotificationType
+import com.project.luminacn.overlay.mods.SimpleOverlayNotification
+import com.project.luminacn.pack.PackSelectionManager
 import com.project.luminacn.router.main.HomeScreen
+import com.project.luminacn.service.Services
 import com.project.luminacn.util.InjectNeko
 import com.project.luminacn.util.MCPackUtils
 import com.project.luminacn.util.ServerInit
 import com.project.luminacn.viewmodel.MainScreenViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 
 class DashboardFragment : Fragment() {
 
@@ -46,40 +49,27 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
         viewModel = ViewModelProvider(requireActivity()).get(MainScreenViewModel::class.java)
-        
-        // 设置账号列表
         setupAccountList()
-        
-        // 设置按钮监听
         setupButtonListeners()
-        
-        // 观察ViewModel变化
         observeViewModel()
-        
-        // 设置Compose部分
         setupComposeView()
     }
 
     private fun setupComposeView() {
         binding.composeContainer.setContent {
-            // 保留完整的HomeScreen逻辑
             HomeScreen(
                 onStartToggle = {
                     if (Services.isActive) {
                         Services.stop()
-                        updateButtonVisibility()
                     } else {
                         Services.start()
-                        updateButtonVisibility()
-                        
-                        // 启动Minecraft逻辑
                         if (!isLaunchingMinecraft) {
                             isLaunchingMinecraft = true
                             launchMinecraft()
                         }
                     }
+                    updateButtonVisibility()
                 }
             )
         }
@@ -90,7 +80,6 @@ class DashboardFragment : Fragment() {
             AccountManager.selectAccount(account)
             updateAccountUI()
         }
-        
         binding.accountList.layoutManager = LinearLayoutManager(context)
         binding.accountList.adapter = accountAdapter
     }
@@ -100,12 +89,9 @@ class DashboardFragment : Fragment() {
             if (!Services.isActive) {
                 Services.start()
                 updateButtonVisibility()
-                
-                // 启动Minecraft逻辑
                 launchMinecraft()
             }
         }
-        
         binding.stopButton.setOnClickListener {
             if (Services.isActive) {
                 Services.stop()
@@ -129,7 +115,7 @@ class DashboardFragment : Fragment() {
                 binding.serverInfoContainer.visibility = View.GONE
             }
         }
-        
+
         AccountManager.accounts.observe(viewLifecycleOwner) { accounts ->
             accountAdapter.submitList(accounts)
             updateAccountUI()
@@ -142,7 +128,7 @@ class DashboardFragment : Fragment() {
             binding.accountInfoContainer.visibility = View.VISIBLE
             binding.accountList.visibility = View.GONE
             binding.accountName.text = currentAccount.remark
-        } else if (AccountManager.accounts.value?.isNotEmpty() == true) {
+        } else if (!AccountManager.accounts.value.isNullOrEmpty()) {
             binding.accountInfoContainer.visibility = View.GONE
             binding.accountList.visibility = View.VISIBLE
         } else {
@@ -152,16 +138,16 @@ class DashboardFragment : Fragment() {
     }
 
     private fun launchMinecraft() {
-        val sharedPreferences = requireContext().getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-        val injectNekoPack = sharedPreferences.getBoolean("injectNekoPackEnabled", false)
-        
+        val prefs = requireContext().getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
+        val injectNekoPack = prefs.getBoolean("injectNekoPackEnabled", false)
+
         CoroutineScope(Dispatchers.IO).launch {
             delay(2500)
             if (!Services.isActive) {
                 isLaunchingMinecraft = false
                 return@launch
             }
-            
+
             val selectedGame = viewModel.selectedGame.value
             if (selectedGame != null) {
                 val intent = requireContext().packageManager.getLaunchIntentForPackage(selectedGame)
@@ -169,66 +155,49 @@ class DashboardFragment : Fragment() {
                     withContext(Dispatchers.Main) {
                         startActivity(intent)
                     }
-                    
-                    // 延迟显示连接信息
+
                     delay(3000)
                     if (Services.isActive) {
-                        val disableConnectionInfoOverlay = sharedPreferences.getBoolean("disableConnectionInfoOverlay", false)
-                        if (!disableConnectionInfoOverlay) {
-                            val localIp = ConnectionInfoOverlay.getLocalIpAddress(requireContext())
-                            ConnectionInfoOverlay.show(localIp)
+                        val disableOverlay = prefs.getBoolean("disableConnectionInfoOverlay", false)
+                        if (!disableOverlay) {
+                            val ip = ConnectionInfoOverlay.getLocalIpAddress(requireContext())
+                            ConnectionInfoOverlay.show(ip)
                         }
                     }
-                    
+
                     isLaunchingMinecraft = false
-                    
-                    // 注入逻辑
+
                     try {
                         when {
-                            injectNekoPack == true && PackSelectionManager.selectedPack != null -> {
-                                PackSelectionManager.selectedPack?.let { selectedPack ->
-                                    val progressDialog = ProgressDialogFragment().apply {
-                                        setCurrentPackName(selectedPack.name)
-                                    }
-                                    progressDialog.show(parentFragmentManager, "ProgressDialog")
-                                    
-                                    MCPackUtils.downloadAndOpenPack(requireContext(), selectedPack) { progress ->
-                                        progressDialog.updateProgress(progress)
-                                    }
-                                    
-                                    // 下载完成后关闭对话框
-                                    progressDialog.dismiss()
+                            injectNekoPack && PackSelectionManager.selectedPack != null -> {
+                                val pack = PackSelectionManager.selectedPack!!
+                                val dialog = ProgressDialogFragment().apply {
+                                    setCurrentPackName(pack.name)
                                 }
+                                dialog.show(parentFragmentManager, "ProgressDialog")
+
+                                MCPackUtils.downloadAndOpenPack(requireContext(), pack) { progress ->
+                                    dialog.updateProgress(progress)
+                                }
+
+                                dialog.dismiss()
                             }
-                            injectNekoPack == true -> {
-                                InjectNeko.injectNeko(requireContext()) { progress ->
-                                    // 可以在这里更新进度
-                                }
+                            injectNekoPack -> {
+                                InjectNeko.injectNeko(requireContext()) {}
                             }
-                            else -> {
-                                if (selectedGame == "com.mojang.minecraftpe") {
-                                    val localIp = ConnectionInfoOverlay.getLocalIpAddress(requireContext())
-                                    ServerInit.addMinecraftServer(requireContext(), localIp)
-                                }
+                            selectedGame == "com.mojang.minecraftpe" -> {
+                                val ip = ConnectionInfoOverlay.getLocalIpAddress(requireContext())
+                                ServerInit.addMinecraftServer(requireContext(), ip)
                             }
                         }
                     } catch (e: Exception) {
-                        // 显示错误通知
                         withContext(Dispatchers.Main) {
-                            SimpleOverlayNotification.show(
-                                "错误: ${e.message}",
-                                NotificationType.ERROR,
-                                5000
-                            )
+                            SimpleOverlayNotification.show("错误: ${e.message}", NotificationType.ERROR, 5000)
                         }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        SimpleOverlayNotification.show(
-                            "游戏启动失败，请检查是否安装 Minecraft",
-                            NotificationType.ERROR,
-                            5000
-                        )
+                        SimpleOverlayNotification.show("游戏启动失败", NotificationType.ERROR, 5000)
                     }
                     isLaunchingMinecraft = false
                 }
@@ -238,75 +207,64 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    // 账号适配器
-    inner class AccountAdapter(private val onClick: (Account) -> Unit) : 
+    inner class AccountAdapter(private val onClick: (Account) -> Unit) :
         RecyclerView.Adapter<AccountAdapter.AccountViewHolder>() {
-        
+
         private var accounts = listOf<Account>()
-        
-        inner class AccountViewHolder(private val binding: ItemAccountBinding) : 
+
+        inner class AccountViewHolder(private val binding: ItemAccountBinding) :
             RecyclerView.ViewHolder(binding.root) {
-            
             fun bind(account: Account) {
                 binding.accountName.text = account.remark
                 binding.root.setOnClickListener { onClick(account) }
             }
         }
-        
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AccountViewHolder {
             val binding = ItemAccountBinding.inflate(
                 LayoutInflater.from(parent.context), parent, false
             )
             return AccountViewHolder(binding)
         }
-        
+
         override fun onBindViewHolder(holder: AccountViewHolder, position: Int) {
             holder.bind(accounts[position])
         }
-        
+
         override fun getItemCount() = accounts.size
-        
+
         fun submitList(newList: List<Account>) {
             accounts = newList
             notifyDataSetChanged()
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        // 清理资源
-    }
-}
+    class ProgressDialogFragment : DialogFragment() {
+        private var currentPackName = ""
+        private var progress = 0f
 
-class ProgressDialogFragment : DialogFragment() {
-    private var currentPackName = ""
-    private var progress = 0f
-    
-    fun setCurrentPackName(name: String) {
-        currentPackName = name
-    }
-    
-    fun updateProgress(value: Float) {
-        progress = value
-        updateUI()
-    }
-    
-    private fun updateUI() {
-        view?.findViewById<TextView>(R.id.downloadText)?.text = "正在下载: $currentPackName"
-        view?.findViewById<ProgressBar>(R.id.progressBar)?.progress = (progress * 100).toInt()
-        view?.findViewById<TextView>(R.id.percentageText)?.text = "${(progress * 100).toInt()}%"
-    }
-    
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.dialog_download_progress, container, false)
-    }
-    
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        updateUI()
+        fun setCurrentPackName(name: String) {
+            currentPackName = name
+        }
+
+        fun updateProgress(value: Float) {
+            progress = value
+            view?.findViewById<ProgressBar>(R.id.progressBar)?.progress = (progress * 100).toInt()
+            view?.findViewById<TextView>(R.id.downloadText)?.text = "正在下载: $currentPackName"
+            view?.findViewById<TextView>(R.id.percentageText)?.text = "${(progress * 100).toInt()}%"
+        }
+
+        override fun onCreateView(
+            inflater: LayoutInflater,
+            container: ViewGroup?,
+            savedInstanceState: Bundle?
+        ): View? {
+            return inflater.inflate(R.layout.dialog_download_progress, container, false)
+        }
+
+        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+            super.onViewCreated(view, savedInstanceState)
+            updateProgress(progress)
+        }
     }
 }
