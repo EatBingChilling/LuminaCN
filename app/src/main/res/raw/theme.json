@@ -1,0 +1,209 @@
+{
+  "main": {
+    "primary": "#FFFFFAF0",
+    "background": "#E4110011",
+    "surface": "#FF242628",
+    "onBackground": "#FFC9C0BB",
+    "onSurface": "#FFFFFFFF",
+    "backgroundOverlayUi": "#EB151517",
+    "backgroundOverlayUi2": "#F3151517",
+    "notBackgroundOverlayUi": "#FFD5D5D5",
+    "textModules": "#FFF8F8FF"
+  },
+  "launchActivity": {
+    "launcherRadial": "#FFF7ECE1",
+    "lAnimation": "#FFD4CBC0",
+    "lText": "#FFF7ECE1",
+    "lBlob1": "#29F7ECE1",
+    "lBlob2": "#1FF7ECE1",
+    "lBg1": "#FF121212",
+    "lBg2": "#FF1D1D1D"
+  },
+  "miniMap": {
+    "mBg": "#CC000000",
+    "mGrid": "#66A9A9A9",
+    "mCrosshair": "#80808080",
+    "mPlayerMarker": "#FFFFFFFF",
+    "mNorth": "#FF0000FF",
+    "mEntityClose": "#FFFF0000",
+    "mEntityFar": "#FFFFFF00"
+  },
+  "arrayList": {
+    "oArrayList1": "#FF4B7BFF",
+    "oArrayList2": "#CC4B7BFF",
+    "oArrayBase": "#FF4B7BFF"
+  },
+  "overlayNotification": {
+    "oNotifAccent": "#FFFFFFFF",
+    "oNotifBase": "#FF1C2526",
+    "oNotifText": "#FFFFFFFF",
+    "oNotifProgressbar": "#FFFFFFFF"
+  },
+  "packetNotification": {
+    "pColorGradient1": "#FF6B48FF",
+    "pColorGradient2": "#FF00DDEB",
+    "pBackground": "#E91E1E1E"
+  },
+  "sessionStats": {
+    "sBase": "#FF4B7BFF",
+    "sAccent": "#FF00E5FF",
+    "sBackgroundGradient1": "#FF1A1B1E",
+    "sBackgroundGradient2": "#F21A1B1E"
+  },
+  "speedoMeter": {
+    "sMiniLineGraph": "#FF222328",
+    "sMeterBg": "#FF1A1B1E",
+    "sMeterAccent": "#FF00E5FF",
+    "sMeterBase": "#FF2E35FF"
+  },
+  "topCenterOverlay": {
+    "tcoGradient1": "#FFFFE4F2",
+    "tcoGradient2": "#FFFC3785",
+    "tcoBackground": "#FF1E1E1E"
+  },
+  "graceUi": {
+    "elevatedCard": {
+      "eColorCard1": "#FF151517",
+      "eColorCard2": "#FF439CFB",
+      "eColorCard3": "#FF8EFAFA",
+      "mColorCard1": "#FF48B6FF",
+      "mColorCard2": "#FF00B4EB",
+      "mColorCard3": "#FF262626"
+    },
+    "moduleSettingScreen": {
+      "mColorScreen1": "#FF232323",
+      "mColorScreen2": "#FFCECECE"
+    },
+    "navigationRailItem": {
+      "nColorItem1": "#FF2D2C2F",
+      "nColorItem2": "#FFBFC1C2",
+      "nColorItem3": "#FFC9C0BB",
+      "nColorItem4": "#FF439CFB",
+      "nColorItem5": "#FF8EFAFA",
+      "nColorItem6": "#FFF85FB6",
+      "nColorItem7": "#00010202"
+    },
+    "packItem": {
+      "pColorItem1": "#FFF7ECE1"
+    }
+  },
+  "material": {
+    "light": {
+      "primary": "#FF6750A4",
+      "onPrimary": "#FFFFFFFF",
+      "primaryContainer": "#FFEADDFF",
+      "onPrimaryContainer": "#FF21005D",
+      "secondary": "#FF625B71",
+      "onSecondary": "#FFFFFFFF",
+      "secondaryContainer": "#FFE8DEF8",
+      "onSecondaryContainer": "#FF1D192B",
+      "tertiary": "#FF7D5260",
+      "onTertiary": "#FFFFFFFF",
+      "tertiaryContainer": "#FFFFD8E4",
+      "onTertiaryContainer": "#FF31111D",
+      "error": "#FFBA1A1A",
+      "onError": "#FFFFFFFF",
+      "errorContainer": "#FFFFDAD6",
+      "onErrorContainer": "#FF410002",
+      "background": "#FFFFFBFE",
+      "onBackground": "#FF1C1B1F",
+      "surface": "#FFFFFBFE",
+      "onSurface": "#FF1C1B1F",
+      "surfaceVariant": "#FFE7E0EC",
+      "onSurfaceVariant": "#FF49454F",
+      "outline": "#FF79747E",
+      "outlineVariant": "#FFCAC4D0",
+      "scrim": "#FF000000",
+      "inverseSurface": "#FF313033",
+      "inverseOnSurface": "#FFF4EFF4",
+      "inversePrimary": "#FFD0BCFF",
+      "surfaceDim": "#FFDDD8E1",
+      "surfaceBright": "#FFFFFBFE",
+      "surfaceContainerLowest": "#FFFFFFFF",
+      "surfaceContainerLow": "#FFF7F2FA",
+      "surfaceContainer": "#FFF1ECF4",
+      "surfaceContainerHigh": "#FFECE6F0",
+      "surfaceContainerHighest": "#FFE6E0E9"
+    },
+    "dark": {
+      "primary": "#FFD0BCFF",
+      "onPrimary": "#FF381E72",
+      "primaryContainer": "#FF4F378B",
+      "onPrimaryContainer": "#FFEADDFF",
+      "secondary": "#FFCCC2DC",
+      "onSecondary": "#FF332D41",
+      "secondaryContainer": "#FF4A4458",
+      "onSecondaryContainer": "#FFE8DEF8",
+      "tertiary": "#FFEFB8C8",
+      "onTertiary": "#FF492532",
+      "tertiaryContainer": "#FF633B48",
+      "onTertiaryContainer": "#FFFFD8E4",
+      "error": "#FFFFB4AB",
+      "onError": "#FF690005",
+      "errorContainer": "#FF93000A",
+      "onErrorContainer": "#FFFFDAD6",
+      "background": "#FF10131C",
+      "onBackground": "#FFE6E0E9",
+      "surface": "#FF10131C",
+      "onSurface": "#FFE6E0E9",
+      "surfaceVariant": "#FF49454F",
+      "onSurfaceVariant": "#FFCAC4D0",
+      "outline": "#FF938F99",
+      "outlineVariant": "#FF49454F",
+      "scrim": "#FF000000",
+      "inverseSurface": "#FFE6E0E9",
+      "inverseOnSurface": "#FF313033",
+      "inversePrimary": "#FF6750A4",
+      "surfaceDim": "#FF10131C",
+      "surfaceBright": "#FF383B46",
+      "surfaceContainerLowest": "#FF0B0F1A",
+      "surfaceContainerLow": "#FF1C1B1F",
+      "surfaceContainer": "#FF201F23",
+      "surfaceContainerHigh": "#FF2B2930",
+      "surfaceContainerHighest": "#FF36343B"
+    }
+  },
+  "clickGui": {
+    "interfaceElement": {
+      "enabledBackground": "#1E90FF",
+      "disabledBackground": "#151515",
+      "enabledGlow": "#1A40C4FF",
+      "enabledText": "#FFFFFF",
+      "disabledText": "#D3D3D3",
+      "enabledIcon": "#FFFFFF",
+      "disabledIcon": "#FFFFFF",
+      "progressIndicator": "#40C4FF",
+      "sliderTrack": "#4A4A4A",
+      "sliderActiveTrack": "#40C4FF",
+      "sliderThumb": "#D3D3D3",
+      "checkboxUnchecked": "#4A4A4A",
+      "checkboxChecked": "#40C4FF",
+      "checkboxCheckmark": "#FFFFFF",
+      "choiceSelected": "#CC40C4FF",
+      "choiceUnselected": "#3A3A3A"
+    }
+  },
+    "kitsu": {
+    "interfaceElement": {
+      "kitsuPrimary": "#0078D4",
+      "kitsuSecondary": "#106EBE",
+      "kitsuSurface": "#1F1F1F",
+      "kitsuSurfaceVariant": "#2D2D30",
+      "kitsuOnSurface": "#FFFFFF",
+      "kitsuOnSurfaceVariant": "#E1E1E1",
+      "kitsuBackground": "#0F0F0F",
+      "kitsuSelected": "#0078D4",
+      "kitsuUnselected": "#6B6B6B",
+      "kitsuHover": "#3A3A3C"
+    }
+  },
+  "keystrokes": {
+       "interfaceElement": {
+      "baseColor": "#2A2A2A",
+      "borderColor": "#5A5A5A",
+      "pressedColor": "#1E90FF",
+      "textColor": "#E0E0E0"
+    }
+  }
+}
+
