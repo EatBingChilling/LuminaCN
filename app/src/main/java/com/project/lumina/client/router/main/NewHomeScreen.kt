@@ -158,11 +158,14 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = {
-                    val dir = if (targetState > initialState)
-                        AnimatedContentScope.SlideDirection.Left
-                    else
-                        AnimatedContentScope.SlideDirection.Right
-                    slideIntoContainer(dir) + fadeIn() togetherWith slideOutOfContainer(dir) + fadeOut()
+                    // FIX 1: Replaced deprecated SlideDirection with modern slide transitions.
+                    if (targetState > initialState) {
+                        slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> -width } + fadeOut()
+                    } else {
+                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> width } + fadeOut()
+                    }
                 },
                 label = "tab"
             ) { t ->
@@ -286,8 +289,8 @@ private fun MainDashboard() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                val iconScale by animateFloatAsState(if (Services.isActive) 1.2f else 1f)
-                val iconColor by animateColorAsState(if (Services.isActive) colors.onTertiaryContainer else colors.onErrorContainer)
+                val iconScale by animateFloatAsState(if (Services.isActive) 1.2f else 1f, label = "")
+                val iconColor by animateColorAsState(if (Services.isActive) colors.onTertiaryContainer else colors.onErrorContainer, label = "")
                 Icon(
                     if (Services.isActive) Icons.Filled.Check else Icons.Filled.Stop,
                     null,
@@ -361,7 +364,11 @@ private fun AboutPage() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        ElevatedCard(Modifier.fillMaxWidth(), CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)) {
+        // FIX 2: Used named arguments for `modifier` and `colors` to resolve ambiguity.
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
+        ) {
             Column(Modifier.padding(24.dp)) {
                 Text("实用工具", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Spacer(Modifier.height(8.dp))
@@ -375,7 +382,11 @@ private fun AboutPage() {
             }
         }
 
-        ElevatedCard(Modifier.fillMaxWidth(), CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)) {
+        // FIX 3: Used named arguments for `modifier` and `colors` here as well.
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
+        ) {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
                 Text(stringResource(R.string.about_lumina), style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Text(stringResource(R.string.luminacn_dev), style = MaterialTheme.typography.bodyLarge)
@@ -582,3 +593,4 @@ private fun getSHA(input: String): String =
     MessageDigest.getInstance("SHA-256")
         .digest(input.toByteArray())
         .joinToString("") { "%02x".format(it) }
+

@@ -7,6 +7,7 @@
 package com.project.lumina.client.router.main
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.graphics.drawable.Drawable
 import android.widget.Toast
@@ -78,17 +79,16 @@ fun SettingsScreen() {
     fun saveBool(key: String, value: Boolean) = sp.edit().putBoolean(key, value).apply()
     fun saveStr(key: String, value: String)   = sp.edit().putString(key, value).apply()
 
-    fun appName(pkg: String) = try {
-        context.packageManager.getApplicationLabel(
-            context.packageManager.getApplicationInfo(pkg, 0)
-        ).toString()
+    fun appName(pkg: String): String = try {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
     } catch (e: Exception) { pkg }
 
-    fun appVer(pkg: String) = try {
+    fun appVer(pkg: String): String = try {
         context.packageManager.getPackageInfo(pkg, 0).versionName ?: "?"
     } catch (e: Exception) { "?" }
 
-    fun appIcon(pkg: String) = try {
+    fun appIcon(pkg: String): Drawable? = try {
         context.packageManager.getApplicationIcon(pkg)
     } catch (e: Exception) { null }
 
@@ -97,12 +97,78 @@ fun SettingsScreen() {
         mainScreenViewModel.selectGame(selectedAppPackage)
         scope.launch(Dispatchers.IO) {
             installedApps = context.packageManager.getInstalledPackages(0)
-                .filter {
-                    val ai = it.applicationInfo
-                    ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 &&
-                            context.packageManager.getLaunchIntentForPackage(it.packageName) != null
+                // FIX 1: Safely handle nullable applicationInfo and check its properties.
+                .filter { packageInfo ->
+                    packageInfo.applicationInfo?.let { appInfo ->
+                        (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
+                                context.packageManager.getLaunchIntentForPackage(packageInfo.packageName) != null
+                    } ?: false
                 }
                 .sortedBy { appName(it.packageName) }
+        }
+    }
+
+    // FIX 2: Moved the 'Content' composable definition here, before it is called.
+    /* ---------- 内部组合 ---------- */
+    @Composable
+    fun Content() {
+        Card(
+            Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        ) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // This seems to be a custom DropdownMenu, not a standard one. It's defined below.
+                DropdownMenu(
+                    options = listOf("GraceGUI", "KitsuGUI", "ProtohaxUi", "ClickGUI"),
+                    selected = selectedGUI,
+                    onSelect = {
+                        selectedGUI = it
+                        saveStr("selectedGUI", it)
+                    }
+                )
+                Divider()
+                SettingToggle("增强网络", "提高网络性能", optimizeNetworkEnabled) {
+                    optimizeNetworkEnabled = it // Update state immediately for responsiveness
+                    if (it) {
+                        scope.launch(Dispatchers.IO) {
+                            if (NetworkOptimizer.init(context)) {
+                                saveBool("optimizeNetworkEnabled", true)
+                                NetworkOptimizer.optimizeSocket(Socket())
+                            } else {
+                                scope.launch(Dispatchers.Main) {
+                                    showPermission = true
+                                    optimizeNetworkEnabled = false // Revert state if permission is denied/needed
+                                }
+                            }
+                        }
+                    } else saveBool("optimizeNetworkEnabled", false)
+                }
+                Divider()
+                SettingToggle("高优先级线程", "提升线程优先级", priorityThreadsEnabled) {
+                    priorityThreadsEnabled = it
+                    saveBool("priorityThreadsEnabled", it)
+                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.setThreadPriority() }
+                }
+                Divider()
+                SettingToggle("使用最快的 DNS", "使用 Google DNS", fastDnsEnabled) {
+                    fastDnsEnabled = it
+                    saveBool("fastDnsEnabled", it)
+                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.useFastDNS() }
+                }
+                Divider()
+                SettingToggle("注入 Neko Pack", "增强功能", injectNekoPackEnabled) {
+                    injectNekoPackEnabled = it
+                    saveBool("injectNekoPackEnabled", it)
+                }
+                Divider()
+                SettingToggle("禁用连接信息覆盖", "启动时不显示连接信息", disableOverlay) {
+                    disableOverlay = it
+                    saveBool("disableConnectionInfoOverlay", it)
+                }
+            }
         }
     }
 
@@ -193,54 +259,6 @@ fun SettingsScreen() {
             ::appIcon
         )
     }
-
-    /* ---------- 内部组合 ---------- */
-    @Composable
-    fun Content() {
-        Card(
-            Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-        ) {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                DropdownMenu(
-                    options = listOf("GraceGUI", "KitsuGUI", "ProtohaxUi", "ClickGUI"),
-                    selected = selectedGUI,
-                    onSelect = {
-                        selectedGUI = it
-                        saveStr("selectedGUI", it)
-                    }
-                )
-                Divider()
-                SettingToggle("增强网络", "提高网络性能", optimizeNetworkEnabled) {
-                    if (it) {
-                        scope.launch(Dispatchers.IO) {
-                            if (NetworkOptimizer.init(context)) {
-                                saveBool("optimizeNetworkEnabled", true)
-                                NetworkOptimizer.optimizeSocket(Socket())
-                            } else scope.launch(Dispatchers.Main) { showPermission = true }
-                        }
-                    } else saveBool("optimizeNetworkEnabled", false)
-                }
-                Divider()
-                SettingToggle("高优先级线程", "提升线程优先级", priorityThreadsEnabled) {
-                    saveBool("priorityThreadsEnabled", it)
-                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.setThreadPriority() }
-                }
-                Divider()
-                SettingToggle("使用最快的 DNS", "使用 Google DNS", fastDnsEnabled) {
-                    saveBool("fastDnsEnabled", it)
-                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.useFastDNS() }
-                }
-                Divider()
-                SettingToggle("注入 Neko Pack", "增强功能", injectNekoPackEnabled) { saveBool("injectNekoPackEnabled", it) }
-                Divider()
-                SettingToggle("禁用连接信息覆盖", "启动时不显示连接信息", disableOverlay) { saveBool("disableConnectionInfoOverlay", it) }
-            }
-        }
-    }
 }
 
 /* =========================  内嵌组件  ========================= */
@@ -265,6 +283,7 @@ private fun SettingToggle(
 }
 
 /* ---- DropdownMenu ---- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DropdownMenu(
     options: List<String>,
@@ -272,55 +291,55 @@ private fun DropdownMenu(
     onSelect: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Column {
-        Text("界面 GUI", style = MaterialTheme.typography.labelMedium)
-        Box(Modifier.fillMaxWidth()) {
-            Card(
-                onClick = { expanded = true },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(selected)
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-            }
-            androidx.compose.material3.DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach {
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(it) },
-                        onClick = { onSelect(it); expanded = false }
-                    )
-                }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("界面 GUI") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach {
+                DropdownMenuItem(
+                    text = { Text(it) },
+                    onClick = {
+                        onSelect(it)
+                        expanded = false
+                    }
+                )
             }
         }
     }
 }
 
+
 /* ---- ServerConfigCard ---- */
 @Composable
 private fun ServerConfigCard(ip: String, port: String, onClick: () -> Unit) {
     Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        Column(Modifier.padding(12.dp)) {
-            Text("服务器配置", style = MaterialTheme.typography.titleMedium)
-            Text("IP: $ip  端口: $port", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onClick) { Text("配置") }
+        Column(Modifier.padding(16.dp)) {
+            Text("服务器配置", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(4.dp))
+            Text("IP: $ip", style = MaterialTheme.typography.bodyMedium)
+            Text("端口: $port", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
+
 
 /* ---- AppManagerCard ---- */
 @Composable
@@ -331,34 +350,36 @@ private fun AppManagerCard(
     ver: (String) -> String,
     icon: (String) -> Drawable?
 ) {
-    val context = LocalContext.current
     Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        Column(Modifier.padding(12.dp)) {
-            Text("App 管理器", style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.padding(16.dp)) {
+            Text("应用管理器", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    icon(pkg)?.let {
-                        androidx.compose.foundation.Image(
-                            bitmap = it.toBitmap(32, 32).asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Text(name(pkg), style = MaterialTheme.typography.bodyMedium)
+                icon(pkg)?.let {
+                    Image(
+                        bitmap = it.toBitmap(64, 64).asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                    )
                 }
-                Button(onClick = onClick) { Text("选择") }
+                Column(Modifier.weight(1f)) {
+                    Text(name(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("v${ver(pkg)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.Default.Edit, contentDescription = "选择")
             }
         }
     }
 }
+
 
 /* ---- ServerConfigDialog ---- */
 @Composable
@@ -405,7 +426,7 @@ private fun PermissionDialog(onDismiss: () -> Unit, onRequest: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("需要权限") },
-        text = { Text("网络优化需要特殊权限，是否前往设置？") },
+        text = { Text("网络优化需要系统写入设置权限，是否前往设置页面授予？") },
         confirmButton = {
             Button(onClick = onRequest) { Text("前往") }
         },
@@ -430,39 +451,45 @@ private fun AppSelectionDialog(
         onDismissRequest = onDismiss,
         title = { Text("选择客户端") },
         text = {
-            LazyColumn(Modifier.height(300.dp)) {
-                items(installedApps) { pkg ->
-                    val p = pkg.packageName
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp) // Use heightIn for better adaptability
+            ) {
+                items(installedApps, key = { it.packageName }) { pkgInfo ->
+                    val p = pkgInfo.packageName
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .clickable { onSelect(p) }
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 12.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         icon(p)?.let {
-                            androidx.compose.foundation.Image(
-                                bitmap = it.toBitmap(40, 40).asImageBitmap(),
+                            Image(
+                                bitmap = it.toBitmap(64, 64).asImageBitmap(),
                                 contentDescription = null,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
                             )
-                            Spacer(Modifier.width(8.dp))
+                        } ?: Spacer(Modifier.size(40.dp))
+
+                        Spacer(Modifier.width(16.dp))
+
+                        Column(Modifier.weight(1f)) {
+                            Text(name(p), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("v${ver(p)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Column {
-                            Text(name(p), style = MaterialTheme.typography.bodyMedium)
-                            Text("v${ver(p)}", style = MaterialTheme.typography.bodySmall)
-                        }
+
                         if (p == selectedPkg) {
-                            Spacer(Modifier.weight(1f))
-                            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Check, contentDescription = "已选择", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {
+        confirmButton = {
             TextButton(onClick = onDismiss) { Text("关闭") }
-        }
+        },
+        dismissButton = null // Only one button needed
     )
 }
