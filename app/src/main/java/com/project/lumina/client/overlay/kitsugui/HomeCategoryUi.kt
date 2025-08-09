@@ -73,7 +73,7 @@ fun HomeCategoryUi() {
     var fromLockedWorldTemplate by remember { mutableStateOf<Boolean?>(null) }
     var usingMsaGamertagsOnly by remember { mutableStateOf<Boolean?>(null) }
     var fromWorldTemplate by remember { mutableStateOf<Boolean?>(null) }
-    var worldTemplateOptionLocked by remember { mutableStateOf<Boolean?>(null) }
+    var worldTemplateOptionLocked by remember { mutableStateStateOf<Boolean?>(null) }
     var onlySpawningV1Villagers by remember { mutableStateOf<Boolean?>(null) }
     var limitedWorldWidth by remember { mutableStateOf<Int?>(null) }
     var limitedWorldHeight by remember { mutableStateOf<Int?>(null) }
@@ -346,19 +346,33 @@ fun HomeCategoryUi() {
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            /* 玩家列表 */
+            /* 致谢卡片 */
             ElevatedCard(
-                onClick = { /* TODO */ },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .wrapContentHeight()
             ) {
-                // Assuming PlayerListUI is defined elsewhere and is correct.
-                // Box(Modifier.fillMaxSize().padding(8.dp)) {
-                //     PlayerListUI()
-                // }
-                Box(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
-                    Text("玩家列表 (PlayerListUI)", style = MaterialTheme.typography.bodySmall)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "您正在使用 LuminaCN B20",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "致谢名单:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "主开发: Phoen1x_, 功能: 十一\n感谢你们的支持和鼓励",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
 

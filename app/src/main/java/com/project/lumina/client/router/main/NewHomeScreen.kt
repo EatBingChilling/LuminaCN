@@ -177,9 +177,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         bottomBar = {
             NavigationBar {
                 listOf("主仪表盘" to Icons.Filled.Dashboard,
-                        "账户"   to Icons.Rounded.AccountCircle,
-                        "关于"   to Icons.Filled.Info,
-                        "设置"   to Icons.Filled.Settings).forEachIndexed { idx, (label, icon) ->
+                    "账户"   to Icons.Rounded.AccountCircle,
+                    "关于"   to Icons.Filled.Info,
+                    "设置"   to Icons.Filled.Settings).forEachIndexed { idx, (label, icon) ->
                     NavigationBarItem(
                         selected = tab == idx,
                         onClick = { tab = idx },
@@ -248,22 +248,46 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                 }
             }
 
-            /* 验证遮罩 */
-            if (isVerifying) Surface(
-                color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                modifier = Modifier.fillMaxSize()
+            // <<< MODIFIED: 验证遮罩动画化
+            // 1. 使用 `animateFloatAsState` 创建一个 `progress` 的动画版本
+            val animatedProgress by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+                label = "VerificationProgressAnimation"
+            )
+
+            // 2. 使用 `AnimatedVisibility` 包裹整个遮罩，实现优雅的淡出效果
+            AnimatedVisibility(
+                visible = isVerifying,
+                exit = fadeOut(animationSpec = tween(durationMillis = 500))
             ) {
-                Column(
-                    Modifier.fillMaxSize(),
-                    Arrangement.Center,
-                    Alignment.CenterHorizontally
+                Surface(
+                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                    modifier = Modifier.fillMaxSize(),
+                    // 添加 clickable 以阻止下层UI的交互
+                    onClick = {}
                 ) {
-                    LinearProgressIndicator(progress = { progress }, Modifier.width(200.dp))
-                    Spacer(Modifier.height(16.dp))
-                    Text(msg, style = MaterialTheme.typography.titleMedium)
-                    err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    Column(
+                        Modifier.fillMaxSize(),
+                        Arrangement.Center,
+                        Alignment.CenterHorizontally
+                    ) {
+                        // 3. 将 `LinearProgressIndicator` 的 progress 指向我们创建的 `animatedProgress`
+                        LinearProgressIndicator(
+                            progress = { animatedProgress },
+                            Modifier.width(200.dp)
+                        )
+                        // 注意: 如果你想要的是那种无限循环的波浪线加载动画 (不显示具体进度),
+                        // 只需将上面的调用改为不带 progress 参数即可:
+                        // LinearProgressIndicator(Modifier.width(200.dp))
+
+                        Spacer(Modifier.height(16.dp))
+                        Text(msg, style = MaterialTheme.typography.titleMedium)
+                        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
                 }
             }
+            // >>> MODIFIED END
 
             /* 弹窗 */
             privacy?.let {
