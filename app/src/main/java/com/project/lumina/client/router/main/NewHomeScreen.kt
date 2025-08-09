@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -34,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -91,7 +93,6 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         withContext(Dispatchers.IO) {
             try {
                 step = 1; progress = 0.2f; delay(500); makeHttp("$BASE_URL/appstatus/a.ini")
-
                 step = 2; progress = 0.4f; delay(500)
                 makeHttp("$BASE_URL/title/a.json").let { resp ->
                     if (getSHA(resp) != prefs.getString(KEY_NOTICE, "")) {
@@ -99,12 +100,10 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                         notice = NoticeInfo(j.getString("title"), j.getString("message"), resp)
                     }
                 }
-
                 step = 3; progress = 0.6f; delay(500)
                 makeHttp("$BASE_URL/privary/a.txt").let { resp ->
                     if (getSHA(resp) != prefs.getString(KEY_PRIVACY, "")) privacy = resp
                 }
-
                 step = 4; progress = 0.8f; delay(500)
                 makeHttp("$BASE_URL/update/a.json").let { resp ->
                     val j = JSONObject(resp)
@@ -119,7 +118,6 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                         )
                     }
                 }
-
                 progress = 1f; msg = "验证完成"; delay(800); isVerifying = false
             } catch (e: Exception) {
                 err = e.message; msg = "验证失败，跳过..."; delay(1500); isVerifying = false
@@ -160,7 +158,10 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = {
-                    val dir = if (targetState > initialState) SlideDirection.Left else SlideDirection.Right
+                    val dir = if (targetState > initialState)
+                        AnimatedContentScope.SlideDirection.Left
+                    else
+                        AnimatedContentScope.SlideDirection.Right
                     slideIntoContainer(dir) + fadeIn() togetherWith slideOutOfContainer(dir) + fadeOut()
                 },
                 label = "tab"
@@ -231,7 +232,6 @@ private fun MainDashboard() {
             .verticalScroll(scroll),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        /* 账户卡片 */
         AnimatedVisibility(AccountManager.currentAccount != null) {
             Card(
                 Modifier.fillMaxWidth(),
@@ -254,7 +254,6 @@ private fun MainDashboard() {
             }
         }
 
-        /* 服务器配置卡片 */
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
@@ -266,7 +265,7 @@ private fun MainDashboard() {
                 AnimatedVisibility(model.serverHostName.isNotBlank()) {
                     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(8.dp), colors.surface) {
                         Column(Modifier.padding(12.dp)) {
-                            Text("当前服务器", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                            Text("当前服务器", style = MaterialTheme.typography.bodySmall)
                             Text(model.serverHostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             Text("端口: ${model.serverPort}", style = MaterialTheme.typography.bodySmall)
                         }
@@ -275,7 +274,6 @@ private fun MainDashboard() {
             }
         }
 
-        /* 服务状态卡片 */
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -284,10 +282,7 @@ private fun MainDashboard() {
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .animateContentSize(),
+                Modifier.fillMaxWidth().padding(16.dp).animateContentSize(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -301,16 +296,11 @@ private fun MainDashboard() {
                 )
                 Column {
                     Text("服务状态", style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        if (Services.isActive) "运行中" else "已停止",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text(if (Services.isActive) "运行中" else "已停止", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
                 }
             }
         }
 
-        /* 物理按键绑定卡片 */
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -371,9 +361,9 @@ private fun AboutPage() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        ElevatedCard(Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)) {
+        ElevatedCard(Modifier.fillMaxWidth(), CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)) {
             Column(Modifier.padding(24.dp)) {
-                Text("实用工具", style = MaterialTheme.typography.headlineMedium, color = colors.primary, fontWeight = FontWeight.Bold)
+                Text("实用工具", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Spacer(Modifier.height(8.dp))
                 ToolButton(Icons.Filled.Download, "下载客户端") {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net")))
@@ -385,7 +375,7 @@ private fun AboutPage() {
             }
         }
 
-        ElevatedCard(Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)) {
+        ElevatedCard(Modifier.fillMaxWidth(), CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)) {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
                 Text(stringResource(R.string.about_lumina), style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Text(stringResource(R.string.luminacn_dev), style = MaterialTheme.typography.bodyLarge)
@@ -401,7 +391,7 @@ private fun AboutPage() {
 }
 
 /* ======================================================
-   5. 子组件 & 工具
+   子组件 & 工具
    ====================================================== */
 @Composable
 private fun ServerConfigSection(vm: MainScreenViewModel, model: com.project.lumina.client.model.CaptureModeModel) {
@@ -411,8 +401,21 @@ private fun ServerConfigSection(vm: MainScreenViewModel, model: com.project.lumi
     val colors = MaterialTheme.colorScheme
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(ip, { ip = it }, label = { Text("服务器IP") }, Modifier.fillMaxWidth())
-        OutlinedTextField(port, { port = it }, label = { Text("服务器端口") }, Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = ip,
+            onValueChange = { ip = it },
+            label = { Text("服务器IP") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = port,
+            onValueChange = { port = it },
+            label = { Text("服务器端口") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
         Button(
             onClick = {
                 try {
@@ -511,7 +514,7 @@ private fun SocialMediaIcon(icon: Any, label: String, onClick: () -> Unit) {
 }
 
 /* ======================================================
-   6. Dialog 组件
+   Dialog 组件
    ====================================================== */
 @Composable
 private fun PrivacyDialog(text: String, onAgree: () -> Unit, onDisagree: () -> Unit) {
@@ -560,7 +563,7 @@ private fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -
 }
 
 /* ======================================================
-   7. 网络/哈希工具
+   网络/哈希工具
    ====================================================== */
 private suspend fun makeHttp(url: String): String = withContext(Dispatchers.IO) {
     val conn = URL(url).openConnection() as HttpURLConnection
