@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">LuminaCN 客户端</string>
+    <string name="app_name" translatable="false">LuminaCN</string>
     <string name="home">Home</string>
     <string name="what_is_this">What\'s this?</string>
     <string name="introduction">LuminaCN Client is a Minecraft Bedrock plugin implemented using a MITM attack, which allows you to cheat without modifying the game\'s memory.</string>

@@ -1,71 +1,36 @@
 package com.project.lumina.client.overlay.kitsugui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.project.lumina.client.constructors.GameManager
-import com.project.lumina.client.ui.theme.KitsuPrimary
 import kotlinx.coroutines.delay
 import org.cloudburstmc.math.vector.Vector2f
 import org.cloudburstmc.nbt.NbtList
 import org.cloudburstmc.nbt.NbtMap
-import org.cloudburstmc.protocol.bedrock.data.AuthoritativeMovementMode
-import org.cloudburstmc.protocol.bedrock.data.ChatRestrictionLevel
-import org.cloudburstmc.protocol.bedrock.data.EduSharedUriResource
-import org.cloudburstmc.protocol.bedrock.data.GamePublishSetting
-import org.cloudburstmc.protocol.bedrock.data.GameType
-import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions
-import org.cloudburstmc.protocol.bedrock.data.PlayerPermission
-import org.cloudburstmc.protocol.bedrock.data.SpawnBiomeType
+import org.cloudburstmc.protocol.bedrock.data.*
 import org.cloudburstmc.protocol.common.util.OptionalBoolean
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeCategoryUi() {
+    /* ===================== 所有状态变量（与旧代码一一对应） ===================== */
     var levelName by remember { mutableStateOf<String?>(null) }
     var levelId by remember { mutableStateOf<String?>(null) }
     var gameMode by remember { mutableStateOf<String?>(null) }
@@ -148,102 +113,104 @@ fun HomeCategoryUi() {
     var gamerules by remember { mutableStateOf<List<*>?>(null) }
     var serverEngine by remember { mutableStateOf<String?>(null) }
     var worldSpawn by remember { mutableStateOf<String?>(null) }
+
     var isLoading by remember { mutableStateOf(true) }
     var hasData by remember { mutableStateOf(false) }
 
+    /* ===================== 数据拉取协程（与旧代码一致） ===================== */
     LaunchedEffect(Unit) {
         while (true) {
-            try {
+            runCatching {
                 val netBound = GameManager.netBound
                 if (netBound != null) {
-                    val gameDataManager = netBound.gameDataManager
-                    if (gameDataManager.hasStartGameData()) {
-                        levelName = gameDataManager.getLevelName()
-                        levelId = gameDataManager.getLevelId()
-                        gameMode = gameDataManager.getGameMode()?.toString()
-                        vanillaVersion = gameDataManager.getVanillaVersion()
-                        uniqueEntityId = gameDataManager.getUniqueEntityId()
-                        runtimeEntityId = gameDataManager.getRuntimeEntityId()
-                        playerPosition = gameDataManager.getPlayerPosition()?.let {
+                    val dm = netBound.gameDataManager
+                    if (dm.hasStartGameData()) {
+                        levelName = dm.getLevelName()
+                        levelId = dm.getLevelId()
+                        gameMode = dm.getGameMode()?.toString()
+                        vanillaVersion = dm.getVanillaVersion()
+                        uniqueEntityId = dm.getUniqueEntityId()
+                        runtimeEntityId = dm.getRuntimeEntityId()
+                        playerPosition = dm.getPlayerPosition()?.let {
                             "X: ${it.x.toInt()}, Y: ${it.y.toInt()}, Z: ${it.z.toInt()}"
                         }
-                        rotation = gameDataManager.getRotation()
-                        seed = gameDataManager.getSeed()
-                        spawnBiomeType = gameDataManager.getSpawnBiomeType()
-                        customBiomeName = gameDataManager.getCustomBiomeName()
-                        dimensionId = gameDataManager.getDimensionId()
-                        generatorId = gameDataManager.getGeneratorId()
-                        levelGameType = gameDataManager.getLevelGameType()
-                        difficulty = gameDataManager.getDifficulty()
-                        defaultSpawn = gameDataManager.getDefaultSpawn()?.let {
+                        rotation = dm.getRotation()
+                        seed = dm.getSeed()
+                        spawnBiomeType = dm.getSpawnBiomeType()
+                        customBiomeName = dm.getCustomBiomeName()
+                        dimensionId = dm.getDimensionId()
+                        generatorId = dm.getGeneratorId()
+                        levelGameType = dm.getLevelGameType()
+                        difficulty = dm.getDifficulty()
+                        defaultSpawn = dm.getDefaultSpawn()?.let {
                             "X: ${it.x}, Y: ${it.y}, Z: ${it.z}"
                         }
-                        achievementsDisabled = gameDataManager.getAchievementsDisabled()
-                        dayCycleStopTime = gameDataManager.getDayCycleStopTime()
-                        eduEditionOffers = gameDataManager.getEduEditionOffers()
-                        eduFeaturesEnabled = gameDataManager.getEduFeaturesEnabled()
-                        educationProductionId = gameDataManager.getEducationProductionId()
-                        rainLevel = gameDataManager.getRainLevel()
-                        lightningLevel = gameDataManager.getLightningLevel()
-                        platformLockedContentConfirmed = gameDataManager.getPlatformLockedContentConfirmed()
-                        multiplayerGame = gameDataManager.getMultiplayerGame()
-                        broadcastingToLan = gameDataManager.getBroadcastingToLan()
-                        xblBroadcastMode = gameDataManager.getXblBroadcastMode()
-                        platformBroadcastMode = gameDataManager.getPlatformBroadcastMode()
-                        commandsEnabled = gameDataManager.getCommandsEnabled()
-                        texturePacksRequired = gameDataManager.getTexturePacksRequired()
-                        experiments = gameDataManager.getExperiments()
-                        experimentsPreviouslyToggled = gameDataManager.getExperimentsPreviouslyToggled()
-                        bonusChestEnabled = gameDataManager.getBonusChestEnabled()
-                        startingWithMap = gameDataManager.getStartingWithMap()
-                        trustingPlayers = gameDataManager.getTrustingPlayers()
-                        defaultPlayerPermission = gameDataManager.getDefaultPlayerPermission()
-                        serverChunkTickRange = gameDataManager.getServerChunkTickRange()
-                        behaviorPackLocked = gameDataManager.getBehaviorPackLocked()
-                        resourcePackLocked = gameDataManager.getResourcePackLocked()
-                        fromLockedWorldTemplate = gameDataManager.getFromLockedWorldTemplate()
-                        usingMsaGamertagsOnly = gameDataManager.getUsingMsaGamertagsOnly()
-                        fromWorldTemplate = gameDataManager.getFromWorldTemplate()
-                        worldTemplateOptionLocked = gameDataManager.getWorldTemplateOptionLocked()
-                        onlySpawningV1Villagers = gameDataManager.getOnlySpawningV1Villagers()
-                        limitedWorldWidth = gameDataManager.getLimitedWorldWidth()
-                        limitedWorldHeight = gameDataManager.getLimitedWorldHeight()
-                        netherType = gameDataManager.getNetherType()
-                        eduSharedUriResource = gameDataManager.getEduSharedUriResource()
-                        forceExperimentalGameplay = gameDataManager.getForceExperimentalGameplay()
-                        chatRestrictionLevel = gameDataManager.getChatRestrictionLevel()
-                        disablingPlayerInteractions = gameDataManager.getDisablingPlayerInteractions()
-                        disablingPersonas = gameDataManager.getDisablingPersonas()
-                        disablingCustomSkins = gameDataManager.getDisablingCustomSkins()
-                        premiumWorldTemplateId = gameDataManager.getPremiumWorldTemplateId()
-                        trial = gameDataManager.getTrial()
-                        authoritativeMovementMode = gameDataManager.getAuthoritativeMovementMode()
-                        rewindHistorySize = gameDataManager.getRewindHistorySize()
-                        serverAuthoritativeBlockBreaking = gameDataManager.getServerAuthoritativeBlockBreaking()
-                        currentTick = gameDataManager.getCurrentTick()
-                        enchantmentSeed = gameDataManager.getEnchantmentSeed()
-                        blockPalette = gameDataManager.getBlockPalette()
-                        blockProperties = gameDataManager.getBlockProperties()
-                        itemDefinitions = gameDataManager.getItemDefinitions()
-                        multiplayerCorrelationId = gameDataManager.getMultiplayerCorrelationId()
-                        inventoriesServerAuthoritative = gameDataManager.getInventoriesServerAuthoritative()
-                        playerPropertyData = gameDataManager.getPlayerPropertyData()
-                        blockRegistryChecksum = gameDataManager.getBlockRegistryChecksum()
-                        worldTemplateId = gameDataManager.getWorldTemplateId()
-                        worldEditor = gameDataManager.getWorldEditor()
-                        clientSideGenerationEnabled = gameDataManager.getClientSideGenerationEnabled()
-                        emoteChatMuted = gameDataManager.getEmoteChatMuted()
-                        blockNetworkIdsHashed = gameDataManager.getBlockNetworkIdsHashed()
-                        createdInEditor = gameDataManager.getCreatedInEditor()
-                        exportedFromEditor = gameDataManager.getExportedFromEditor()
-                        networkPermissions = gameDataManager.getNetworkPermissions()
-                        hardcore = gameDataManager.getHardcore()
-                        serverId = gameDataManager.getServerId()
-                        worldId = gameDataManager.getWorldId()
-                        scenarioId = gameDataManager.getScenarioId()
-                        gamerules = gameDataManager.getGamerules()
-                        serverEngine = gameDataManager.getServerEngine()
-                        worldSpawn = gameDataManager.getWorldSpawn()?.let {
+                        achievementsDisabled = dm.getAchievementsDisabled()
+                        dayCycleStopTime = dm.getDayCycleStopTime()
+                        eduEditionOffers = dm.getEduEditionOffers()
+                        eduFeaturesEnabled = dm.getEduFeaturesEnabled()
+                        educationProductionId = dm.getEducationProductionId()
+                        rainLevel = dm.getRainLevel()
+                        lightningLevel = dm.getLightningLevel()
+                        platformLockedContentConfirmed = dm.getPlatformLockedContentConfirmed()
+                        multiplayerGame = dm.getMultiplayerGame()
+                        broadcastingToLan = dm.getBroadcastingToLan()
+                        xblBroadcastMode = dm.getXblBroadcastMode()
+                        platformBroadcastMode = dm.getPlatformBroadcastMode()
+                        commandsEnabled = dm.getCommandsEnabled()
+                        texturePacksRequired = dm.getTexturePacksRequired()
+                        experiments = dm.getExperiments()
+                        experimentsPreviouslyToggled = dm.getExperimentsPreviouslyToggled()
+                        bonusChestEnabled = dm.getBonusChestEnabled()
+                        startingWithMap = dm.getStartingWithMap()
+                        trustingPlayers = dm.getTrustingPlayers()
+                        defaultPlayerPermission = dm.getDefaultPlayerPermission()
+                        serverChunkTickRange = dm.getServerChunkTickRange()
+                        behaviorPackLocked = dm.getBehaviorPackLocked()
+                        resourcePackLocked = dm.getResourcePackLocked()
+                        fromLockedWorldTemplate = dm.getFromLockedWorldTemplate()
+                        usingMsaGamertagsOnly = dm.getUsingMsaGamertagsOnly()
+                        fromWorldTemplate = dm.getFromWorldTemplate()
+                        worldTemplateOptionLocked = dm.getWorldTemplateOptionLocked()
+                        onlySpawningV1Villagers = dm.getOnlySpawningV1Villagers()
+                        limitedWorldWidth = dm.getLimitedWorldWidth()
+                        limitedWorldHeight = dm.getLimitedWorldHeight()
+                        netherType = dm.getNetherType()
+                        eduSharedUriResource = dm.getEduSharedUriResource()
+                        forceExperimentalGameplay = dm.getForceExperimentalGameplay()
+                        chatRestrictionLevel = dm.getChatRestrictionLevel()
+                        disablingPlayerInteractions = dm.getDisablingPlayerInteractions()
+                        disablingPersonas = dm.getDisablingPersonas()
+                        disablingCustomSkins = dm.getDisablingCustomSkins()
+                        premiumWorldTemplateId = dm.getPremiumWorldTemplateId()
+                        trial = dm.getTrial()
+                        authoritativeMovementMode = dm.getAuthoritativeMovementMode()
+                        rewindHistorySize = dm.getRewindHistorySize()
+                        serverAuthoritativeBlockBreaking = dm.getServerAuthoritativeBlockBreaking()
+                        currentTick = dm.getCurrentTick()
+                        enchantmentSeed = dm.getEnchantmentSeed()
+                        blockPalette = dm.getBlockPalette()
+                        blockProperties = dm.getBlockProperties()
+                        itemDefinitions = dm.getItemDefinitions()
+                        multiplayerCorrelationId = dm.getMultiplayerCorrelationId()
+                        inventoriesServerAuthoritative = dm.getInventoriesServerAuthoritative()
+                        playerPropertyData = dm.getPlayerPropertyData()
+                        blockRegistryChecksum = dm.getBlockRegistryChecksum()
+                        worldTemplateId = dm.getWorldTemplateId()
+                        worldEditor = dm.getWorldEditor()
+                        clientSideGenerationEnabled = dm.getClientSideGenerationEnabled()
+                        emoteChatMuted = dm.getEmoteChatMuted()
+                        blockNetworkIdsHashed = dm.getBlockNetworkIdsHashed()
+                        createdInEditor = dm.getCreatedInEditor()
+                        exportedFromEditor = dm.getExportedFromEditor()
+                        networkPermissions = dm.getNetworkPermissions()
+                        hardcore = dm.getHardcore()
+                        serverId = dm.getServerId()
+                        worldId = dm.getWorldId()
+                        scenarioId = dm.getScenarioId()
+                        gamerules = dm.getGamerules()
+                        serverEngine = dm.getServerEngine()
+                        worldSpawn = dm.getWorldSpawn()?.let {
                             "X: ${it.x}, Y: ${it.y}, Z: ${it.z}"
                         }
                         hasData = true
@@ -256,7 +223,7 @@ fun HomeCategoryUi() {
                     hasData = false
                     isLoading = false
                 }
-            } catch (e: Exception) {
+            }.onFailure {
                 hasData = false
                 isLoading = false
             }
@@ -264,6 +231,7 @@ fun HomeCategoryUi() {
         }
     }
 
+    /* ===================== 布局（已迁移到 M3） ===================== */
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -276,301 +244,92 @@ fun HomeCategoryUi() {
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            val interactionSource2 = remember { MutableInteractionSource() }
-            val isPressed2 by interactionSource2.collectIsPressedAsState()
-
-            val animatedScale2 by animateFloatAsState(
-                targetValue = if (isPressed2) 0.98f else 1f,
-                animationSpec = tween(200),
-                label = "scale2"
-            )
-
-            Card(
+            /* 网络状态 */
+            ElevatedCard(
+                onClick = { /* TODO */ },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp) 
-                    .scale(animatedScale2)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                if (isPressed2) Color(0xFF10B981) else Color(0xFF374151),
-                                if (isPressed2) Color(0xFF06B6D4) else Color(0xFF4B5563)
-                            )
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable(
-                        interactionSource = interactionSource2,
-                        indication = null
-                    ) { /* Handle network status click */ },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isPressed2) Color(0xFF1F1F23) else Color(0xFF18181B)
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (isPressed2) 8.dp else 6.dp
-                )
+                    .height(48.dp)
             ) {
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    if (hasData) Color(0xFF10B981).copy(alpha = 0.1f) else Color(0xFFEF4444).copy(alpha = 0.1f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(20.dp),
-                            shape = CircleShape,
-                            color = if (hasData) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFEF4444).copy(alpha = 0.2f),
-                            shadowElevation = 1.dp
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (hasData) ir.alirezaivaz.tablericons.R.drawable.ic_wifi
-                                        else ir.alirezaivaz.tablericons.R.drawable.ic_wifi_off
-                                    ),
-                                    contentDescription = "网络详情",
-                                    tint = if (hasData) Color(0xFF10B981) else Color(0xFFEF4444),
-                                    modifier = Modifier.size(10.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        Column(
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = if (hasData) "已连接" else "未连接",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = if (hasData) "游戏记录可用" else "无游戏记录",
-                                color = Color(0xFFA1A1AA),
-                                fontSize = 8.sp,
-                                textAlign = TextAlign.Start
-                            )
-                        }
+                    Icon(
+                        imageVector = if (hasData) Icons.Outlined.Wifi else Icons.Outlined.WifiOff,
+                        contentDescription = null,
+                        tint = if (hasData) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = if (hasData) "已连接" else "未连接",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            text = if (hasData) "游戏记录可用" else "无游戏记录",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
 
-            
-            val interactionSource1 = remember { MutableInteractionSource() }
-            val isPressed1 by interactionSource1.collectIsPressedAsState()
-
-            val animatedScale1 by animateFloatAsState(
-                targetValue = if (isPressed1) 0.98f else 1f,
-                animationSpec = tween(200),
-                label = "scale1"
-            )
-
-            val animatedBorderColor by animateColorAsState(
-                targetValue = if (isPressed1) KitsuPrimary else Color(0xFF374151),
-                animationSpec = tween(200),
-                label = "borderColor1"
-            )
-
-            Card(
+            /* 版本详情 */
+            ElevatedCard(
+                onClick = { /* TODO */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .scale(animatedScale1)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                animatedBorderColor,
-                                animatedBorderColor.copy(alpha = 0.6f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable(
-                        interactionSource = interactionSource1,
-                        indication = null
-                    ) { /* Handle version info click */ },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isPressed1) Color(0xFF1F1F23) else Color(0xFF18181B)
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (isPressed1) 8.dp else 6.dp
-                )
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF2A2A2E).copy(alpha = 0.2f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                        .padding(10.dp)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(36.dp),
-                                shape = CircleShape,
-                                color = KitsuPrimary.copy(alpha = 0.2f),
-                                shadowElevation = 2.dp
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = ir.alirezaivaz.tablericons.R.drawable.ic_universe),
-                                        contentDescription = "Version Icon",
-                                        tint = KitsuPrimary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-
-                            Column {
-                                Text(
-                                    text = "游戏版本",
-                                    color = Color(0xFFA1A1AA),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = when {
-                                        isLoading -> "加载中..."
-                                        !hasData -> "无数据"
-                                        vanillaVersion.isNullOrEmpty() -> "未知"
-                                        else -> vanillaVersion!!
-                                    },
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "游戏版本",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = when {
+                                    isLoading -> "加载中…"
+                                    !hasData -> "无数据"
+                                    vanillaVersion.isNullOrEmpty() -> "未知"
+                                    else -> vanillaVersion!!
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(2.dp))
-
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = ir.alirezaivaz.tablericons.R.drawable.ic_device_gamepad_2),
-                                    contentDescription = "游戏模式",
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = gameMode ?: "未知模式",
-                                    color = Color(0xFFE5E7EB),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = ir.alirezaivaz.tablericons.R.drawable.ic_id),
-                                    contentDescription = "生物 ID",
-                                    tint = Color(0xFFF59E0B),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = "ID: ${uniqueEntityId ?: "N/A"}",
-                                    color = Color(0xFFE5E7EB),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (defaultPlayerPermission != null && defaultPlayerPermission != PlayerPermission.VISITOR)
-                                            ir.alirezaivaz.tablericons.R.drawable.ic_check
-                                        else
-                                            ir.alirezaivaz.tablericons.R.drawable.ic_x
-                                    ),
-                                    contentDescription = "Default Permissions",
-                                    tint = Color(0xFF8B5CF6),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = if (defaultPlayerPermission != null && defaultPlayerPermission != PlayerPermission.VISITOR) "权限: 开启" else "权限: 关闭",
-                                    color = Color(0xFFE5E7EB),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = ir.alirezaivaz.tablericons.R.drawable.ic_command),
-                                    contentDescription = "Command",
-                                    tint = Color(0xFF06B6D4),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = "命令: ${commandsEnabled ?: "N/A"}",
-                                    color = Color(0xFFE5E7EB),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        InfoRow(Icons.Outlined.Gamepad, "模式", gameMode ?: "未知")
+                        InfoRow(Icons.Outlined.Badge, "生物 ID", uniqueEntityId?.toString() ?: "N/A")
+                        InfoRow(
+                            if (defaultPlayerPermission != null && defaultPlayerPermission != false)
+                                Icons.Outlined.CheckCircle
+                            else Icons.Outlined.Block,
+                            "权限",
+                            if (defaultPlayerPermission != null && defaultPlayerPermission != false) "开启" else "关闭"
+                        )
+                        InfoRow(Icons.Outlined.Code, "命令", commandsEnabled?.toString() ?: "N/A")
                     }
                 }
             }
@@ -582,132 +341,52 @@ fun HomeCategoryUi() {
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val interactionSource3 = remember { MutableInteractionSource() }
-            val isPressed3 by interactionSource3.collectIsPressedAsState()
-
-            val animatedScale3 by animateFloatAsState(
-                targetValue = if (isPressed3) 0.98f else 1f,
-                animationSpec = tween(150),
-                label = "scale3"
-            )
-
-            Card(
+            /* 玩家列表 */
+            ElevatedCard(
+                onClick = { /* TODO */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .scale(animatedScale3)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                if (isPressed3) KitsuPrimary else Color(0xFF374151),
-                                if (isPressed3) Color(0xFF06B6D4) else Color(0xFF4B5563)
-                            )
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable(
-                        interactionSource = interactionSource3,
-                        indication = null
-                    ) { /* Handle player list click */ },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isPressed3) Color(0xFF1F1F23) else Color(0xFF18181B)
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (isPressed3) 8.dp else 6.dp
-                )
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(5.dp)
-                ) {
+                Box(Modifier.fillMaxSize().padding(8.dp)) {
                     PlayerListUI()
                 }
             }
 
-            val interactionSource4 = remember { MutableInteractionSource() }
-            val isPressed4 by interactionSource4.collectIsPressedAsState()
-
-            val animatedScale4 by animateFloatAsState(
-                targetValue = if (isPressed4) 0.98f else 1f,
-                animationSpec = tween(200),
-                label = "scale4"
-            )
-
-            Card(
+            /* 当前存档 */
+            ElevatedCard(
+                onClick = { /* TODO */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(36.dp)
-                    .scale(animatedScale4)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.horizontalGradient(
-                            colors = if (isPressed4)
-                                listOf(Color(0xFF8B5CF6).copy(alpha = 0.6f), Color(0xFF06B6D4).copy(alpha = 0.6f))
-                            else
-                                listOf(Color(0xFF374151), Color(0xFF4B5563))
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable(
-                        interactionSource = interactionSource4,
-                        indication = null
-                    ) { /* Handle level info click */ },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isPressed4) Color(0xFF1F1F23) else Color(0xFF18181B)
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (isPressed4) 8.dp else 6.dp
-                )
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        modifier = Modifier.size(18.dp),
-                        shape = CircleShape,
-                        color = Color(0xFF8B5CF6).copy(alpha = 0.2f),
-                        shadowElevation = 2.dp
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = ir.alirezaivaz.tablericons.R.drawable.ic_world),
-                                contentDescription = "Level Icon",
-                                tint = Color(0xFF8B5CF6),
-                                modifier = Modifier.size(10.dp)
-                            )
-                        }
-                    }
-
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "当前存档",
-                            color = Color(0xFFA1A1AA),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Medium
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = when {
-                                isLoading -> "加载中..."
+                                isLoading -> "加载中…"
                                 !hasData -> "无存档记录"
                                 levelName.isNullOrEmpty() -> "未知存档"
                                 else -> levelName!!
                             },
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -715,5 +394,26 @@ fun HomeCategoryUi() {
                 }
             }
         }
+    }
+}
+
+/* ===================== 工具组件 ===================== */
+@Composable
+private fun InfoRow(icon: ImageVector, label: String, value: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = "$label: $value",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }

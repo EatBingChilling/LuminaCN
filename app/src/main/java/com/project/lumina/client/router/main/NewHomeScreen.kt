@@ -68,6 +68,7 @@ private const val KEY_PRIVACY_HASH = "privacy_hash"
 fun NewHomeScreen(onStartToggle: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val vm: MainScreenViewModel = viewModel()
     val model by vm.captureModeModel.collectAsState()
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
@@ -172,6 +173,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
 
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             NavigationBar {
                 listOf("主仪表盘" to Icons.Filled.Dashboard,
@@ -189,7 +191,32 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         },
         floatingActionButton = {
             if (tab == 0) FloatingActionButton(
-                onClick = onStartToggle,
+                onClick = {
+                    // Show snackbar only when starting the service
+                    if (!Services.isActive) {
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "服务正在启动...",
+                                actionLabel = "进入 Minecraft",
+                                duration = SnackbarDuration.Long
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                val intent = context.packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
+                                if (intent != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    SimpleOverlayNotification.show(
+                                        "未安装 Minecraft，请你手动进入你的客户端",
+                                        NotificationType.ERROR,
+                                        3000
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // Always call the toggle function
+                    onStartToggle()
+                },
                 containerColor = if (Services.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             ) {
                 Icon(
