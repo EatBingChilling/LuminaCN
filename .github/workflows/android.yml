@@ -3,7 +3,7 @@ name: Build APK Packages
 on:
   push:
     branches:
-      - main  # 当推送到 main 分支时触发
+      - v2.0.0  # 当推送到 main 分支时触发
 
 env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"  # 禁用 Gradle 守护进程
