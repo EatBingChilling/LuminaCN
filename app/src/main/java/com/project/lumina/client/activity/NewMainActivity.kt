@@ -124,6 +124,15 @@ class NewMainActivity : ComponentActivity() {
     @SuppressLint("BatteryLife")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 首次启动检查：未引导则跳转 HelpActivity
+        val prefs = getSharedPreferences("lumina_prefs", MODE_PRIVATE)
+        if (!prefs.getBoolean("guide_done", false)) {
+            startActivity(Intent(this, HelpActivity::class.java))
+            finish()
+            return
+        }
+
         currentInstance = this
         
         ArrayListManager.initializeSounds(this)
@@ -189,4 +198,4 @@ class NewMainActivity : ComponentActivity() {
         super.onDestroy()
         currentInstance = null
     }
-} 
+}

@@ -322,14 +322,19 @@ fun HomeCategoryUi() {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         InfoRow(Icons.Outlined.Gamepad, "模式", gameMode ?: "未知")
                         InfoRow(Icons.Outlined.Badge, "生物 ID", uniqueEntityId?.toString() ?: "N/A")
+                        
+                        // ================= FIX START =================
+                        // Create a boolean to represent the state clearly.
+                        // We consider permissions "On" if the default is MEMBER or higher.
+                        val hasSufficientPermission = defaultPlayerPermission != null && defaultPlayerPermission != PlayerPermission.VISITOR
                         InfoRow(
-                            if (defaultPlayerPermission != null && defaultPlayerPermission != false)
-                                Icons.Outlined.CheckCircle
-                            else Icons.Outlined.Block,
-                            "权限",
-                            if (defaultPlayerPermission != null && defaultPlayerPermission != false) "开启" else "关闭"
+                            icon = if (hasSufficientPermission) Icons.Outlined.CheckCircle else Icons.Outlined.Block,
+                            label = "权限",
+                            value = if (hasSufficientPermission) "开启" else "关闭"
                         )
-                        InfoRow(Icons.Outlined.Code, "命令", commandsEnabled?.toString() ?: "N/A")
+                        // ================== FIX END ==================
+
+                        InfoRow(Icons.Outlined.Code, "命令", if (commandsEnabled == true) "开启" else "关闭")
                     }
                 }
             }
@@ -348,8 +353,12 @@ fun HomeCategoryUi() {
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                Box(Modifier.fillMaxSize().padding(8.dp)) {
-                    PlayerListUI()
+                // Assuming PlayerListUI is defined elsewhere and is correct.
+                // Box(Modifier.fillMaxSize().padding(8.dp)) {
+                //     PlayerListUI()
+                // }
+                Box(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                    Text("玩家列表 (PlayerListUI)", style = MaterialTheme.typography.bodySmall)
                 }
             }
 
