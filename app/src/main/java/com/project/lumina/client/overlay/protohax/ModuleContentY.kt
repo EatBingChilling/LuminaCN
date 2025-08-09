@@ -152,8 +152,16 @@ private fun ModuleCard(element: Element) {
                 modifier = Modifier
                     .padding(10.dp)
             ) {
+                // START OF CHANGE
+                // 1. 优先读取 Element.displayNameResId 对应的 strings.xml 文案
+                // 2. 如 displayNameResId==null，则回退到 element.name
+                val displayName = element.displayNameResId?.let { resId ->
+                    stringResource(id = resId)
+                } ?: element.name
+
                 Text(
-                    element.name,
+                    text = displayName,
+                    // END OF CHANGE
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier,
                     color = if (element.isExpanded) contentColorFor(MaterialTheme.colorScheme.primary) else contentColorFor(

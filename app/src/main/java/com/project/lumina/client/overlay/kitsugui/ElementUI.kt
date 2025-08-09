@@ -24,7 +24,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Games
 import androidx.compose.material.icons.outlined.Shortcut
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,20 +61,11 @@ import com.project.lumina.client.constructors.IntValue
 import com.project.lumina.client.constructors.ListValue
 import com.project.lumina.client.overlay.manager.OverlayManager
 import java.util.Locale
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.view.KeyEvent
-import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.platform.LocalContext
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.project.lumina.client.constructors.KeyBindingManager
-import com.project.lumina.client.service.KeyCaptureService
-//... Existing imports
 import kotlin.math.roundToInt
+
+// Removed imports related to key binding:
+// BroadcastReceiver, Context, Intent, IntentFilter, KeyEvent, RadioButtonChecked,
+// DisposableEffect, LocalContext, LocalBroadcastManager, KeyBindingManager, KeyCaptureService
 
 @Composable
 fun ModuleContent(
@@ -103,7 +93,7 @@ private fun ModuleCard(
     onOpenSettings: ((Element) -> Unit)? = null
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    val deepBlue = Color(0xFF1E90FF) 
+    val deepBlue = Color(0xFF1E90FF)
 
     Card(
         modifier = Modifier
@@ -116,7 +106,7 @@ private fun ModuleCard(
             ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2A2A2A) 
+            containerColor = Color(0xFF2A2A2A)
         )
     ) {
         Box(
@@ -163,11 +153,11 @@ private fun ModuleCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // The settings button is kept
                         if (onOpenSettings != null) {
                             IconButton(
                                 onClick = {
                                     isExpanded = !isExpanded
-
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
@@ -182,7 +172,6 @@ private fun ModuleCard(
                     }
                 }
 
-                
                 if (isExpanded) {
                     Column(
                         modifier = Modifier
@@ -190,12 +179,11 @@ private fun ModuleCard(
                             .padding(bottom = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        
+
                         if (element.overlayShortcutButton != null) {
                             ShortcutContent(element)
                         }
 
-                        
                         element.values.forEach { value ->
                             when (value) {
                                 is BoolValue -> BoolValueContent(value)
@@ -208,9 +196,8 @@ private fun ModuleCard(
                 }
             }
 
-            
             val accentBarHeight by animateFloatAsState(
-                targetValue = if (isExpanded) 150f else 70f, 
+                targetValue = if (isExpanded) 150f else 70f,
                 animationSpec = tween(
                     durationMillis = 300,
                     easing = androidx.compose.animation.core.EaseInOutCubic
@@ -237,7 +224,7 @@ private fun ModuleCard(
     }
 }
 
-
+// ModuleShortcutContent remains unchanged as it's a different feature.
 @Composable
 private fun ModuleShortcutContent(element: Element) {
     Row(
@@ -294,6 +281,7 @@ private fun ModuleShortcutContent(element: Element) {
     }
 }
 
+// ChoiceValueContent remains unchanged
 @Composable
 private fun ChoiceValueContent(value: ListValue) {
     Column(
@@ -356,6 +344,7 @@ private fun ChoiceValueContent(value: ListValue) {
     }
 }
 
+// FloatValueContent remains unchanged
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FloatValueContent(value: FloatValue) {
@@ -446,6 +435,7 @@ private fun FloatValueContent(value: FloatValue) {
     }
 }
 
+// IntValueContent remains unchanged
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IntValueContent(value: IntValue) {
@@ -537,39 +527,9 @@ private fun IntValueContent(value: IntValue) {
     }
 }
 
+// MODIFIED: BoolValueContent with key binding functionality removed.
 @Composable
 private fun BoolValueContent(value: BoolValue) {
-    val context = LocalContext.current
-    var isBinding by remember { mutableStateOf(false) }
-
-    val keyEventReceiver = remember(isBinding) {
-        object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == KeyCaptureService.ACTION_KEY_EVENT) {
-                    val event = intent.getParcelableExtra<KeyEvent>(KeyCaptureService.EXTRA_KEY_EVENT)
-                    if (event != null && event.action == KeyEvent.ACTION_DOWN) {
-                        KeyBindingManager.setBinding(value.name, event.keyCode)
-                        isBinding = false
-                    }
-                }
-            }
-        }
-    }
-
-    DisposableEffect(isBinding) {
-        if (isBinding) {
-            LocalBroadcastManager.getInstance(context).registerReceiver(
-                keyEventReceiver,
-                IntentFilter(KeyCaptureService.ACTION_KEY_EVENT)
-            )
-        }
-        onDispose {
-            if (isBinding) {
-                LocalBroadcastManager.getInstance(context).unregisterReceiver(keyEventReceiver)
-            }
-        }
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -590,31 +550,24 @@ private fun BoolValueContent(value: BoolValue) {
             ),
             color = Color.White
         )
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { isBinding = true }) {
-                Icon(
-                    imageVector = if (isBinding) Icons.Default.RadioButtonChecked else Icons.Default.Games,
-                    contentDescription = "Bind Key",
-                    tint = if (isBinding) Color.Green else Color.Gray
-                )
-            }
-            Switch(
-                checked = value.value,
-                onCheckedChange = null,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    uncheckedThumbColor = Color.Gray,
-                    checkedTrackColor = Color(0xFF9C9C9C),
-                    uncheckedTrackColor = Color(0xFF4A4A4A),
-                    checkedBorderColor = Color.Transparent,
-                    uncheckedBorderColor = Color.Transparent
-                )
+        // The key binding IconButton has been removed from here.
+        // The Switch is now the only item on the right.
+        Switch(
+            checked = value.value,
+            onCheckedChange = null, // The toggleable modifier on the Row handles the change
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                uncheckedThumbColor = Color.Gray,
+                checkedTrackColor = Color(0xFF9C9C9C),
+                uncheckedTrackColor = Color(0xFF4A4A4A),
+                checkedBorderColor = Color.Transparent,
+                uncheckedBorderColor = Color.Transparent
             )
-        }
+        )
     }
 }
 
+// ShortcutContent remains unchanged
 @Composable
 private fun ShortcutContent(element: Element) {
     Row(

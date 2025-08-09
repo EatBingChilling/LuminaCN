@@ -7,12 +7,9 @@
 package com.project.lumina.client.router.main
 
 import android.app.Activity
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
-import android.view.KeyEvent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -32,19 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.project.lumina.client.R
 import com.project.lumina.client.constructors.*
 import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
 import com.project.lumina.client.overlay.mods.NotificationType
 import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
-import com.project.lumina.client.service.KeyCaptureService
 import com.project.lumina.client.service.Services
 import com.project.lumina.client.util.*
 import com.project.lumina.client.viewmodel.MainScreenViewModel
@@ -55,13 +49,16 @@ import java.net.URL
 import java.security.MessageDigest
 
 /* -------------------- 数据类 & 常量 -------------------- */
+// FIX: NoticeInfo's message field will be constructed from subtitle and content.
 data class NoticeInfo(val title: String, val message: String, val rawJson: String)
-data class UpdateInfo(val versionCode: Int, val versionName: String, val changelog: String, val url: String)
+// FIX: UpdateInfo fields updated to match server response from reference code.
+data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
 
 private const val BASE_URL = "http://110.42.63.51:39078/d/apps"
 private const val PREFS_NAME = "app_verification_prefs"
-private const val KEY_NOTICE = "notice_hash"
-private const val KEY_PRIVACY = "privacy_hash"
+// FIX: Updated SharedPreferences keys for clarity, matching reference code.
+private const val KEY_NOTICE_HASH = "notice_hash"
+private const val KEY_PRIVACY_HASH = "privacy_hash"
 
 /* ======================================================
    主入口：NewHomeScreen
@@ -88,43 +85,91 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
 
     var tab by remember { mutableIntStateOf(0) }
 
-    /* 验证流程 */
+    /* 验证流程 (FIX: Reworked verification logic to be more robust and correct JSON parsing) */
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
+            var allStepsSuccess = true
+
+            // Step 1: Check Server Status
             try {
-                step = 1; progress = 0.2f; delay(500); makeHttp("$BASE_URL/appstatus/a.ini")
-                step = 2; progress = 0.4f; delay(500)
-                makeHttp("$BASE_URL/title/a.json").let { resp ->
-                    if (getSHA(resp) != prefs.getString(KEY_NOTICE, "")) {
+                step = 1; msg = "步骤1: 连接服务器..."; progress = 0.2f; delay(500)
+                makeHttp("$BASE_URL/appstatus/a.ini") // We just need a 200 OK
+            } catch (e: Exception) {
+                err = "服务器连接失败: ${e.message}"
+                msg = "验证失败，将跳过检查..."
+                allStepsSuccess = false
+            }
+
+            // Step 2: Fetch Notice
+            if (allStepsSuccess) {
+                try {
+                    step = 2; msg = "步骤2: 获取公告..."; progress = 0.4f; delay(500)
+                    val resp = makeHttp("$BASE_URL/title/a.json")
+                    if (getSHA(resp) != prefs.getString(KEY_NOTICE_HASH, "")) {
                         val j = JSONObject(resp)
-                        notice = NoticeInfo(j.getString("title"), j.getString("message"), resp)
+                        // FIX: Correctly parse subtitle and content, not "message"
+                        val noticeMessage = "${j.optString("subtitle", "")}\n\n${j.getString("content")}"
+                        notice = NoticeInfo(j.getString("title"), noticeMessage, resp)
                     }
+                } catch (e: Exception) {
+                    // Non-critical error, just log and continue
+                    println("Failed to fetch notice: ${e.message}")
                 }
-                step = 3; progress = 0.6f; delay(500)
-                makeHttp("$BASE_URL/privary/a.txt").let { resp ->
-                    if (getSHA(resp) != prefs.getString(KEY_PRIVACY, "")) privacy = resp
+            }
+
+
+            // Step 3: Fetch Privacy Policy
+            if (allStepsSuccess) {
+                try {
+                    step = 3; msg = "步骤3: 获取隐私协议..."; progress = 0.6f; delay(500)
+                    val resp = makeHttp("$BASE_URL/privary/a.txt")
+                    if (getSHA(resp) != prefs.getString(KEY_PRIVACY_HASH, "")) {
+                        privacy = resp
+                    }
+                } catch (e: Exception) {
+                    err = "无法获取隐私协议: ${e.message}"
+                    msg = "验证失败，将跳过检查..."
+                    allStepsSuccess = false
                 }
-                step = 4; progress = 0.8f; delay(500)
-                makeHttp("$BASE_URL/update/a.json").let { resp ->
+            }
+
+
+            // Step 4: Check for Updates
+            if (allStepsSuccess) {
+                try {
+                    step = 4; msg = "步骤4: 检查更新..."; progress = 0.8f; delay(500)
+                    val resp = makeHttp("$BASE_URL/update/a.json")
                     val j = JSONObject(resp)
-                    @Suppress("DEPRECATION")
-                    val cur = context.packageManager.getPackageInfo(context.packageName, 0).versionCode
-                    if (j.getInt("versionCode") > cur) {
+                    val cloudVersion = j.getLong("version")
+                    val localVersion = getLocalVersionCode(context)
+
+                    if (cloudVersion > localVersion) {
                         update = UpdateInfo(
-                            j.getInt("versionCode"),
-                            j.getString("versionName"),
-                            j.getString("changelog"),
-                            j.getString("url")
+                            versionName = j.getString("name"),
+                            changelog = j.getString("update_content"),
+                            // The reference code hardcodes this URL, so we will too.
+                            url = "http://110.42.63.51:39078/apps/apks"
                         )
                     }
+                } catch (e: Exception) {
+                    // Non-critical error, just log and continue
+                    println("Failed to check for updates: ${e.message}")
                 }
-                progress = 1f; msg = "验证完成"; delay(800); isVerifying = false
-            } catch (e: Exception) {
-                err = e.message; msg = "验证失败，跳过..."; delay(1500); isVerifying = false
-                SimpleOverlayNotification.show("验证失败，应用可能工作不正常", NotificationType.ERROR, 3000)
+            }
+
+
+            // Finalization
+            progress = 1f
+            msg = if (allStepsSuccess) "验证完成" else "验证流程已跳过"
+            delay(800)
+            isVerifying = false
+
+            if (!allStepsSuccess && err != null) {
+                SimpleOverlayNotification.show(err ?: "验证失败，应用可能工作不正常", NotificationType.ERROR, 3000)
             }
         }
     }
+
 
     Scaffold(
         bottomBar = {
@@ -158,7 +203,6 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = {
-                    // FIX 1: Replaced deprecated SlideDirection with modern slide transitions.
                     if (targetState > initialState) {
                         slideInHorizontally { width -> width } + fadeIn() togetherWith
                                 slideOutHorizontally { width -> -width } + fadeOut()
@@ -197,13 +241,13 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             /* 弹窗 */
             privacy?.let {
                 PrivacyDialog(it, {
-                    prefs.edit().putString(KEY_PRIVACY, getSHA(it)).apply()
+                    prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(it)).apply()
                     privacy = null
                 }) { (context as? Activity)?.finish() }
             }
             notice?.let {
                 NoticeDialog(it) {
-                    prefs.edit().putString(KEY_NOTICE, getSHA(it.rawJson)).apply()
+                    prefs.edit().putString(KEY_NOTICE_HASH, getSHA(it.rawJson)).apply()
                     notice = null
                 }
             }
@@ -218,7 +262,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
 }
 
 /* ======================================================
-   页面内容（完整保留）
+   页面内容
    ====================================================== */
 @Composable
 private fun MainDashboard() {
@@ -242,12 +286,16 @@ private fun MainDashboard() {
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(16.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Surface(Modifier.size(48.dp), CircleShape, colors.primary.copy(alpha = 0.1f)) {
-                        Icon(Icons.Rounded.AccountCircle, null, Modifier.padding(8.dp).size(32.dp), tint = colors.primary)
+                        Icon(Icons.Rounded.AccountCircle, null, Modifier
+                            .padding(8.dp)
+                            .size(32.dp), tint = colors.primary)
                     }
                     Column {
                         Text("当前账户", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
@@ -285,7 +333,10 @@ private fun MainDashboard() {
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(16.dp).animateContentSize(),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .animateContentSize(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -304,25 +355,7 @@ private fun MainDashboard() {
             }
         }
 
-        Card(
-            Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = colors.surface),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(Modifier.padding(16.dp), Arrangement.spacedBy(12.dp)) {
-                Text("物理按键绑定", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                val elements = GameManager.elements
-                if (elements.none { it.values.any { v -> v is BoolValue } }) {
-                    Text("暂无可绑定的功能", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    elements.forEach { el ->
-                        el.values.filterIsInstance<BoolValue>().forEach { bool ->
-                            KeyBindingItem(bool, el)
-                        }
-                    }
-                }
-            }
-        }
+        // --- KEY BINDING SECTION REMOVED AS REQUESTED ---
     }
 }
 
@@ -364,7 +397,6 @@ private fun AboutPage() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // FIX 2: Used named arguments for `modifier` and `colors` to resolve ambiguity.
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
@@ -382,7 +414,6 @@ private fun AboutPage() {
             }
         }
 
-        // FIX 3: Used named arguments for `modifier` and `colors` here as well.
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
@@ -442,57 +473,7 @@ private fun ServerConfigSection(vm: MainScreenViewModel, model: com.project.lumi
     }
 }
 
-@Composable
-private fun KeyBindingItem(bool: BoolValue, element: Element) {
-    val ctx = LocalContext.current
-    var binding by remember { mutableStateOf(false) }
-    val colors = MaterialTheme.colorScheme
-
-    val receiver = remember {
-        object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, intent: Intent?) {
-                intent?.getParcelableExtra<KeyEvent>(KeyCaptureService.EXTRA_KEY_EVENT)?.let { ev ->
-                    if (ev.action == KeyEvent.ACTION_DOWN) {
-                        KeyBindingManager.setBinding(bool.name, ev.keyCode)
-                        binding = false
-                    }
-                }
-            }
-        }
-    }
-
-    DisposableEffect(binding) {
-        if (binding) LocalBroadcastManager.getInstance(ctx).registerReceiver(
-            receiver,
-            IntentFilter(KeyCaptureService.ACTION_KEY_EVENT)
-        )
-        onDispose { if (binding) LocalBroadcastManager.getInstance(ctx).unregisterReceiver(receiver) }
-    }
-
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("${element.name} - ${bool.name}", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                KeyBindingManager.getBinding(bool.name)?.let { "按键: ${KeyEvent.keyCodeToString(it)}" } ?: "未绑定",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconButton({ binding = !binding }) {
-                Icon(if (binding) Icons.Filled.Check else Icons.Filled.Keyboard, null)
-            }
-            Switch(
-                checked = bool.value,
-                onCheckedChange = { bool.value = it },
-                colors = SwitchDefaults.colors(checkedThumbColor = colors.primary)
-            )
-        }
-    }
-}
+// --- KeyBindingItem COMPOSABLE REMOVED ---
 
 @Composable
 private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onClick: () -> Unit) {
@@ -506,21 +487,6 @@ private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, te
     ) {
         Icon(icon, text, tint = MaterialTheme.colorScheme.primary)
         Text(text, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
-private fun SocialMediaIcon(icon: Any, label: String, onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.clickable(onClick = onClick).padding(8.dp)
-    ) {
-        when (icon) {
-            is androidx.compose.ui.graphics.painter.Painter -> Icon(icon, label, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-            is androidx.compose.ui.graphics.vector.ImageVector -> Icon(icon, label, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -557,7 +523,9 @@ private fun NoticeDialog(info: NoticeInfo, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(info.title) },
-        text = { Text(info.message, Modifier.verticalScroll(rememberScrollState()).heightIn(max = 300.dp)) },
+        text = { Text(info.message, Modifier
+            .verticalScroll(rememberScrollState())
+            .heightIn(max = 300.dp)) },
         confirmButton = { Button(onDismiss) { Text("我已了解") } }
     )
 }
@@ -567,7 +535,9 @@ private fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("发现新版本: ${info.versionName}") },
-        text = { Text(info.changelog, Modifier.verticalScroll(rememberScrollState()).heightIn(max = 200.dp)) },
+        text = { Text(info.changelog, Modifier
+            .verticalScroll(rememberScrollState())
+            .heightIn(max = 200.dp)) },
         confirmButton = { Button(onUpdate) { Text("立即更新") } },
         dismissButton = { TextButton(onDismiss) { Text("稍后") } }
     )
@@ -594,3 +564,13 @@ private fun getSHA(input: String): String =
         .digest(input.toByteArray())
         .joinToString("") { "%02x".format(it) }
 
+// FIX: Added robust version code getter from reference code.
+@Suppress("DEPRECATION")
+private fun getLocalVersionCode(context: Context): Long {
+    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+    return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        packageInfo.longVersionCode
+    } else {
+        packageInfo.versionCode.toLong()
+    }
+}

@@ -49,6 +49,14 @@ class OverlayShortcutButton(
 
     private val _layoutParams by lazy {
         super.layoutParams.apply {
+            // --- FIX START ---
+            // Add the FLAG_NOT_FOCUSABLE flag.
+            // This allows the overlay to receive touch events without stealing focus from the
+            // underlying application. This is crucial for multi-touch scenarios where one
+            // finger is on the game and another taps the overlay button.
+            flags = flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            // --- FIX END ---
+
             layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             windowAnimations = android.R.style.Animation_Toast
@@ -73,14 +81,15 @@ class OverlayShortcutButton(
         val baseColors = listOf(Color(0xFFFFFFFF), Color(0xFFE0E0E0), Color(0xFFFFFFFF))
         val shuffledColors = remember { baseColors.shuffled() }
 
-        val infiniteTransition = rememberInfiniteTransition()
+        val infiniteTransition = rememberInfiniteTransition(label = "gradient_transition")
         val gradientOffset by infiniteTransition.animateFloat(
             initialValue = 0f,
             targetValue = 100f,
             animationSpec = infiniteRepeatable(
                 animation = tween(2000, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
-            )
+            ), 
+            label = "gradient_offset"
         )
 
         val angleRad = Math.toRadians(45.0)

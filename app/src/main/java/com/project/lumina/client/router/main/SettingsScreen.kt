@@ -63,7 +63,7 @@ fun SettingsScreen() {
     var fastDnsEnabled           by remember { mutableStateOf(sp.getBoolean("fastDnsEnabled", false)) }
     var injectNekoPackEnabled    by remember { mutableStateOf(sp.getBoolean("injectNekoPackEnabled", false)) }
     var disableOverlay           by remember { mutableStateOf(sp.getBoolean("disableConnectionInfoOverlay", false)) }
-    var selectedGUI              by remember { mutableStateOf(sp.getString("selectedGUI", "KitsuGUI") ?: "KitsuGUI") }
+var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "ProtohaxUi") ?: "ProtohaxUi") }
     var selectedAppPackage       by remember { mutableStateOf(sp.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe") }
 
     var serverIp   by remember { mutableStateOf(captureModeModel.serverHostName) }

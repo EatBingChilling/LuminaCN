@@ -1,6 +1,5 @@
 package com.project.lumina.client.overlay.protohax
 
-
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedContent
@@ -32,10 +31,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import com.project.lumina.client.constructors.CheatCategory
+import com.project.lumina.client.overlay.kitsugui.HomeCategoryUi
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
+import com.project.lumina.client.ui.component.ConfigCategoryContent // <-- 1. 导入 ConfigCategoryContent
 import com.project.lumina.client.ui.component.NavigationRailX
-import com.project.lumina.client.ui.component.ConfigCategoryContent
 
 class ProtohaxUi : OverlayWindow() {
 
@@ -46,10 +46,8 @@ class ProtohaxUi : OverlayWindow() {
             if (Build.VERSION.SDK_INT >= 31) {
                 blurBehindRadius = 15
             }
-
             layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-
             dimAmount = 0.4f
             windowAnimations = android.R.style.Animation_Dialog
             width = WindowManager.LayoutParams.MATCH_PARENT
@@ -60,7 +58,7 @@ class ProtohaxUi : OverlayWindow() {
     override val layoutParams: WindowManager.LayoutParams
         get() = _layoutParams
 
-    private var selectedModuleCategory by mutableStateOf(CheatCategory.Motion)
+    private var selectedModuleCategory by mutableStateOf(CheatCategory.Home)
 
     @Composable
     override fun Content() {
@@ -90,43 +88,43 @@ class ProtohaxUi : OverlayWindow() {
                     NavigationRailX(
                         windowInsets = WindowInsets(8, 8, 8, 8)
                     ) {
-                        CheatCategory.entries
-                            .filter { it != CheatCategory.Config && it != CheatCategory.Home }
-                            .fastForEach { CheatCategory ->
+                        // 2. 移除 filter，让所有类别都显示在导航栏中
+                        CheatCategory.entries.fastForEach { cheatCategory ->
                             NavigationRailItem(
-                                selected = selectedModuleCategory === CheatCategory,
+                                selected = selectedModuleCategory === cheatCategory,
                                 onClick = {
-                                    if (selectedModuleCategory !== CheatCategory) {
-                                        selectedModuleCategory = CheatCategory
+                                    if (selectedModuleCategory !== cheatCategory) {
+                                        selectedModuleCategory = cheatCategory
                                     }
                                 },
                                 icon = {
                                     Icon(
-                                        painterResource(CheatCategory.iconResId),
+                                        painterResource(cheatCategory.iconResId),
                                         contentDescription = null
                                     )
                                 },
                                 label = {
-                                    Text(stringResource(CheatCategory.labelResId))
+                                    Text(stringResource(cheatCategory.labelResId))
                                 },
                                 alwaysShowLabel = true
                             )
                         }
                     }
                     VerticalDivider()
+
                     AnimatedContent(
                         targetState = selectedModuleCategory,
                         label = "animatedPage",
                         modifier = Modifier
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.surfaceContainer)
-                    ) { CheatCategory ->
+                    ) { targetCategory ->
                         Box(Modifier.fillMaxSize()) {
-
-                            if (selectedModuleCategory == com.project.lumina.client.constructors.CheatCategory.Config) {
-                                ConfigCategoryContent()
-                            } else {
-                                ModuleContentY(selectedModuleCategory)
+                            // 3. 在 when 语句中添加 Config 分支
+                            when (targetCategory) {
+                                CheatCategory.Home -> HomeCategoryUi()
+                                CheatCategory.Config -> ConfigCategoryContent()
+                                else -> ModuleContentY(targetCategory)
                             }
                         }
                     }
@@ -134,6 +132,4 @@ class ProtohaxUi : OverlayWindow() {
             }
         }
     }
-
 }
-
