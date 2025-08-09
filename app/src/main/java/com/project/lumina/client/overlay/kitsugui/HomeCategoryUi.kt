@@ -73,7 +73,10 @@ fun HomeCategoryUi() {
     var fromLockedWorldTemplate by remember { mutableStateOf<Boolean?>(null) }
     var usingMsaGamertagsOnly by remember { mutableStateOf<Boolean?>(null) }
     var fromWorldTemplate by remember { mutableStateOf<Boolean?>(null) }
-    var worldTemplateOptionLocked by remember { mutableStateStateOf<Boolean?>(null) }
+    // ================= FIX START =================
+    // Corrected the typo from mutableStateStateOf to mutableStateOf
+    var worldTemplateOptionLocked by remember { mutableStateOf<Boolean?>(null) }
+    // ================== FIX END ==================
     var onlySpawningV1Villagers by remember { mutableStateOf<Boolean?>(null) }
     var limitedWorldWidth by remember { mutableStateOf<Int?>(null) }
     var limitedWorldHeight by remember { mutableStateOf<Int?>(null) }
@@ -322,18 +325,14 @@ fun HomeCategoryUi() {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         InfoRow(Icons.Outlined.Gamepad, "模式", gameMode ?: "未知")
                         InfoRow(Icons.Outlined.Badge, "生物 ID", uniqueEntityId?.toString() ?: "N/A")
-                        
-                        // ================= FIX START =================
-                        // Create a boolean to represent the state clearly.
-                        // We consider permissions "On" if the default is MEMBER or higher.
+
                         val hasSufficientPermission = defaultPlayerPermission != null && defaultPlayerPermission != PlayerPermission.VISITOR
                         InfoRow(
                             icon = if (hasSufficientPermission) Icons.Outlined.CheckCircle else Icons.Outlined.Block,
                             label = "权限",
                             value = if (hasSufficientPermission) "开启" else "关闭"
                         )
-                        // ================== FIX END ==================
-
+                        
                         InfoRow(Icons.Outlined.Code, "命令", if (commandsEnabled == true) "开启" else "关闭")
                     }
                 }
@@ -369,7 +368,7 @@ fun HomeCategoryUi() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "主开发: Phoen1x_, 功能: 十一\n感谢你们的支持和鼓励",
+                        text = "开发者: Phoen1x_, 十一\n技术支持: 一剪沐橙",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
