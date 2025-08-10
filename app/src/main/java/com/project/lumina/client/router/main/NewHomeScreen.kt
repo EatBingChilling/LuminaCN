@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.*
 import org.json.JSONObject
@@ -53,9 +52,6 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     val settingsPrefs = remember { context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE) }
     val localIp = remember { ConnectionInfoOverlay.getLocalIpAddress(context) }
     var injectNekoPack by remember { mutableStateOf(settingsPrefs.getBoolean("injectNekoPackEnabled", false)) }
-    var showProgressDialog by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableFloatStateOf(0f) }
-    var currentPackName by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -86,15 +82,12 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                     context.startActivity(intent); delay(3000)
                     if (Services.isActive && !settingsPrefs.getBoolean("disableConnectionInfoOverlay", false)) ConnectionInfoOverlay.show(localIp)
                     Services.isLaunchingMinecraft = false
-                    try { when {
-                        injectNekoPack && PackSelectionManager.selectedPack != null -> PackSelectionManager.selectedPack?.let { pack ->
-                            currentPackName = pack.name; showProgressDialog = true; downloadProgress = 0f
-                            try { MCPackUtils.downloadAndOpenPack(context, pack) { p -> downloadProgress = p }; showProgressDialog = false }
-                            catch (e: Exception) { showProgressDialog = false; SimpleOverlayNotification.show("材质包下载失败: ${e.message}", NotificationType.ERROR) }
+                    try {
+                        when {
+                            injectNekoPack -> try { InjectNeko.injectNeko(context) {} } catch (e: Exception) { SimpleOverlayNotification.show("Neko 注入失败: ${e.message}", NotificationType.ERROR) }
+                            selectedGame == "com.mojang.minecraftpe" -> try { ServerInit.addMinecraftServer(context, localIp) } catch (e: Exception) { SimpleOverlayNotification.show("服务器初始化失败: ${e.message}", NotificationType.ERROR) }
                         }
-                        injectNekoPack -> try { InjectNeko.injectNeko(context) {} } catch (e: Exception) { SimpleOverlayNotification.show("Neko 注入失败: ${e.message}", NotificationType.ERROR) }
-                        selectedGame == "com.mojang.minecraftpe" -> try { ServerInit.addMinecraftServer(context, localIp) } catch (e: Exception) { SimpleOverlayNotification.show("服务器初始化失败: ${e.message}", NotificationType.ERROR) }
-                    } } catch (e: Exception) { SimpleOverlayNotification.show("一个未预料的错误发生: ${e.message}", NotificationType.ERROR) }
+                    } catch (e: Exception) { SimpleOverlayNotification.show("一个未预料的错误发生: ${e.message}", NotificationType.ERROR) }
                 } else SimpleOverlayNotification.show("游戏启动失败", NotificationType.ERROR)
             } else SimpleOverlayNotification.show("请在设置中选择一个游戏客户端", NotificationType.WARNING)
         }
@@ -108,10 +101,10 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         if (isLandscape) {
             Row(Modifier.fillMaxSize().padding(innerPadding)) {
                 AppNavigationRail(currentTab = tab, onTabSelected = { tab = it }, onStartToggle = launchStopAction)
-                MainContentArea(Modifier.weight(1f), tab, isVerifying, progress, msg, err, showProgressDialog, downloadProgress, currentPackName, privacy, notice, update, { p -> prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(p)).apply(); privacy = null }, { (context as? Activity)?.finish() }, { n -> prefs.edit().putString(KEY_NOTICE_HASH, getSHA(n.rawJson)).apply(); notice = null }, { u -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url))); update = null }, { update = null })
+                MainContentArea(Modifier.weight(1f), tab, isVerifying, progress, msg, err, privacy, notice, update, { p -> prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(p)).apply(); privacy = null }, { (context as? Activity)?.finish() }, { n -> prefs.edit().putString(KEY_NOTICE_HASH, getSHA(n.rawJson)).apply(); notice = null }, { u -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url))); update = null }, { update = null })
             }
         } else {
-            MainContentArea(Modifier.padding(innerPadding), tab, isVerifying, progress, msg, err, showProgressDialog, downloadProgress, currentPackName, privacy, notice, update, { p -> prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(p)).apply(); privacy = null }, { (context as? Activity)?.finish() }, { n -> prefs.edit().putString(KEY_NOTICE_HASH, getSHA(n.rawJson)).apply(); notice = null }, { u -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url))); update = null }, { update = null })
+            MainContentArea(Modifier.padding(innerPadding), tab, isVerifying, progress, msg, err, privacy, notice, update, { p -> prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(p)).apply(); privacy = null }, { (context as? Activity)?.finish() }, { n -> prefs.edit().putString(KEY_NOTICE_HASH, getSHA(n.rawJson)).apply(); notice = null }, { u -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url))); update = null }, { update = null })
         }
     }
 }
@@ -119,7 +112,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
 @Composable
 private fun MainContentArea(
     modifier: Modifier, currentTab: Int, isVerifying: Boolean, progress: Float, msg: String, err: String?,
-    showProgressDialog: Boolean, downloadProgress: Float, currentPackName: String, privacy: String?, notice: NoticeInfo?, update: UpdateInfo?,
+    privacy: String?, notice: NoticeInfo?, update: UpdateInfo?,
     onPrivacyAgreed: (String) -> Unit, onPrivacyDisagreed: () -> Unit, onNoticeDismissed: (NoticeInfo) -> Unit,
     onUpdate: (UpdateInfo) -> Unit, onUpdateDismissed: () -> Unit
 ) {
@@ -133,16 +126,6 @@ private fun MainContentArea(
                 Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
                     LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.width(200.dp)); Spacer(Modifier.height(16.dp))
                     Text(msg, style = MaterialTheme.typography.titleMedium); err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-            }
-        }
-        if (showProgressDialog) Dialog(onDismissRequest = {}) {
-            Card(modifier = Modifier.padding(16.dp).wrapContentSize()) {
-                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = "正在下载: $currentPackName", style = MaterialTheme.typography.titleMedium); Spacer(modifier = Modifier.height(8.dp))
-                    CircularProgressIndicator(progress = { downloadProgress }, modifier = Modifier.size(48.dp))
-                    Text(text = "${(downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium)
-                    Text(text = if (downloadProgress < 1f) "正在下载..." else "正在启动...", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -176,8 +159,7 @@ fun AppBottomNavigationBar(currentTab: Int, onTabSelected: (Int) -> Unit) {
 fun LaunchStopFAB(onClick: () -> Unit) {
     FloatingActionButton(onClick = onClick) {
         val icon = if (Services.isActive) Icons.Default.Stop else Icons.Default.PlayArrow
-        val description = if (Services.isActive) "停止" else "启动"
-        Icon(icon, contentDescription = description)
+        Icon(icon, contentDescription = if (Services.isActive) "停止" else "启动")
     }
 }
 
@@ -195,36 +177,15 @@ fun AppNavigationRail(currentTab: Int, onTabSelected: (Int) -> Unit, onStartTogg
 
 @Composable
 fun PrivacyDialog(content: String, onAgree: () -> Unit, onDisagree: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDisagree,
-        title = { Text("隐私协议") },
-        text = { Text(content, modifier = Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { Button(onClick = onAgree) { Text("同意") } },
-        dismissButton = { Button(onClick = onDisagree) { Text("不同意") } }
-    )
+    AlertDialog(onDismissRequest = onDisagree, title = { Text("隐私协议") }, text = { Text(content, modifier = Modifier.verticalScroll(rememberScrollState())) }, confirmButton = { Button(onClick = onAgree) { Text("同意") } }, dismissButton = { Button(onClick = onDisagree) { Text("不同意") } })
 }
 
 @Composable
 fun NoticeDialog(info: NoticeInfo, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(info.title) },
-        text = { Text(info.message, modifier = Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { Button(onClick = onDismiss) { Text("好的") } }
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(info.title) }, text = { Text(info.message, modifier = Modifier.verticalScroll(rememberScrollState())) }, confirmButton = { Button(onClick = onDismiss) { Text("好的") } })
 }
 
 @Composable
 fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("发现新版本: ${info.versionName}") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("更新日志:\n${info.changelog}")
-            }
-        },
-        confirmButton = { Button(onClick = onUpdate) { Text("立即更新") } },
-        dismissButton = { Button(onClick = onDismiss) { Text("稍后") } }
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("发现新版本: ${info.versionName}") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text("更新日志:\n${info.changelog}") } }, confirmButton = { Button(onClick = onUpdate) { Text("立即更新") } }, dismissButton = { Button(onClick = onDismiss) { Text("稍后") } })
 }
