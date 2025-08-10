@@ -38,19 +38,14 @@ import kotlinx.coroutines.launch
 class TargetHudOverlay : OverlayWindow() {
     private val _layoutParams by lazy {
         super.layoutParams.apply {
-            flags = flags or
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            flags = flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.CENTER
         }
     }
 
-    override val layoutParams: WindowManager.LayoutParams
-        get() = _layoutParams
+    override val layoutParams: WindowManager.LayoutParams get() = _layoutParams
 
     @Composable
     override fun Content() {
@@ -67,22 +62,19 @@ class TargetHudOverlay : OverlayWindow() {
 
     companion object {
         private var overlayInstance: TargetHudOverlay? = null
-        private var targetData by mutableStateof(TargetData())
+        // --- FIXED: Spelling corrected ---
+        private var targetData by mutableStateOf(TargetData())
         private var dismissalJob: Job? = null
 
-        // --- API RESTORED ---
         fun showTargetHud(
-            username: String,
-            image: Bitmap?,
-            distance: Float,
-            maxDistance: Float = 50f, // This param seems unused in original logic, but keeping for compatibility
-            hurtTime: Float = 0f
+            username: String, image: Bitmap?, distance: Float,
+            maxDistance: Float = 50f, hurtTime: Float = 0f
         ) {
-            // Internally, we map to our new data class
             targetData = TargetData(
                 username = username,
                 image = image,
                 distance = distance,
+                // --- FIXED: Mapped hurtTime to isHurt ---
                 isHurt = hurtTime > 0f,
                 isVisible = true
             )
@@ -102,7 +94,7 @@ class TargetHudOverlay : OverlayWindow() {
         fun dismissTargetHud() {
             targetData = targetData.copy(isVisible = false)
         }
-        
+
         fun isTargetHudVisible(): Boolean = targetData.isVisible
     }
 }
@@ -112,11 +104,7 @@ private data class TargetData(
     val image: Bitmap? = null,
     val distance: Float = 0f,
     val isHurt: Boolean = false,
-    val isVisible: Boolean = false,
-    // Add health/absorption if they become available from the caller
-    val health: Float = 20f,
-    val maxHealth: Float = 20f,
-    val absorption: Float = 0f
+    val isVisible: Boolean = false
 )
 
 @Composable
@@ -124,18 +112,15 @@ private fun TargetHudContent(
     targetData: TargetData,
     onDismissed: () -> Unit
 ) {
-    val (username, image, distance, isHurt, isVisible, health, maxHealth, absorption) = targetData
+    // --- FIXED: Destructuring to get isVisible correctly ---
+    val (username, image, distance, isHurt, isVisible) = targetData
 
-    val animatedHealth by animateFloatAsState(health / maxHealth, tween(600, easing = EaseOutCubic), label = "health")
-    val animatedAbsorption by animateFloatAsState(absorption / maxHealth, tween(600, easing = EaseOutCubic), label = "absorption")
     val animatedDistance by animateFloatAsState(distance, tween(600, easing = EaseOutCubic), label = "distance")
     val hurtScale by animateFloatAsState(if (isHurt) 0.95f else 1f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessHigh), label = "hurt_scale")
 
     val baseHue = remember(username) { (username.hashCode() % 360 + 360) % 360f }
     val primaryColor = remember(baseHue) { Color.hsv(baseHue, 0.7f, 0.95f) }
-    val secondaryColor = remember(baseHue) { Color.hsv((baseHue + 40) % 360, 0.8f, 0.9f) }
     val statusColor = remember(baseHue) { Color.hsv((baseHue + 90) % 360, 0.6f, 1f) }
-
     val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(isVisible) {
@@ -171,10 +156,8 @@ private fun TargetHudContent(
                         Text(text = username.take(2).uppercase(), style = MaterialTheme.typography.headlineSmall, color = primaryColor, fontWeight = FontWeight.Bold)
                     }
                 }
-
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(text = username, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    // The original didn't show health, so we use a distance bar instead.
                     DistanceBar(distancePercent = 1f - (animatedDistance / 50f).coerceIn(0f, 1f), color = primaryColor)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -192,9 +175,7 @@ private fun TargetHudContent(
 
 @Composable
 private fun DistanceBar(distancePercent: Float, color: Color) {
-    Box(
-        modifier = Modifier.fillMaxWidth().height(10.dp).clip(MaterialTheme.shapes.extraSmall).background(MaterialTheme.colorScheme.surfaceVariant)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().height(10.dp).clip(MaterialTheme.shapes.extraSmall).background(MaterialTheme.colorScheme.surfaceVariant)) {
         Box(Modifier.fillMaxWidth(distancePercent).fillMaxHeight().background(color))
     }
 }
@@ -206,19 +187,16 @@ private fun getDistanceStatus(distance: Float): String = when {
     else -> "远距离"
 }
 
-
 @Preview(showBackground = true, backgroundColor = 0xFF1C1B1F)
 @Composable
 private fun TargetHudPreview() {
     MaterialTheme {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            TargetHudContent(
-                targetData = TargetData(
-                    username = "ProGamer_1234", image = null, distance = 7.8f,
-                    isHurt = false, isVisible = true
-                ),
-                onDismissed = {}
-            )
-        }
+        TargetHudContent(
+            targetData = TargetData(
+                username = "ProGamer_1234", image = null, distance = 7.8f,
+                isHurt = false, isVisible = true
+            ),
+            onDismissed = {}
+        )
     }
 }

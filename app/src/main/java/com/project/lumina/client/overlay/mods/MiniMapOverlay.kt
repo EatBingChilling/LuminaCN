@@ -28,10 +28,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-// ... (The rest of the file is the same as the previous correct one)
-// I'll paste the full class to be safe.
-
-private data class MiniMapPosition(val x: Float, val y: Float)
+// --- Visibility FIXED: Changed from private-in-file to public ---
+data class Position(val x: Float, val y: Float)
 
 private const val minimapZoom = 1.0f
 private const val minimapDotSize = 3.5f
@@ -49,9 +47,9 @@ class MiniMapOverlay : OverlayWindow() {
     }
     override val layoutParams: WindowManager.LayoutParams get() = _layoutParams
 
-    private var centerPosition by mutableStateOf(MiniMapPosition(0f, 0f))
+    private var centerPosition by mutableStateOf(Position(0f, 0f))
     private var playerRotation by mutableStateOf(0f)
-    private var targets by mutableStateOf(listOf<MiniMapPosition>())
+    private var targets by mutableStateOf(listOf<Position>())
     private var minimapSize by mutableStateOf(120f)
     private var targetRotation by mutableStateOf(0f)
     private var rotationSmoothStep = 0.15f
@@ -75,9 +73,9 @@ class MiniMapOverlay : OverlayWindow() {
             if (enabled) showOverlay() else dismissOverlay()
         }
         fun isOverlayEnabled(): Boolean = shouldShowOverlay
-        fun setCenter(x: Float, y: Float) { overlayInstance.centerPosition = MiniMapPosition(x, y) }
+        fun setCenter(x: Float, y: Float) { overlayInstance.centerPosition = Position(x, y) }
         fun setPlayerRotation(rotation: Float) { overlayInstance.targetRotation = rotation }
-        fun setTargets(targetList: List<MiniMapPosition>) { overlayInstance.targets = targetList }
+        fun setTargets(targetList: List<Position>) { overlayInstance.targets = targetList }
         fun setMinimapSize(size: Float) { overlayInstance.minimapSize = size }
     }
 
@@ -99,7 +97,7 @@ class MiniMapOverlay : OverlayWindow() {
     }
 
     @Composable
-    private fun Minimap(center: MiniMapPosition, rotation: Float, targets: List<MiniMapPosition>, size: Float) {
+    private fun Minimap(center: Position, rotation: Float, targets: List<Position>, size: Float) {
         val dpSize = size.dp
         val rawRadius = size / 2
         val radius = rawRadius * minimapZoom
@@ -155,7 +153,7 @@ class MiniMapOverlay : OverlayWindow() {
                     val distance = sqrt(relX * relX + relY * relY) * scale
                     val dotRadius = minimapDotSize * minimapZoom
                     val angle = atan2(relY, relX) - rotation
-                    val clampedDistance = kotlin.math.min(distance, radius * 0.9f) // Fixed here
+                    val clampedDistance = kotlin.math.min(distance, radius * 0.9f)
                     val entityX = centerX + clampedDistance * sin(angle)
                     val entityY = centerY - clampedDistance * cos(angle)
                     drawCircle(color = if (distance < radius * 0.9f) entityCloseColor else entityFarColor, radius = dotRadius, center = Offset(entityX, entityY))

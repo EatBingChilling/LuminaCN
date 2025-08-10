@@ -3,6 +3,7 @@ package com.project.lumina.client.activity
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -27,25 +28,28 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.project.lumina.client.ui.theme.LuminaClientTheme
 
-// Activity 部分保持不变
+// --- Constants for page numbers to make logic clearer ---
+private const val STORAGE_PERMISSION_PAGE = 5
+private const val OVERLAY_PERMISSION_PAGE = 6
+private const val TOTAL_PAGES = 8
+
 class HelpActivity : ComponentActivity() {
 
     private val prefs by lazy {
         getSharedPreferences("lumina_prefs", MODE_PRIVATE)
     }
 
-    private val requestPermissionLauncher = registerForActivityResult(
+    // 将页面状态提升到 Activity 中，以便在 onResume 中控制它
+    private val currentPage = mutableStateOf(0)
+
+    // Launcher 的具体回调逻辑现在统一在 onResume 中处理
+    private val requestStoragePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { grantedMap ->
-        val allGranted = grantedMap.values.all { it }
-        if (allGranted || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-                    Environment.isExternalStorageManager())
-        ) {
-            prefs.edit().putBoolean("guide_done", true).apply()
-            startActivity(Intent(this, NewMainActivity::class.java))
-            finish()
-        }
-    }
+    ) { /* 结果在 onResume 中统一检查 */ }
+
+    private val requestSpecialPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { /* 结果在 onResume 中统一检查 */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,14 +62,46 @@ class HelpActivity : ComponentActivity() {
         setContent {
             LuminaClientTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
+                    // 将状态和事件处理函数传递给 Composable
                     GuidePages(
+                        currentPage = currentPage.value,
+                        onPageChange = { newPage -> currentPage.value = newPage },
                         onFinish = {
                             prefs.edit().putBoolean("guide_done", true).apply()
                             startActivity(Intent(this, NewMainActivity::class.java))
                             finish()
                         },
-                        onRequestPermission = { requestStoragePermissions() }
+                        onRequestStoragePermission = { requestStoragePermissions() },
+                        onRequestOverlayPermission = { requestOverlayPermission() }
                     )
+                }
+            }
+        }
+    }
+
+    // 实现 onResume 来处理从设置页返回的逻辑，实现自动翻页
+    override fun onResume() {
+        super.onResume()
+
+        // 检查当前是否停留在权限请求页面
+        when (currentPage.value) {
+            STORAGE_PERMISSION_PAGE -> {
+                // 检查存储权限是否已被授予
+                val storageGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Environment.isExternalStorageManager()
+                } else {
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                }
+                // 如果已授予，自动翻到下一页
+                if (storageGranted) {
+                    currentPage.value++
+                }
+            }
+            OVERLAY_PERMISSION_PAGE -> {
+                // 检查悬浮窗权限是否已被授予
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                    // 如果已授予，自动翻到下一页
+                    currentPage.value++
                 }
             }
         }
@@ -75,12 +111,8 @@ class HelpActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                intent.data = android.net.Uri.parse("package:$packageName")
-                // 建议使用 ActivityResultLauncher 来处理返回结果
-                startActivity(intent)
-            } else {
-                 // 如果已经有 MANAGE_EXTERNAL_STORAGE 权限，则直接认为是完成
-                // 您可以在 onResume 中检查权限并自动跳转
+                intent.data = Uri.parse("package:$packageName")
+                requestSpecialPermissionLauncher.launch(intent)
             }
         } else {
             val perms = arrayOf(
@@ -91,12 +123,23 @@ class HelpActivity : ComponentActivity() {
             }.toTypedArray()
 
             if (perms.isNotEmpty()) {
-                requestPermissionLauncher.launch(perms)
+                requestStoragePermissionLauncher.launch(perms)
+            }
+        }
+    }
+
+    private fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                requestSpecialPermissionLauncher.launch(intent)
             }
         }
     }
 }
-
 
 // =================================================================
 // ============== 以下是优化后的 Composable 函数 =====================
@@ -104,79 +147,98 @@ class HelpActivity : ComponentActivity() {
 
 @Composable
 private fun GuidePages(
+    currentPage: Int,
+    onPageChange: (Int) -> Unit,
     onFinish: () -> Unit,
-    onRequestPermission: () -> Unit
+    onRequestStoragePermission: () -> Unit,
+    onRequestOverlayPermission: () -> Unit
 ) {
     val context = LocalContext.current
-    var page by remember { mutableStateOf(0) }
-
-    // 总页数
-    val totalPages = 7
 
     val pages = listOf<@Composable () -> Unit>(
+        // Page 0
         {
             GuidePage(
                 title = "欢迎使用 LuminaCN",
-                subtitle = "由 MITM 原理驱动的 Minecraft 作弊客户端。"
+                subtitle = "一款功能强大的 Minecraft 辅助客户端，由 MITM 原理驱动。"
             )
         },
+        // Page 1
         {
             GuidePage(
                 title = "登录您的账号",
                 subtitle = "您需要先在 LuminaCN 的账号页中登录。请注意，不能在此应用内注册，即使只是注册 Xbox 游戏名。"
             )
         },
+        // Page 2
         {
             GuidePage(
                 title = "如何进入服务器？",
                 subtitle = "如果进入游戏后没有发现“进服选我”或局域网联机，则需要您手动添加一个服务器，IP 地址为 127.0.0.1，端口为 19132。"
             )
         },
+        // Page 3
         {
             GuidePage(
                 title = "连接问题排查",
                 subtitle = "无法连接服务器、登录失败或服务启动后崩溃？\n请检查您的网络连接并关闭所有 VPN 应用。我们对此类网络问题无法提供特定的解决方案。"
             )
         },
+        // Page 4
         {
             GuidePage(
                 title = "获取帮助与支持",
-                subtitle = "欢迎加入我们的社区，与其他玩家交流或寻求帮助。"
+                subtitle = "遇到问题？欢迎加入我们的社区，与其他玩家交流或寻求帮助。"
             ) {
-                // 这个 Column 确保按钮组本身是左对齐的
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     Button(onClick = {
                         context.startActivity(
-                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://qm.qq.com/q/Ny3wLbZwsi"))
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/Ny3wLbZwsi"))
                         )
                     }) { Text("加入 QQ 群聊") }
                     Button(onClick = {
                         context.startActivity(
-                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/EatBingChilling/LuminaCN"))
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/EatBingChilling/LuminaCN"))
                         )
                     }) { Text("访问 Github 仓库") }
                 }
             }
         },
+        // Page 5 (STORAGE_PERMISSION_PAGE)
         {
             var requested by remember { mutableStateOf(false) }
             GuidePage(
-                title = "请求权限",
-                subtitle = "我们需要存储权限来读取和保存配置文件，确保客户端功能的正常运行。"
+                title = "请求存储权限",
+                subtitle = "我们需要存储权限来读取和保存配置文件（如模块设置、好友列表等），确保客户端功能的正常运行。"
             ) {
                 Button(
                     onClick = {
-                        onRequestPermission()
+                        onRequestStoragePermission()
                         requested = true
                     }
-                ) { Text(if (requested) "已请求权限" else "授予存储权限") }
+                ) { Text(if (requested) "已请求，请在设置中授予" else "授予存储权限") }
             }
         },
+        // Page 6 (OVERLAY_PERMISSION_PAGE)
         {
-            // 最后一页保持居中，作为结束页
+            var requested by remember { mutableStateOf(false) }
+            GuidePage(
+                title = "请求悬浮窗权限",
+                subtitle = "为了在游戏界面上显示功能菜单（用于开启/关闭各种功能），我们需要悬浮窗权限。这是客户端核心功能之一。"
+            ) {
+                Button(
+                    onClick = {
+                        onRequestOverlayPermission()
+                        requested = true
+                    }
+                ) { Text(if (requested) "已请求，请在设置中授予" else "授予悬浮窗权限") }
+            }
+        },
+        // Page 7
+        {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -193,7 +255,6 @@ private fun GuidePages(
 
     Scaffold(
         topBar = {
-            // 顶部提示条保持居中，作为视觉焦点
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -215,35 +276,31 @@ private fun GuidePages(
             }
         },
         bottomBar = {
-            // 底部导航栏
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .navigationBarsPadding(), // 适配全面屏手势导航
+                    .navigationBarsPadding(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 上一页按钮
                 TextButton(
-                    onClick = { if (page > 0) page-- },
-                    enabled = page > 0
+                    onClick = { if (currentPage > 0) onPageChange(currentPage - 1) },
+                    enabled = currentPage > 0
                 ) {
                     Text("上一页")
                 }
 
-                // 页面指示器（居中）
                 Box(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    PageIndicator(totalPages = totalPages, currentPage = page)
+                    PageIndicator(totalPages = TOTAL_PAGES, currentPage = currentPage)
                 }
 
-                // 下一页/完成按钮
-                val isLastPage = page == pages.size - 1
+                val isLastPage = currentPage == pages.size - 1
                 TextButton(
                     onClick = {
-                        if (!isLastPage) page++ else onFinish()
+                        if (!isLastPage) onPageChange(currentPage + 1) else onFinish()
                     }
                 ) {
                     Text(if (isLastPage) "完成" else "下一页")
@@ -256,11 +313,11 @@ private fun GuidePages(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            // 内容区
-            pages[page]()
+            pages[currentPage]()
         }
     }
 }
+
 
 /**
  * Pixel 风格的页面指示器
