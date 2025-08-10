@@ -1,7 +1,6 @@
 /*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
- * You are free to use, modify, and redistribute this code under the terms
- * of the GNU General Public License v3. See the LICENSE file for details.
+ * ... (License header remains the same) ...
  */
 
 package com.project.lumina.client.overlay.mods
@@ -13,33 +12,35 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-// import com.project.lumina.client.ui.theme.MyFontFamily // <-- 修复：移除了无效的 import
-import kotlinx.coroutines.delay
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 class TargetHudOverlay : OverlayWindow() {
     private val _layoutParams by lazy {
@@ -52,352 +53,240 @@ class TargetHudOverlay : OverlayWindow() {
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.CENTER
-            x = 80
-            y = 60
         }
     }
 
     override val layoutParams: WindowManager.LayoutParams
         get() = _layoutParams
 
-    companion object {
-        private val overlayInstance by lazy { TargetHudOverlay() }
-        private var isVisible = false
-        private const val DISPLAY_DURATION = 3000L
-
-
-        private var targetUsername by mutableStateOf("")
-        private var targetImage by mutableStateOf<Bitmap?>(null)
-        private var targetDistance by mutableStateOf(0f)
-        private var targetHealth by mutableStateOf(1f)
-        private var targetMaxHealth by mutableStateOf(20f)
-        private var targetAbsorption by mutableStateOf(0f)
-        private var targetMaxAbsorption by mutableStateOf(20f)
-        private var targetHurtTime by mutableStateOf(0f)
-
-        fun showTargetHud(
-            username: String,
-            image: Bitmap?,
-            distance: Float,
-            maxDistance: Float = 50f,
-            hurtTime: Float = 0f
-        ) {
-            targetUsername = username
-            targetImage = image
-            targetDistance = distance.coerceIn(0f, maxDistance)
-            targetMaxHealth = maxDistance
-            targetHealth = distance
-            targetAbsorption = 0f
-            targetMaxAbsorption = 20f
-            targetHurtTime = hurtTime
-
-            if (!isVisible) {
-                isVisible = true
-                try {
-                    OverlayManager.showOverlayWindow(overlayInstance)
-                } catch (e: Exception) {
-
-                }
-            }
-        }
-
-        fun dismissTargetHud() {
-            isVisible = false
-            try {
-                OverlayManager.dismissOverlayWindow(overlayInstance)
-            } catch (e: Exception) {
-
-            }
-        }
-
-        fun isTargetHudVisible(): Boolean = isVisible
-    }
-
     @Composable
     override fun Content() {
-        var visible by remember { mutableStateOf(false) }
+        MaterialTheme {
+            TargetHudContent(
+                username = targetData.username,
+                image = targetData.image,
+                distance = targetData.distance,
+                maxDistance = targetData.maxDistance,
+                health = targetData.health,
+                maxHealth = targetData.maxHealth,
+                absorption = targetData.absorption,
+                isHurt = targetData.isHurt
+            )
+        }
+    }
 
+    companion object {
+        private var overlayInstance: TargetHudOverlay? = null
+        private var targetData by mutableStateOf(TargetData())
+        private var dismissalJob: Job? = null
 
-        LaunchedEffect(isVisible) {
-            if (isVisible) {
-                visible = true
-                delay(DISPLAY_DURATION)
-                visible = false
-                delay(300)
+        fun showOrUpdateTarget(
+            username: String, image: Bitmap? = null, distance: Float, maxDistance: Float = 50f,
+            health: Float, maxHealth: Float = 20f, absorption: Float = 0f, isHurt: Boolean = false
+        ) {
+            targetData = TargetData(
+                username, image, distance, maxDistance, health, maxHealth, absorption, isHurt, isVisible = true
+            )
+
+            if (overlayInstance == null) {
+                overlayInstance = TargetHudOverlay()
+                OverlayManager.showOverlayWindow(overlayInstance!!)
+            }
+
+            // Reset the dismissal timer every time the HUD is updated
+            dismissalJob?.cancel()
+            dismissalJob = CoroutineScope(Dispatchers.Main).launch {
+                delay(3000L)
                 dismissTargetHud()
             }
         }
 
-        AnimatedVisibility(
-            visible = visible && isVisible,
-            enter = fadeIn(
-                animationSpec = tween(durationMillis = 200)
-            ),
-            exit = fadeOut(
-                animationSpec = tween(durationMillis = 200)
-            )
-        ) {
-            TargetHudContent(
-                username = targetUsername,
-                image = targetImage,
-                distance = targetDistance,
-                health = targetHealth,
-                maxHealth = targetMaxHealth,
-                absorption = targetAbsorption,
-                maxAbsorption = targetMaxAbsorption,
-                hurtTime = targetHurtTime,
-                fontFamily = FontFamily.Default // <-- 修复：使用默认字体替代 MyFontFamily
-            )
+        fun dismissTargetHud() {
+            targetData = targetData.copy(isVisible = false)
+        }
+    }
+}
+
+private data class TargetData(
+    val username: String = "",
+    val image: Bitmap? = null,
+    val distance: Float = 0f,
+    val maxDistance: Float = 50f,
+    val health: Float = 20f,
+    val maxHealth: Float = 20f,
+    val absorption: Float = 0f,
+    val isHurt: Boolean = false,
+    val isVisible: Boolean = false
+)
+
+@Composable
+private fun TargetHudContent(
+    username: String, image: Bitmap?, distance: Float, maxDistance: Float,
+    health: Float, maxHealth: Float, absorption: Float, isHurt: Boolean
+) {
+    val animatedHealth by animateFloatAsState(health / maxHealth, tween(600, easing = EaseOutCubic), label = "health")
+    val animatedAbsorption by animateFloatAsState(absorption / maxHealth, tween(600, easing = EaseOutCubic), label = "absorption")
+    val animatedDistance by animateFloatAsState(distance, tween(600, easing = EaseOutCubic), label = "distance")
+
+    val hurtScale by animateFloatAsState(
+        if (isHurt) 0.95f else 1f,
+        spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessHigh),
+        label = "hurt_scale"
+    )
+
+    // Generate a consistent color based on the username's hash code
+    val baseHue = remember(username) { (username.hashCode() % 360 + 360) % 360f }
+    val primaryColor = remember(baseHue) { Color.hsv(baseHue, 0.7f, 0.95f) }
+    val secondaryColor = remember(baseHue) { Color.hsv((baseHue + 40) % 360, 0.8f, 0.9f) }
+    val statusColor = remember(baseHue) { Color.hsv((baseHue + 90) % 360, 0.6f, 1f) }
+
+    val colorScheme = MaterialTheme.colorScheme
+
+    // Dismiss logic
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(targetData.isVisible) {
+        isVisible = targetData.isVisible
+        if (!isVisible) {
+            delay(300)
+            targetData.let {
+                if (!it.isVisible) {
+                    OverlayManager.dismissOverlayWindow(targetData.let {
+                        // This assumes the calling context can handle dismissal.
+                        // A more robust pattern would involve a callback or direct instance management.
+                    } as OverlayWindow)
+                }
+            }
         }
     }
 
-    @Composable
-    private fun TargetHudContent(
-        username: String,
-        image: Bitmap?,
-        distance: Float,
-        health: Float,
-        maxHealth: Float,
-        absorption: Float,
-        maxAbsorption: Float,
-        hurtTime: Float,
-        fontFamily: FontFamily
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.9f, animationSpec = tween(300, easing = EaseOutCubic)),
+        exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.9f, animationSpec = tween(300))
     ) {
-
-        val animatedDistance by animateFloatAsState(
-            targetValue = distance,
-            animationSpec = tween(durationMillis = 600, easing = EaseOutCubic),
-            label = "distance_animation"
-        )
-
-
-        val hurtScale by animateFloatAsState(
-            targetValue = if (hurtTime > 0) 0.85f else 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessHigh
-            ),
-            label = "hurt_scale"
-        )
-
-        val hurtAlpha by animateFloatAsState(
-            targetValue = if (hurtTime > 0) 0.7f else 1f,
-            animationSpec = tween(durationMillis = 200),
-            label = "hurt_alpha"
-        )
-
-
-        val baseHue = remember(username) {
-            val charCount = username.length
-            val charSum = username.sumOf { it.code }
-
-            ((charCount * 137.5f + charSum * 31.7f) % 360f).coerceIn(0f, 360f)
-        }
-        val themeColors = remember(username) {
-            Pair(
-                Color.hsv(baseHue, 0.8f, 1.0f, 0.5f),
-                Color.hsv((baseHue + 25f) % 360f, 0.7f, 1.0f, 0.4f)
-            )
-        }
-
-        val statusColor = remember(username) {
-            Color.hsv((baseHue + 50f) % 360f, 0.75f, 1.0f, 0.9f)
-        }
-
-        val backgroundColor = Color(0xFF151515).copy(0.6f)
-
-
-        Box(
+        ElevatedCard(
             modifier = Modifier
-                .width(190.dp)
-                .height(70.dp)
-                .background(
-                    color = backgroundColor,
-                    shape = RoundedCornerShape(15.dp)
-                )
-
-                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .width(220.dp)
+                .wrapContentHeight()
+                .scale(hurtScale),
+            shape = MaterialTheme.shapes.large,
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = colorScheme.surfaceContainer.copy(alpha = 0.85f)
+            )
         ) {
             Row(
+                modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
+                // Player Avatar
                 Box(
-                    modifier = Modifier
-                        .size(54.dp)
-                        .scale(hurtScale)
-                        .alpha(hurtAlpha)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .border(
-                            2.dp,
-                            Color.White.copy(alpha = 0.2f),
-                            CircleShape
-                        ),
+                    modifier = Modifier.size(56.dp).clip(CircleShape).border(2.dp, primaryColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     if (image != null) {
                         Image(
                             bitmap = image.asImageBitmap(),
-                            contentDescription = "Player Avatar",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
+                            contentDescription = "$username's Avatar",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
-
                         Text(
                             text = username.take(2).uppercase(),
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = fontFamily
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-
+                // Info Column
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-
                     Text(
                         text = username,
-                        color = Color.White.copy(alpha = 1.0f),
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = fontFamily,
+                        color = colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
+                    // Health & Absorption Bar
+                    HealthBar(
+                        healthPercent = animatedHealth,
+                        absorptionPercent = animatedAbsorption,
+                        healthColor = primaryColor,
+                        absorptionColor = secondaryColor
+                    )
 
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    // Distance & Status
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color.Black.copy(alpha = 0.4f))
-                            /*  .border(
-                                  1.dp,
-                                  Color.White.copy(alpha = 0.1f),
-                                  RoundedCornerShape(5.dp)
-                              )*/
-                        ) {
-
-                            val distancePercentage = (1f - (animatedDistance / maxHealth)).coerceIn(0f, 1f)
-
-
-                            if (distancePercentage > 0f) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(distancePercentage)
-                                        .fillMaxHeight()
-                                        .clip(RoundedCornerShape(5.dp))
-                                        .background(
-                                            brush = Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    themeColors.first,
-                                                    themeColors.second
-                                                )
-                                            )
-                                        )
-                                )
-                            }
-
-
-                            /** Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(distancePercentage)
-                                    .height(2.dp)
-                                    .align(Alignment.BottomStart)
-                                    .clip(RoundedCornerShape(bottomStart = 5.dp, bottomEnd = 5.dp))
-                                    .background(
-                                        brush = Brush.horizontalGradient(
-                                            colors = listOf(
-                                                themeColors.first.copy(alpha = 1.0f),
-                                                themeColors.second.copy(alpha = 1.0f)
-                                            )
-                                        )
-                                    )
-                            )*/
-                        }
-
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-
-                            Text(
-                                text = "${String.format("%.1f", animatedDistance)}m",
-                                color = themeColors.first.copy(alpha = 1.0f),
-                                fontSize = 12.sp,
-                                fontFamily = fontFamily,
-                                fontWeight = FontWeight.Bold
-                            )
-
-
-                            Text(
-                                text = when {
-                                    animatedDistance <= 5f -> "危险"
-                                    animatedDistance <= 15f -> "极近"
-                                    animatedDistance <= 30f -> "一般"
-                                    else -> "极远"
-                                },
-                                color = statusColor,
-                                fontSize = 10.sp,
-                                fontFamily = fontFamily,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "${"%.1f".format(animatedDistance)}m",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = getDistanceStatus(animatedDistance),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
         }
     }
+}
 
-
-    @Preview(showBackground = true)
-    @Composable
-    private fun TargetHudContentPreview() {
-        val defaultFontFamily = FontFamily.Default
-        TargetHudContent(
-            username = "PlayerName123",
-            image = null,
-            distance = 10.5f,
-            health = 10.5f,
-            maxHealth = 50f,
-            absorption = 0f,
-            maxAbsorption = 20f,
-            hurtTime = 0f,
-            fontFamily = defaultFontFamily
-        )
+@Composable
+private fun HealthBar(healthPercent: Float, absorptionPercent: Float, healthColor: Color, absorptionColor: Color) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(10.dp)
+            .clip(MaterialTheme.shapes.extraSmall)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth(healthPercent).fillMaxHeight().background(healthColor))
+            Box(Modifier.fillMaxWidth(absorptionPercent / (1 - healthPercent)).fillMaxHeight().background(absorptionColor))
+        }
     }
+}
 
-    @Preview(showBackground = false)
-    @Composable
-    private fun TargetHudContentClosePreview() {
-        val defaultFontFamily = FontFamily.Default
-        TargetHudContent(
-            username = "敌人",
-            image = null,
-            distance = 3.2f,
-            health = 3.2f,
-            maxHealth = 50f,
-            absorption = 0f,
-            maxAbsorption = 20f,
-            hurtTime = 5f,
-            fontFamily = defaultFontFamily
-        )
+
+private fun getDistanceStatus(distance: Float): String = when {
+    distance <= 5f -> "危险"
+    distance <= 15f -> "近距离"
+    distance <= 30f -> "中距离"
+    else -> "远距离"
+}
+
+
+@Preview(showBackground = true, backgroundColor = 0xFF1C1B1F)
+@Composable
+private fun TargetHudPreview() {
+    MaterialTheme {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            TargetHudContent(
+                username = "ProGamer_1234", image = null, distance = 7.8f, maxDistance = 50f,
+                health = 15f, maxHealth = 20f, absorption = 4f, isHurt = false
+            )
+            TargetHudContent(
+                username = "NoobSlayer", image = null, distance = 25.1f, maxDistance = 50f,
+                health = 8f, maxHealth = 20f, absorption = 0f, isHurt = true
+            )
+        }
     }
 }

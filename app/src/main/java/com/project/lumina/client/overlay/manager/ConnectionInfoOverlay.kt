@@ -38,9 +38,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,15 +54,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.project.lumina.client.application.AppContext
-import com.project.lumina.client.ui.theme.KitsuPrimary
 import kotlinx.coroutines.delay
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -75,12 +71,16 @@ object ConnectionInfoOverlay {
 
     fun show(ip: String, durationMs: Long = 10000) {
         val context = AppContext.instance
+        // Update the localIp with the latest value
         localIp = getLocalIpAddress(context)
         
         OverlayManager.showOverlayWindow(overlayInstance)
         
         Handler(Looper.getMainLooper()).postDelayed({
-            OverlayManager.dismissOverlayWindow(overlayInstance)
+            // Check if the window is still shown before dismissing
+            if (overlayInstance.isShowing) {
+                overlayInstance.dismissAnimated()
+            }
         }, durationMs)
     }
     
@@ -136,11 +136,20 @@ object ConnectionInfoOverlay {
             Log.e("ConnectionInfoOverlay", "Error getting IP address: ${e.message}")
         }
         
-        return "127.0.0.1" 
+        return "127.0.0.1"
     }
 }
 
 class ConnectionInfoWindow : OverlayWindow() {
+    
+    // The state for dismissing must be internal to the window instance
+    private var isDismissing by mutableStateOf(false)
+    var isShowing by mutableStateOf(false)
+        private set
+    
+    fun dismissAnimated() {
+        isDismissing = true
+    }
     
     override val layoutParams by lazy {
         super.layoutParams.apply {
@@ -154,14 +163,12 @@ class ConnectionInfoWindow : OverlayWindow() {
     @Composable
     override fun Content() {
         var isVisible by remember { mutableStateOf(false) }
-        var isDismissing by remember { mutableStateOf(false) }
+        
+        // Use the instance's isDismissing state
+        val dismissTriggered = isDismissing
         
         val scale by animateFloatAsState(
-            targetValue = when {
-                isDismissing -> 0.8f
-                isVisible -> 1f
-                else -> 0.8f
-            },
+            targetValue = if (dismissTriggered || !isVisible) 0.8f else 1f,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
                 stiffness = Spring.StiffnessLow
@@ -170,21 +177,13 @@ class ConnectionInfoWindow : OverlayWindow() {
         )
         
         val alpha by animateFloatAsState(
-            targetValue = when {
-                isDismissing -> 0f
-                isVisible -> 1f
-                else -> 0f
-            },
+            targetValue = if (dismissTriggered || !isVisible) 0f else 1f,
             animationSpec = tween(400, easing = FastOutSlowInEasing),
             label = "overlayAlpha"
         )
         
         val offsetY by animateFloatAsState(
-            targetValue = when {
-                isDismissing -> 50f
-                isVisible -> 0f
-                else -> -50f
-            },
+            targetValue = if (dismissTriggered) 50f else if (isVisible) 0f else -50f,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
                 stiffness = Spring.StiffnessMediumLow
@@ -192,123 +191,154 @@ class ConnectionInfoWindow : OverlayWindow() {
             label = "overlayOffsetY"
         )
         
-        LaunchedEffect(isDismissing) {
-            if (isDismissing) {
-                delay(400)
+        LaunchedEffect(dismissTriggered) {
+            if (dismissTriggered) {
+                delay(400) // Wait for animation to finish
                 ConnectionInfoOverlay.dismiss()
             }
         }
         
+        // Reset state when the composable enters composition
         LaunchedEffect(Unit) {
-            delay(100)
+            isShowing = true
+            isDismissing = false
             isVisible = true
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                isShowing = false
+            }
         }
         
         Box(
             modifier = Modifier.wrapContentSize(),
             contentAlignment = Alignment.Center
         ) {
-            Card(
+            // <<< MODIFIED: Using ElevatedCard for a modern MD3 look with tonal elevation
+            ElevatedCard(
                 modifier = Modifier
-                    .width(280.dp)
+                    .width(300.dp) // Slightly wider for better spacing
                     .wrapContentHeight()
                     .scale(scale)
                     .alpha(alpha)
-                    .padding(8.dp)
-                    .offset(y = offsetY.dp)
-                    .clip(RoundedCornerShape(16.dp)),
+                    .offset(y = offsetY.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xF2212121)
+                // <<< MODIFIED: Using theme colors for container and elevation
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // --- Title and Close Button ---
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Lumina 连接",
+                            text = "Lumina 连接信息",
+                            // <<< MODIFIED: Using MaterialTheme typography and colors
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold
                         )
-                        
                         IconButton(
-                            onClick = { isDismissing = true },
+                            onClick = { dismissAnimated() },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "关闭",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
+                                // <<< MODIFIED: Using theme color for icon
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                     
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
                     Divider(
-                        modifier = Modifier.padding(vertical = 2.dp),
-                        color = Color.White.copy(alpha = 0.3f)
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        // <<< MODIFIED: Using standard MD3 divider color
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Public,
-                            contentDescription = "IP地址",
-                            tint = KitsuPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "IP: 127.0.0.1",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                    }
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = "端口",
-                            tint = KitsuPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "端口: 19132",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                    }
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
+                    // --- IP Address Info ---
+                    InfoRow(
+                        icon = Icons.Default.Public,
+                        label = "IP 地址",
+                        // <<< FIXED: Display the actual local IP address
+                        value = ConnectionInfoOverlay.localIp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // --- Port Info ---
+                    InfoRow(
+                        icon = Icons.Default.Dns,
+                        label = "端口",
+                        value = "19132" // Minecraft PE default port
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // --- Instruction Text ---
                     Text(
-                        text = "在游戏里添加服务器 IP 127.0.0.1 端口 19132",
+                        // <<< FIXED: Dynamically insert IP and Port into instructions
+                        text = "请在游戏的服务器设置中，添加一个新服务器，" +
+                                "地址为 ${ConnectionInfoOverlay.localIp}，端口为 19132。",
+                        // <<< MODIFIED: Using theme typography and colors for secondary text
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                        fontSize = 12.sp
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
         }
     }
-} 
+}
+
+/**
+ * A reusable Composable for displaying an information row with an icon, label, and value.
+ * This improves code readability and consistency.
+ */
+@Composable
+private fun InfoRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            // <<< MODIFIED: Use primary theme color for icons
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}

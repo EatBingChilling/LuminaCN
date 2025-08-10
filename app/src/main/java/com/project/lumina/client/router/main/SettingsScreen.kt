@@ -11,9 +11,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.graphics.drawable.Drawable
 import android.widget.Toast
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,8 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.*
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -36,13 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.lumina.client.util.NetworkOptimizer
 import com.project.lumina.client.viewmodel.MainScreenViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.Socket
 
@@ -50,7 +46,6 @@ import java.net.Socket
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val mainScreenViewModel: MainScreenViewModel = viewModel()
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
@@ -58,30 +53,29 @@ fun SettingsScreen() {
     val sp = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
 
     /* ---------- 状态 ---------- */
-    var optimizeNetworkEnabled   by remember { mutableStateOf(sp.getBoolean("optimizeNetworkEnabled", false)) }
-    var priorityThreadsEnabled   by remember { mutableStateOf(sp.getBoolean("priorityThreadsEnabled", false)) }
-    var fastDnsEnabled           by remember { mutableStateOf(sp.getBoolean("fastDnsEnabled", false)) }
-    var injectNekoPackEnabled    by remember { mutableStateOf(sp.getBoolean("injectNekoPackEnabled", false)) }
-    var disableOverlay           by remember { mutableStateOf(sp.getBoolean("disableConnectionInfoOverlay", false)) }
-var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "ProtohaxUi") ?: "ProtohaxUi") }
-    var selectedAppPackage       by remember { mutableStateOf(sp.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe") }
+    var optimizeNetworkEnabled by remember { mutableStateOf(sp.getBoolean("optimizeNetworkEnabled", false)) }
+    var priorityThreadsEnabled by remember { mutableStateOf(sp.getBoolean("priorityThreadsEnabled", false)) }
+    var fastDnsEnabled by remember { mutableStateOf(sp.getBoolean("fastDnsEnabled", false)) }
+    var injectNekoPackEnabled by remember { mutableStateOf(sp.getBoolean("injectNekoPackEnabled", false)) }
+    var disableOverlay by remember { mutableStateOf(sp.getBoolean("disableConnectionInfoOverlay", false)) }
+    var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "ProtohaxUi") ?: "ProtohaxUi") }
+    var selectedAppPackage by remember { mutableStateOf(sp.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe") }
 
-    var serverIp   by remember { mutableStateOf(captureModeModel.serverHostName) }
+    var serverIp by remember { mutableStateOf(captureModeModel.serverHostName) }
     var serverPort by remember { mutableStateOf(captureModeModel.serverPort.toString()) }
 
-    var showPermission      by remember { mutableStateOf(false) }
-    var showServerDialog    by remember { mutableStateOf(false) }
-    var showAppDialog       by remember { mutableStateOf(false) }
+    var showPermission by remember { mutableStateOf(false) }
+    var showServerDialog by remember { mutableStateOf(false) }
+    var showAppDialog by remember { mutableStateOf(false) }
 
     var installedApps by remember { mutableStateOf<List<PackageInfo>>(emptyList()) }
 
     /* ---------- 工具函数 ---------- */
     fun saveBool(key: String, value: Boolean) = sp.edit().putBoolean(key, value).apply()
-    fun saveStr(key: String, value: String)   = sp.edit().putString(key, value).apply()
+    fun saveStr(key: String, value: String) = sp.edit().putString(key, value).apply()
 
     fun appName(pkg: String): String = try {
-        val pm = context.packageManager
-        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(pkg, 0)).toString()
     } catch (e: Exception) { pkg }
 
     fun appVer(pkg: String): String = try {
@@ -97,113 +91,83 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
         mainScreenViewModel.selectGame(selectedAppPackage)
         scope.launch(Dispatchers.IO) {
             installedApps = context.packageManager.getInstalledPackages(0)
-                // FIX 1: Safely handle nullable applicationInfo and check its properties.
                 .filter { packageInfo ->
                     packageInfo.applicationInfo?.let { appInfo ->
                         (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
                                 context.packageManager.getLaunchIntentForPackage(packageInfo.packageName) != null
                     } ?: false
                 }
-                .sortedBy { appName(it.packageName) }
+                .sortedBy { appName(it.packageName).lowercase() }
         }
     }
 
-    // FIX 2: Moved the 'Content' composable definition here, before it is called.
-    /* ---------- 内部组合 ---------- */
-    @Composable
-    fun Content() {
-        Card(
-            Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-        ) {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // This seems to be a custom DropdownMenu, not a standard one. It's defined below.
-                DropdownMenu(
-                    options = listOf("GraceGUI", "KitsuGUI", "ProtohaxUi", "ClickGUI"),
-                    selected = selectedGUI,
-                    onSelect = {
-                        selectedGUI = it
-                        saveStr("selectedGUI", it)
-                    }
-                )
-                Divider()
-                SettingToggle("增强网络", "提高网络性能", optimizeNetworkEnabled) {
-                    optimizeNetworkEnabled = it // Update state immediately for responsiveness
-                    if (it) {
-                        scope.launch(Dispatchers.IO) {
-                            if (NetworkOptimizer.init(context)) {
-                                saveBool("optimizeNetworkEnabled", true)
-                                NetworkOptimizer.optimizeSocket(Socket())
-                            } else {
-                                scope.launch(Dispatchers.Main) {
-                                    showPermission = true
-                                    optimizeNetworkEnabled = false // Revert state if permission is denied/needed
-                                }
-                            }
-                        }
-                    } else saveBool("optimizeNetworkEnabled", false)
-                }
-                Divider()
-                SettingToggle("高优先级线程", "提升线程优先级", priorityThreadsEnabled) {
-                    priorityThreadsEnabled = it
-                    saveBool("priorityThreadsEnabled", it)
-                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.setThreadPriority() }
-                }
-                Divider()
-                SettingToggle("使用最快的 DNS", "使用 Google DNS", fastDnsEnabled) {
-                    fastDnsEnabled = it
-                    saveBool("fastDnsEnabled", it)
-                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.useFastDNS() }
-                }
-                Divider()
-                SettingToggle("注入 Neko Pack", "增强功能", injectNekoPackEnabled) {
-                    injectNekoPackEnabled = it
-                    saveBool("injectNekoPackEnabled", it)
-                }
-                Divider()
-                SettingToggle("禁用连接信息覆盖", "启动时不显示连接信息", disableOverlay) {
-                    disableOverlay = it
-                    saveBool("disableConnectionInfoOverlay", it)
-                }
-            }
-        }
-    }
-
-    /* ---------- UI ---------- */
-    val isPortrait = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+    /* ---------- UI 布局 ---------- */
+    val configuration = LocalConfiguration.current
+    val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
 
     Box(Modifier.fillMaxSize()) {
         if (isPortrait) {
+            // 竖屏布局：单列滚动
+            val scrollState = rememberScrollState()
             Column(
-                Modifier
+                modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-                    .verticalScroll(scrollState),
+                    .verticalScroll(scrollState)
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) { Content() }
+            ) {
+                GeneralSettingsCard(
+                    scope, context,
+                    selectedGUI, { selectedGUI = it; saveStr("selectedGUI", it) },
+                    optimizeNetworkEnabled, { optimizeNetworkEnabled = it; if (it) showPermission = !NetworkOptimizer.init(context); saveBool("optimizeNetworkEnabled", it) },
+                    priorityThreadsEnabled, { priorityThreadsEnabled = it; saveBool("priorityThreadsEnabled", it) },
+                    fastDnsEnabled, { fastDnsEnabled = it; saveBool("fastDnsEnabled", it) },
+                    injectNekoPackEnabled, { injectNekoPackEnabled = it; saveBool("injectNekoPackEnabled", it) },
+                    disableOverlay, { disableOverlay = it; saveBool("disableConnectionInfoOverlay", it) }
+                )
+                ManagementCards(
+                    serverIp, serverPort, { showServerDialog = true },
+                    selectedAppPackage, { showAppDialog = true },
+                    ::appName, ::appVer, ::appIcon
+                )
+            }
         } else {
+            // 横屏布局：双列滚动
             Row(
-                Modifier
+                modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                val scrollState1 = rememberScrollState()
                 Column(
-                    Modifier
+                    modifier = Modifier
                         .weight(1f)
-                        .verticalScroll(scrollState),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) { Content() }
-
-                Column(
-                    Modifier.weight(0.8f),
+                        .verticalScroll(scrollState1),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    ServerConfigCard(serverIp, serverPort) { showServerDialog = true }
-                    AppManagerCard(selectedAppPackage, { showAppDialog = true }, ::appName, ::appVer, ::appIcon)
+                    GeneralSettingsCard(
+                        scope, context,
+                        selectedGUI, { selectedGUI = it; saveStr("selectedGUI", it) },
+                        optimizeNetworkEnabled, { optimizeNetworkEnabled = it; if (it) showPermission = !NetworkOptimizer.init(context); saveBool("optimizeNetworkEnabled", it) },
+                        priorityThreadsEnabled, { priorityThreadsEnabled = it; saveBool("priorityThreadsEnabled", it) },
+                        fastDnsEnabled, { fastDnsEnabled = it; saveBool("fastDnsEnabled", it) },
+                        injectNekoPackEnabled, { injectNekoPackEnabled = it; saveBool("injectNekoPackEnabled", it) },
+                        disableOverlay, { disableOverlay = it; saveBool("disableConnectionInfoOverlay", it) }
+                    )
+                }
+                val scrollState2 = rememberScrollState()
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(scrollState2),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    ManagementCards(
+                        serverIp, serverPort, { showServerDialog = true },
+                        selectedAppPackage, { showAppDialog = true },
+                        ::appName, ::appVer, ::appIcon
+                    )
                 }
             }
         }
@@ -211,19 +175,15 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
 
     /* ---------- 弹窗 ---------- */
     if (showPermission) {
-        PermissionDialog(
-            onDismiss = { showPermission = false },
-            onRequest = {
-                NetworkOptimizer.openWriteSettingsPermissionPage(context)
-                showPermission = false
-            }
-        )
+        PermissionDialog(onDismiss = { showPermission = false }) {
+            NetworkOptimizer.openWriteSettingsPermissionPage(context)
+            showPermission = false
+        }
     }
 
     if (showServerDialog) {
         ServerConfigDialog(
-            initialIp = serverIp,
-            initialPort = serverPort,
+            initialIp = serverIp, initialPort = serverPort,
             onDismiss = { showServerDialog = false },
             onSave = { ip, port ->
                 serverIp = ip
@@ -234,9 +194,9 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
                     mainScreenViewModel.selectCaptureModeModel(
                         captureModeModel.copy(serverHostName = ip, serverPort = portInt)
                     )
-                    Toast.makeText(context, "服务器配置更新", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "服务器配置已更新", Toast.LENGTH_SHORT).show()
                 } catch (e: NumberFormatException) {
-                    Toast.makeText(context, "非法端口", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "端口号无效", Toast.LENGTH_SHORT).show()
                 }
             }
         )
@@ -244,24 +204,94 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
 
     if (showAppDialog) {
         AppSelectionDialog(
-            installedApps = installedApps,
-            selectedPkg = selectedAppPackage,
+            installedApps = installedApps, selectedPkg = selectedAppPackage,
             onDismiss = { showAppDialog = false },
-            onSelect = {
-                selectedAppPackage = it
-                saveStr("selectedAppPackage", it)
-                mainScreenViewModel.selectGame(it)
+            onSelect = { pkg ->
+                selectedAppPackage = pkg
+                saveStr("selectedAppPackage", pkg)
+                mainScreenViewModel.selectGame(pkg)
                 showAppDialog = false
-                Toast.makeText(context, "已选择：${appName(it)}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "已选择: ${appName(pkg)}", Toast.LENGTH_SHORT).show()
             },
-            ::appName,
-            ::appVer,
-            ::appIcon
+            ::appName, ::appVer, ::appIcon
         )
     }
 }
 
 /* =========================  内嵌组件  ========================= */
+
+@Composable
+private fun GeneralSettingsCard(
+    scope: CoroutineScope, context: Context,
+    selectedGUI: String, onGuiSelect: (String) -> Unit,
+    optimizeNetworkEnabled: Boolean, onOptimizeNetworkChange: (Boolean) -> Unit,
+    priorityThreadsEnabled: Boolean, onPriorityThreadsChange: (Boolean) -> Unit,
+    fastDnsEnabled: Boolean, onFastDnsChange: (Boolean) -> Unit,
+    injectNekoPackEnabled: Boolean, onInjectNekoPackChange: (Boolean) -> Unit,
+    disableOverlay: Boolean, onDisableOverlayChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
+            Text(
+                "通用设置",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            DropdownMenu(
+                options = listOf("GraceGUI", "KitsuGUI", "ProtohaxUi", "ClickGUI"),
+                selected = selectedGUI,
+                onSelect = onGuiSelect
+            )
+            Spacer(Modifier.height(8.dp))
+            Divider()
+            
+            SettingToggle("增强网络", "提高网络性能", optimizeNetworkEnabled) {
+                onOptimizeNetworkChange(it)
+                if (it) {
+                    scope.launch(Dispatchers.IO) {
+                        if (NetworkOptimizer.init(context)) {
+                            NetworkOptimizer.optimizeSocket(Socket())
+                        } else {
+                            scope.launch(Dispatchers.Main) {
+                                onOptimizeNetworkChange(false) // Revert state if permission is denied/needed
+                            }
+                        }
+                    }
+                }
+            }
+            Divider()
+            SettingToggle("高优先级线程", "提升线程优先级", priorityThreadsEnabled) {
+                onPriorityThreadsChange(it)
+                if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.setThreadPriority() }
+            }
+            Divider()
+            SettingToggle("使用最快的 DNS", "使用 Google DNS", fastDnsEnabled) {
+                onFastDnsChange(it)
+                if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.useFastDNS() }
+            }
+            Divider()
+            SettingToggle("注入 Neko Pack", "增强功能", injectNekoPackEnabled, onInjectNekoPackChange)
+            Divider()
+            SettingToggle("禁用连接信息覆盖", "启动时不显示连接信息", disableOverlay, onDisableOverlayChange)
+        }
+    }
+}
+
+@Composable
+private fun ManagementCards(
+    serverIp: String, serverPort: String, onServerClick: () -> Unit,
+    selectedAppPackage: String, onAppClick: () -> Unit,
+    appName: (String) -> String, appVer: (String) -> String, appIcon: (String) -> Drawable?
+) {
+    ServerConfigCard(serverIp, serverPort, onServerClick)
+    Spacer(Modifier.height(16.dp))
+    AppManagerCard(selectedAppPackage, onAppClick, appName, appVer, appIcon)
+}
+
 
 /* ---- SettingToggle ---- */
 @Composable
@@ -270,16 +300,21 @@ private fun SettingToggle(
     desc: String,
     checked: Boolean,
     onChange: (Boolean) -> Unit
-) = Row(
-    Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically
 ) {
-    Column(Modifier.weight(1f)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onChange(!checked) }
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f).padding(end = 16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = null) // Pass null as onChange is handled by the Row
     }
-    Switch(checked = checked, onCheckedChange = onChange)
 }
 
 /* ---- DropdownMenu ---- */
@@ -300,10 +335,10 @@ private fun DropdownMenu(
             onValueChange = {},
             readOnly = true,
             label = { Text("界面 GUI") },
+            leadingIcon = { Icon(Icons.Filled.Tune, contentDescription = "GUI 选择") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth()
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -331,9 +366,9 @@ private fun ServerConfigCard(ip: String, port: String, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
             Text("服务器配置", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Text("IP: $ip", style = MaterialTheme.typography.bodyMedium)
             Text("端口: $port", style = MaterialTheme.typography.bodyMedium)
         }
@@ -355,26 +390,26 @@ private fun AppManagerCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
             Text("应用管理器", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 icon(pkg)?.let {
                     Image(
                         bitmap = it.toBitmap(64, 64).asImageBitmap(),
                         contentDescription = null,
-                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
                     )
                 }
                 Column(Modifier.weight(1f)) {
                     Text(name(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("v${ver(pkg)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Icon(Icons.Default.Edit, contentDescription = "选择")
+                Icon(Icons.Default.ChevronRight, contentDescription = "选择应用")
             }
         }
     }
@@ -384,39 +419,30 @@ private fun AppManagerCard(
 /* ---- ServerConfigDialog ---- */
 @Composable
 private fun ServerConfigDialog(
-    initialIp: String,
-    initialPort: String,
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
+    initialIp: String, initialPort: String,
+    onDismiss: () -> Unit, onSave: (String, String) -> Unit
 ) {
-    var ip by remember { mutableStateOf(initialIp) }
-    var port by remember { mutableStateOf(initialPort) }
+    var ip by remember { mutableStateof(initialIp) }
+    var port by remember { mutableStateof(initialPort) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("服务器配置") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = ip,
-                    onValueChange = { ip = it },
-                    label = { Text("IP地址") },
-                    singleLine = true
+                    value = ip, onValueChange = { ip = it },
+                    label = { Text("IP地址") }, singleLine = true
                 )
                 OutlinedTextField(
-                    value = port,
-                    onValueChange = { port = it },
+                    value = port, onValueChange = { port = it },
                     label = { Text("端口") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
             }
         },
-        confirmButton = {
-            Button(onClick = { onSave(ip, port) }) { Text("保存") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
+        confirmButton = { Button(onClick = { onSave(ip, port) }) { Text("保存") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }
 
@@ -425,27 +451,20 @@ private fun ServerConfigDialog(
 private fun PermissionDialog(onDismiss: () -> Unit, onRequest: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Shield, contentDescription = null) },
         title = { Text("需要权限") },
         text = { Text("网络优化需要系统写入设置权限，是否前往设置页面授予？") },
-        confirmButton = {
-            Button(onClick = onRequest) { Text("前往") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
+        confirmButton = { Button(onClick = onRequest) { Text("前往") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }
 
 /* ---- AppSelectionDialog ---- */
 @Composable
 private fun AppSelectionDialog(
-    installedApps: List<PackageInfo>,
-    selectedPkg: String,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
-    name: (String) -> String,
-    ver: (String) -> String,
-    icon: (String) -> Drawable?
+    installedApps: List<PackageInfo>, selectedPkg: String,
+    onDismiss: () -> Unit, onSelect: (String) -> Unit,
+    name: (String) -> String, ver: (String) -> String, icon: (String) -> Drawable?
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -454,7 +473,7 @@ private fun AppSelectionDialog(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp) // Use heightIn for better adaptability
+                    .heightIn(max = 400.dp)
             ) {
                 items(installedApps, key = { it.packageName }) { pkgInfo ->
                     val p = pkgInfo.packageName
@@ -487,9 +506,7 @@ private fun AppSelectionDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
-        },
-        dismissButton = null // Only one button needed
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+        dismissButton = null
     )
 }

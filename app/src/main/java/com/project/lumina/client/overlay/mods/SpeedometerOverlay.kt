@@ -8,123 +8,73 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.project.lumina.client.constructors.NetBound
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
-import com.project.lumina.client.ui.theme.SMeterAccent
-import com.project.lumina.client.ui.theme.SMeterBase
-import com.project.lumina.client.ui.theme.SMeterBg
-import com.project.lumina.client.ui.theme.SMiniLineGrpah
-
-
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import org.cloudburstmc.math.vector.Vector3f
 import java.util.ArrayDeque
 import kotlin.math.sqrt
 
-
-data class LineData(val x: String, val y: Float)
+private data class LineData(val x: String, val y: Float)
 
 @Composable
-fun MiniLineGraph(
+private fun MiniLineGraph(
     modifier: Modifier = Modifier,
     data: List<LineData>,
-    lineColor: Color = Color(0xFF4B7BFF)
+    lineColor: Color,
+    gradientStartColor: Color,
+    gradientEndColor: Color
 ) {
-    val transition = rememberInfiniteTransition(label = "graphTransition")
-    val shimmerOffset by transition.animateFloat(
-        initialValue = -500f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmer"
-    )
-
     Canvas(modifier = modifier) {
-        if (data.isEmpty()) return@Canvas
+        if (data.size < 2) return@Canvas
 
-        val minY = data.minOfOrNull { it.y } ?: 0f
-        val maxY = data.maxOfOrNull { it.y }?.coerceAtLeast(minY + 1f) ?: 1f
-        val yRange = maxY - minY
-        val stepX = size.width / (data.size - 1).coerceAtLeast(1)
+        val minY = 0f // Start y-axis from 0 for consistency
+        val maxY = data.maxOfOrNull { it.y }?.coerceAtLeast(1f) ?: 1f
+        val stepX = size.width / (data.size - 1)
 
-        
-        drawRect(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color(0xFF4B7BFF).copy(alpha = 0f),
-                    Color(0xFF4B7BFF).copy(alpha = 0.1f),
-                    Color(0xFF4B7BFF).copy(alpha = 0f)
-                ),
-                start = Offset(shimmerOffset, 0f),
-                end = Offset(shimmerOffset + 100f, size.height)
-            )
-        )
-
-        
-        val path = Path()
-        val fillPath = Path()
-
-        data.forEachIndexed { index, point ->
-            val x = index * stepX
-            val y = size.height - ((point.y - minY) / yRange) * size.height
-
-            if (index == 0) {
-                path.moveTo(x, y)
-                fillPath.moveTo(x, size.height)
-                fillPath.lineTo(x, y)
-            } else {
-                path.lineTo(x, y)
-                fillPath.lineTo(x, y)
-            }
-
-            if (index == data.size - 1) {
-                fillPath.lineTo(x, size.height)
-                fillPath.close()
+        val path = Path().apply {
+            moveTo(0f, size.height - ((data.first().y - minY) / (maxY - minY)) * size.height)
+            data.drop(1).forEachIndexed { index, point ->
+                val x = (index + 1) * stepX
+                val y = size.height - ((point.y - minY) / (maxY - minY)) * size.height
+                lineTo(x, y)
             }
         }
 
-        
+        val fillPath = Path(path.asAndroidPath()).apply {
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+
         drawPath(
             path = fillPath,
             brush = Brush.verticalGradient(
-                colors = listOf(
-                    lineColor.copy(alpha = 0.15f),
-                    lineColor.copy(alpha = 0.0f)
-                )
+                colors = listOf(gradientStartColor, gradientEndColor)
             )
         )
 
-        
         drawPath(
             path = path,
             color = lineColor,
-            style = Stroke(
-                width = 2.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
-            )
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }
+
 
 class SpeedometerOverlay : OverlayWindow() {
     private val _layoutParams by lazy {
@@ -137,263 +87,200 @@ class SpeedometerOverlay : OverlayWindow() {
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.TOP or Gravity.END
-            x = 5
-            y = 50
+            x = 24
+            y = 100
         }
     }
 
     override val layoutParams: WindowManager.LayoutParams
         get() = _layoutParams
 
-    companion object {
-        private var overlayInstance: SpeedometerOverlay? = null
-        private var shouldShowOverlay = false
-        private var lastPosition: Vector3f? = null
-        private var lastUpdateTime: Long = 0L
-        private val scope = CoroutineScope(Dispatchers.Main)
-        private var currentSpeed by mutableStateOf(0.0f)
-        private val speedHistory = ArrayDeque<Double>(5)
-        private val graphData = ArrayDeque<LineData>(15)
-        private var averageSpeed by mutableStateOf(0.0f)
-        private const val SMOOTHING_ENABLED = true
-        private const val MAX_SPEED = 50f
-        private const val DEFAULT_SPEED = 1f
-
-        private fun getDefaultGraphData(): List<LineData> {
-            return List(15) { index ->
-                LineData(
-                    x = (index + 1).toString(),
-                    y = DEFAULT_SPEED
+    @Composable
+    override fun Content() {
+        MaterialTheme {
+            if (shouldShowOverlay) {
+                CompactSpeedometerDisplay(
+                    currentSpeed = currentSpeed,
+                    averageSpeed = averageSpeed,
+                    graphData = graphData.toList()
                 )
             }
         }
+    }
+
+    companion object {
+        private var overlayInstance: SpeedometerOverlay? = null
+        private var shouldShowOverlay = false
+
+        private var lastPosition: Vector3f? = null
+        private var lastUpdateTime: Long = 0L
+        private var currentSpeed by mutableStateOf(0.0f)
+        private val speedHistory = ArrayDeque<Double>(7) // Use a slightly larger window
+        private val graphData = ArrayDeque<LineData>(20) // More data points for a smoother graph
+        private var averageSpeed by mutableStateOf(0.0f)
+
+        private const val MAX_SPEED = 70f // Higher cap for speed
 
         fun showOverlay() {
             if (shouldShowOverlay) {
-                try {
-                    overlayInstance = overlayInstance ?: SpeedometerOverlay()
+                if (overlayInstance == null) {
+                    overlayInstance = SpeedometerOverlay()
                     OverlayManager.showOverlayWindow(overlayInstance!!)
-                } catch (e: Exception) {}
+                }
             }
         }
 
         fun dismissOverlay() {
-            try {
-                overlayInstance?.let { OverlayManager.dismissOverlayWindow(it) }
-            } catch (e: Exception) {}
+            overlayInstance?.let {
+                OverlayManager.dismissOverlayWindow(it)
+                overlayInstance = null
+            }
         }
 
-        fun setOverlayEnabled(enabled: Boolean, NetBound: NetBound? = null) {
+        fun setOverlayEnabled(enabled: Boolean, netBound: NetBound? = null) {
             shouldShowOverlay = enabled
-            if (enabled && NetBound != null) showOverlay() else dismissOverlay()
+            if (enabled && netBound != null) showOverlay() else dismissOverlay()
         }
 
         fun updatePosition(position: Vector3f) {
             val currentTime = System.currentTimeMillis()
             lastPosition?.let { lastPos ->
-                if (lastUpdateTime > 0L) {
+                if (lastUpdateTime > 0) {
                     val deltaTime = (currentTime - lastUpdateTime) / 1000f
                     if (deltaTime < 0.05f) return
-                    val dx = position.x - lastPos.x
-                    val dz = position.z - lastPos.z
-                    val distance = sqrt(dx * dx + dz * dz)
-                    if (distance.isNaN() || distance.isInfinite()) return
-                    val instantSpeed = distance / deltaTime
-                    if (instantSpeed.isNaN() || instantSpeed.isInfinite()) return
 
-                    val smoothedSpeed = if (SMOOTHING_ENABLED) {
-                        speedHistory.addLast(instantSpeed.toDouble())
-                        if (speedHistory.size > 5) {
-                            speedHistory.removeFirst()
-                        }
-                        val sortedSpeeds = speedHistory.sorted()
-                        if (sortedSpeeds.size >= 3) {
-                            sortedSpeeds.subList(1, sortedSpeeds.size - 1).average()
-                        } else {
-                            sortedSpeeds.average()
-                        }
-                    } else {
-                        instantSpeed.toDouble()
-                    }
-                    if (smoothedSpeed.isNaN() || smoothedSpeed.isInfinite()) return
-                    currentSpeed = smoothedSpeed.toFloat()
+                    val distance = position.distance(lastPos.x, position.y, lastPos.z)
+                    if (distance.isInvalid()) return
 
-                    val cappedSpeed = currentSpeed.coerceAtMost(MAX_SPEED)
+                    val instantSpeed = (distance / deltaTime).coerceAtMost(MAX_SPEED)
+                    if (instantSpeed.isInvalid()) return
 
-                    val dataPoint = LineData(
-                        x = (graphData.size + 1).toString(),
-                        y = cappedSpeed
-                    )
-                    graphData.addLast(dataPoint)
-                    if (graphData.size > 15) {
-                        graphData.removeFirst()
-                    }
+                    // Smoothing using a moving average
+                    speedHistory.addLast(instantSpeed.toDouble())
+                    if (speedHistory.size > 7) speedHistory.removeFirst()
+                    val smoothedSpeed = speedHistory.average().toFloat()
+                    if (smoothedSpeed.isInvalid()) return
 
-                    averageSpeed = if (graphData.isNotEmpty()) {
-                        graphData.map { it.y }.average().toFloat().takeIf { !it.isNaN() } ?: 0.0f
-                    } else {
-                        0.0f
-                    }
+                    currentSpeed = smoothedSpeed
+
+                    graphData.addLast(LineData(x = "", y = currentSpeed))
+                    if (graphData.size > 20) graphData.removeFirst()
+
+                    averageSpeed = graphData.map { it.y }.average().toFloat()
                 }
             }
             lastPosition = position
             lastUpdateTime = currentTime
         }
+
+        private fun Float.isInvalid() = this.isNaN() || this.isInfinite()
     }
+}
 
-    @Composable
-    override fun Content() {
-        if (!shouldShowOverlay) return
 
-        var visible by remember { mutableStateOf(false) }
+@Composable
+private fun CompactSpeedometerDisplay(
+    currentSpeed: Float,
+    averageSpeed: Float,
+    graphData: List<LineData>
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
 
-        LaunchedEffect(Unit) {
-            visible = true
-        }
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.8f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium),
+        label = "scale"
+    )
 
-        val scale by animateFloatAsState(
-            targetValue = if (visible) 1f else 0.8f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "scale"
-        )
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(300),
+        label = "alpha"
+    )
 
-        val alpha by animateFloatAsState(
-            targetValue = if (visible) 1f else 0f,
-            animationSpec = tween(300),
-            label = "alpha"
-        )
+    val animatedSpeed by animateFloatAsState(
+        targetValue = currentSpeed,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 150f),
+        label = "speedAnimation"
+    )
 
+    val colorScheme = MaterialTheme.colorScheme
+    val accentColor = colorScheme.primary
+
+    Row(
+        modifier = Modifier
+            .scale(scale)
+            .alpha(alpha)
+            .shadow(elevation = 8.dp, shape = MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.medium)
+            .background(colorScheme.surfaceContainer.copy(alpha = 0.85f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Speed Circle
         Box(
-            modifier = Modifier
-                .scale(scale)
-                .alpha(alpha)
+            modifier = Modifier.size(48.dp),
+            contentAlignment = Alignment.Center
         ) {
-            CompactSpeedometerDisplay(currentSpeed, graphData.toList(), averageSpeed)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = accentColor,
+                    style = Stroke(width = 3.dp.toPx()),
+                    alpha = 0.3f
+                )
+                drawArc(
+                    color = accentColor,
+                    startAngle = -90f,
+                    sweepAngle = (animatedSpeed / 50f).coerceIn(0f, 1f) * 360f,
+                    useCenter = false,
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            Text(
+                text = "%.1f".format(animatedSpeed),
+                style = MaterialTheme.typography.titleSmall,
+                color = colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Graph and Average Speed
+        Column(
+            modifier = Modifier.width(100.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val graphDataToShow = if (graphData.size < 2) {
+                listOf(LineData("", 0f), LineData("", 0f))
+            } else graphData
+
+            MiniLineGraph(
+                modifier = Modifier.fillMaxWidth().height(24.dp),
+                data = graphDataToShow,
+                lineColor = accentColor,
+                gradientStartColor = accentColor.copy(alpha = 0.3f),
+                gradientEndColor = accentColor.copy(alpha = 0.0f)
+            )
+
+            Text(
+                text = "平均: ${"%.1f".format(averageSpeed)} BPS",
+                style = MaterialTheme.typography.labelSmall,
+                color = colorScheme.onSurfaceVariant
+            )
         }
     }
+}
 
-    @Composable
-    private fun CompactSpeedometerDisplay(speed: Float, data: List<LineData>, avgSpeed: Float) {
-        val baseColor = SMeterBase
-        val accentColor = SMeterAccent
-        val backgroundColor = SMeterBg
-
-        
-        val animatedSpeed by animateFloatAsState(
-            targetValue = speed,
-            animationSpec = spring(dampingRatio = 0.6f, stiffness = 120f),
-            label = "speedAnimation"
+@Preview(showBackground = true, backgroundColor = 0xFF1C1B1F)
+@Composable
+private fun SpeedometerPreview() {
+    MaterialTheme {
+        CompactSpeedometerDisplay(
+            currentSpeed = 23.7f,
+            averageSpeed = 18.2f,
+            graphData = List(20) { LineData("", (10..30).random().toFloat()) }
         )
-
-        
-        val pulse = rememberInfiniteTransition(label = "pulseTransition")
-        val pulseScale by pulse.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(500, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "pulseScale"
-        )
-
-        Row(
-            modifier = Modifier
-                .shadow(4.dp, RoundedCornerShape(12.dp), ambientColor = baseColor.copy(alpha = 0.3f))
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            backgroundColor,
-                            backgroundColor.copy(alpha = 0.95f)
-                        )
-                    )
-                )
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                baseColor.copy(alpha = 0.2f),
-                                backgroundColor.copy(alpha = 0.1f)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                
-                Box(
-                    modifier = Modifier
-                        .size(24.dp * pulseScale)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    accentColor.copy(alpha = 0.8f),
-                                    accentColor.copy(alpha = 0f)
-                                )
-                            )
-                        )
-                )
-
-                
-                Text(
-                    text = "%.1f".format(animatedSpeed),
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-
-            
-            Spacer(modifier = Modifier.width(8.dp))
-
-            
-            Column(
-                modifier = Modifier.width(90.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                
-                val graphDataToShow = if (data.isNotEmpty() && data.all { !it.y.isNaN() && !it.y.isInfinite() }) {
-                    data
-                } else {
-                    getDefaultGraphData()
-                }
-
-                MiniLineGraph(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(20.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(SMiniLineGrpah),
-                    data = graphDataToShow,
-                    lineColor = accentColor
-                )
-
-                
-                Spacer(modifier = Modifier.height(2.dp))
-
-                
-                Text(
-                    text = "平均: ${String.format("%.1f", avgSpeed)} BPS",
-                    style = TextStyle(
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-        }
     }
 }

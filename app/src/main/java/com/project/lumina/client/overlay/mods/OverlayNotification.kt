@@ -1,30 +1,27 @@
 package com.project.lumina.client.overlay.mods
 
+import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.WindowManager
-import android.graphics.PixelFormat
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.project.lumina.client.ui.theme.*
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class OverlayNotification : OverlayWindow() {
 
@@ -36,8 +33,8 @@ class OverlayNotification : OverlayWindow() {
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.BOTTOM or Gravity.END
-            x = 20
-            y = 20
+            x = 24 // Adjusted for better screen padding
+            y = 24
             format = PixelFormat.TRANSLUCENT
         }
     }
@@ -47,7 +44,7 @@ class OverlayNotification : OverlayWindow() {
 
     companion object {
         private val notificationState = NotificationState()
-        private var isOverlayShowing = false
+        private var overlayInstance: OverlayNotification? = null
 
         /* 旧接口：保持零改动兼容 */
         fun addNotification(moduleName: String) = onModuleEnabled(moduleName)
@@ -59,51 +56,42 @@ class OverlayNotification : OverlayWindow() {
             ensureOverlayVisible()
         }
 
-        fun onModuleEnabled(moduleName: String) {
-            notificationState.addNotification(moduleName, ModuleAction.ENABLE)
-            ensureOverlayVisible()
-        }
-
-        fun onModuleDisabled(moduleName: String) {
-            notificationState.addNotification(moduleName, ModuleAction.DISABLE)
-            ensureOverlayVisible()
-        }
+        fun onModuleEnabled(moduleName: String) = addNotification(moduleName, true)
+        fun onModuleDisabled(moduleName: String) = addNotification(moduleName, false)
 
         private fun ensureOverlayVisible() {
-            if (isOverlayShowing) return
+            if (overlayInstance?.composeView?.isAttachedToWindow == true) return
             try {
-                OverlayManager.showOverlayWindow(OverlayNotification())
-                isOverlayShowing = true
+                val newInstance = OverlayNotification()
+                overlayInstance = newInstance
+                OverlayManager.showOverlayWindow(newInstance)
             } catch (_: Exception) {
             }
         }
 
         fun onOverlayDismissed() {
-            isOverlayShowing = false
+            overlayInstance = null
         }
     }
 
     @Composable
     override fun Content() {
         val notifications = notificationState.notifications
-        LaunchedEffect(notifications.size) {
+        // When the list becomes empty, schedule dismissal
+        LaunchedEffect(notifications.isEmpty()) {
             if (notifications.isEmpty()) {
-                delay(100)
+                delay(300) // Wait for exit animation to complete
                 OverlayManager.dismissOverlayWindow(this@OverlayNotification)
                 onOverlayDismissed()
             }
         }
 
         Box(
-            modifier = Modifier
-                .wrapContentSize()
-                .padding(0.dp),
+            modifier = Modifier.wrapContentSize(),
             contentAlignment = Alignment.BottomEnd
         ) {
             Column(
-                modifier = Modifier
-                    .wrapContentSize()
-                    .padding(end = 20.dp, bottom = 20.dp),
+                modifier = Modifier.wrapContentSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.End
             ) {
@@ -124,27 +112,48 @@ private fun NotificationCard(
     var visible by remember { mutableStateOf(false) }
     var exitState by remember { mutableStateOf(false) }
 
+    // Lifecycle of the notification card
     LaunchedEffect(item.id) {
-        delay(50); visible = true
-        delay(2000); exitState = true
-        delay(300); state.removeNotification(item.id)
+        delay(50)
+        visible = true // Animate in
+        delay(2500)
+        exitState = true // Animate out
+        delay(400)
+        state.removeNotification(item.id) // Remove from state
     }
 
-    val springSpec = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-    val offsetX by animateFloatAsState(if (exitState) 200f else if (visible) 0f else -200f, springSpec)
-    val scale   by animateFloatAsState(if (exitState) 0.8f else 1f, springSpec)
-    val alpha   by animateFloatAsState(if (visible && !exitState) 1f else 0f, tween(300, easing = FastOutSlowInEasing))
+    // Animation states
+    val springSpec = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
+    val offsetX by animateFloatAsState(
+        targetValue = if (exitState) 300f else if (visible) 0f else 300f,
+        animationSpec = springSpec,
+        label = "NotificationOffsetX"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (exitState) 0.8f else 1f,
+        animationSpec = springSpec,
+        label = "NotificationScale"
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (visible && !exitState) 1f else 0f,
+        animationSpec = tween(300, easing = FastOutSlowInEasing),
+        label = "NotificationAlpha"
+    )
 
+    // Progress bar animation
     val progressAnimation = remember { Animatable(1f) }
-    LaunchedEffect(Unit) { progressAnimation.animateTo(0f, tween(2500)) }
-
-    val accentColor = when (item.action) {
-        ModuleAction.ENABLE  -> ONotifAccent
-        ModuleAction.DISABLE -> Color(0xFFE53935)
+    LaunchedEffect(Unit) {
+        progressAnimation.animateTo(0f, tween(durationMillis = 2500, easing = LinearEasing))
     }
 
+    // --- MODIFIED: Use MaterialTheme colors for state indication ---
+    val colorScheme = MaterialTheme.colorScheme
+    val accentColor = when (item.action) {
+        ModuleAction.ENABLE -> colorScheme.primary
+        ModuleAction.DISABLE -> colorScheme.error
+    }
     val statusText = when (item.action) {
-        ModuleAction.ENABLE  -> "Enabled"
+        ModuleAction.ENABLE -> "Enabled"
         ModuleAction.DISABLE -> "Disabled"
     }
 
@@ -153,18 +162,19 @@ private fun NotificationCard(
             .offset(x = offsetX.dp)
             .alpha(alpha)
             .scale(scale)
-            .shadow(12.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
-            .width(140.dp)
-            .height(55.dp) // ✅ 高度减小
+            .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .width(180.dp) // Slightly wider for better text fit
+            .height(60.dp)
+            .background(colorScheme.surfaceContainerHigh.copy(alpha = 0.85f)) // Use a semi-transparent surface color
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ONotifBase.copy(alpha = 0.4f)) // ✅ 背景统一颜色，透明度 40%
-                .padding(10.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Top row: Module name and status indicator
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -172,42 +182,52 @@ private fun NotificationCard(
             ) {
                 Text(
                     text = item.moduleName,
-                    color = ONotifText,
-                    fontSize = 12.sp,
+                    // --- MODIFIED: Use MaterialTheme typography and colors ---
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f, fill = false) // Prevent text from pushing the dot
                 )
+                Spacer(Modifier.width(8.dp))
+                // Status dot
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
-                        .background(accentColor, RoundedCornerShape(3.dp))
+                        .size(8.dp)
+                        .background(accentColor, CircleShape)
                 )
             }
 
-            Text(
-                text = statusText,
-                color = ONotifText.copy(alpha = 0.8f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(ONotifProgressbar.copy(alpha = 0.3f), RoundedCornerShape(1.5.dp))
-            ) {
+            // Bottom row: Status text and progress bar
+            Column {
+                Text(
+                    text = statusText,
+                    // --- MODIFIED: Use MaterialTheme typography and colors ---
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                // Progress bar
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(progressAnimation.value)
-                        .height(3.dp)
-                        .background(
-                            brush = Brush.horizontalGradient(listOf(accentColor, accentColor.copy(alpha = 0.8f))),
-                            shape = RoundedCornerShape(1.5.dp)
-                        )
-                )
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(colorScheme.surfaceVariant)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progressAnimation.value)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(accentColor, accentColor.copy(alpha = 0.7f))
+                                )
+                            )
+                    )
+                }
             }
         }
     }
@@ -231,9 +251,10 @@ private class NotificationState {
 
     fun addNotification(moduleName: String, action: ModuleAction) {
         val key = "$moduleName-${action.name}"
-        if (key in activeKeys) return
+        if (key in activeKeys) return // Prevent duplicate notifications
         activeKeys.add(key)
 
+        // Limit the number of visible notifications
         if (_notifications.size >= 3) {
             val oldest = _notifications.removeFirst()
             activeKeys.remove("${oldest.moduleName}-${oldest.action.name}")
@@ -242,8 +263,29 @@ private class NotificationState {
     }
 
     fun removeNotification(id: Int) {
-        val item = _notifications.find { it.id == id } ?: return
-        _notifications.remove(item)
-        activeKeys.remove("${item.moduleName}-${item.action.name}")
+        _notifications.find { it.id == id }?.let { item ->
+            _notifications.remove(item)
+            activeKeys.remove("${item.moduleName}-${item.action.name}")
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun NotificationCardPreview() {
+    val state = remember { NotificationState() }
+    val item = NotificationItem(1, "Flight", ModuleAction.ENABLE)
+    val item2 = NotificationItem(2, "Kill Aura", ModuleAction.DISABLE)
+    
+    LaunchedEffect(Unit) {
+        state.addNotification("Flight", ModuleAction.ENABLE)
+        state.addNotification("Kill Aura", ModuleAction.DISABLE)
+    }
+
+    MaterialTheme {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            NotificationCard(item = item, state = state)
+            NotificationCard(item = item2, state = state)
+        }
     }
 }

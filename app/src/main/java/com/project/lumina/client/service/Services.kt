@@ -88,16 +88,11 @@ class Services : Service() {
             // 删除远程连接相关代码
             RemisOnline = false
 
-            
-            val isPortrait = context.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-            if (!RemisOnline && !isPortrait) {
+
+            // [MODIFIED] 修改悬浮窗显示逻辑，使其在竖屏和横屏都显示
+            if (!RemisOnline) {
                 handler.post {
                     OverlayManager.show(context)
-                }
-            } else if (!RemisOnline && isPortrait) {
-                handler.post {
-                    OverlayManager.dismiss()
-                    ConnectionInfoOverlay.dismiss()
                 }
             }
 
@@ -245,18 +240,15 @@ class Services : Service() {
         startService(restartServiceIntent)
     }
 
+    // [MODIFIED] 修改屏幕旋转逻辑，确保悬浮窗在竖屏和横屏下都能保持显示
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         if (!isActive || RemisOnline) return
 
-        val isPortrait = newConfig.orientation == Configuration.ORIENTATION_PORTRAIT
+        // 无论屏幕方向如何，只要服务是激活的，就确保悬浮窗显示
+        // 这可以防止从横屏转为竖屏时悬浮窗被隐藏
         handler.post {
-            if (isPortrait) {
-                OverlayManager.dismiss()
-                ConnectionInfoOverlay.dismiss()
-            } else {
-                OverlayManager.show(this)
-            }
+            OverlayManager.show(this)
         }
     }
 

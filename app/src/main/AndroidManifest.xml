@@ -61,8 +61,7 @@
         <!-- 启动入口 -->
         <activity
             android:name=".activity.NewMainActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
