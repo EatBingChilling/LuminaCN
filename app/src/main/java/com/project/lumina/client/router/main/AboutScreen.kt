@@ -354,7 +354,7 @@ fun AboutCard() {
                     )
                     
                     SocialMediaButton(
-                        icon = painterResource(id = R.drawable.ic_public),
+                        icon = painterResource(id = R.drawable.ic_github),
                         label = "官网",
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://lumina-cn.com"))

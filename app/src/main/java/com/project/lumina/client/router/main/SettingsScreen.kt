@@ -9,6 +9,7 @@ package com.project.lumina.client.router.main
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
+import android.content.res.Configuration
 import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.compose.animation.core.*
