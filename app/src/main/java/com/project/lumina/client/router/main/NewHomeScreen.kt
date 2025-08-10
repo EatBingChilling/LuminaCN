@@ -4,11 +4,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,209 +21,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.pm.PackageInfoCompat
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.security.MessageDigest
-
-//================================================================================//
-// FIX: PLACEHOLDER/STUB IMPLEMENTATIONS FOR MISSING CODE
-// The following classes, objects, and functions were created to resolve errors.
-// You should replace these with your actual project implementations.
-//================================================================================//
-
-// --- STUB: Utility Functions ---
-
-suspend fun makeHttp(urlString: String): String = withContext(Dispatchers.IO) {
-    val url = URL(urlString)
-    val connection = url.openConnection() as HttpURLConnection
-    try {
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-            connection.inputStream.bufferedReader().use { it.readText() }
-        } else {
-            throw Exception("HTTP Error: ${connection.responseCode} ${connection.responseMessage}")
-        }
-    } finally {
-        connection.disconnect()
-    }
-}
-
-fun getSHA(input: String): String {
-    return try {
-        val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
-        bytes.joinToString("") { "%02x".format(it) }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        ""
-    }
-}
-
-fun getLocalVersionCode(context: Context): Long {
-    return try {
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        PackageInfoCompat.getLongVersionCode(packageInfo)
-    } catch (e: Exception) {
-        e.printStackTrace()
-        -1L
-    }
-}
-
-// --- STUB: Domain-specific Logic & Data ---
-
-enum class NotificationType { INFO, WARNING, ERROR, SUCCESS }
-
-object Services {
-    var isActive by mutableStateOf(false)
-    var isLaunchingMinecraft by mutableStateOf(false)
-}
-
-data class GamePack(val name: String, val url: String)
-
-object PackSelectionManager {
-    var selectedPack: GamePack? = null
-}
-
-object ConnectionInfoOverlay {
-    fun getLocalIpAddress(context: Context): String? = "192.168.1.100" // Placeholder
-    fun show(ip: String?) { println("OVERLAY: Show connection info for $ip") }
-}
-
-object SimpleOverlayNotification {
-    fun show(message: String, type: NotificationType, duration: Long = 3000L) {
-        println("OVERLAY NOTIFICATION [${type.name}]: $message (for ${duration}ms)")
-    }
-}
-
-object MCPackUtils {
-    suspend fun downloadAndOpenPack(context: Context, pack: GamePack, onProgress: (Float) -> Unit) {
-        println("MCPackUtils: Downloading ${pack.name}")
-        withContext(Dispatchers.IO) { for (i in 1..10) { delay(200); onProgress(i / 10f) } }
-        println("MCPackUtils: Download complete.")
-    }
-}
-
-object InjectNeko {
-    fun injectNeko(context: Context, onComplete: () -> Unit) {
-        println("InjectNeko: Injecting...")
-        onComplete()
-    }
-}
-
-object ServerInit {
-    fun addMinecraftServer(context: Context, ip: String?) {
-        println("ServerInit: Adding Minecraft server with IP: $ip")
-    }
-}
-
-// --- STUB: ViewModel ---
-
-class MainScreenViewModel : ViewModel() {
-    val captureModeModel = MutableStateFlow("") // Placeholder state
-    val selectedGame = MutableStateFlow<String?>("com.mojang.minecraftpe") // Placeholder state
-}
-
-// --- STUB: UI Components ---
-
-@Composable
-fun MainDashboard() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("主面板") }
-}
-
-@Composable
-fun AccountPage() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("账户页面") }
-}
-
-@Composable
-fun AboutPage() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("关于页面") }
-}
-
-@Composable
-fun SettingsScreen() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("设置页面") }
-}
-
-@Composable
-fun AppBottomNavigationBar(currentTab: Int, onTabSelected: (Int) -> Unit) {
-    NavigationBar {
-        NavigationBarItem(selected = currentTab == 0, onClick = { onTabSelected(0) }, icon = { Icon(Icons.Default.Home, "主页") }, label = { Text("主页") })
-        NavigationBarItem(selected = currentTab == 1, onClick = { onTabSelected(1) }, icon = { Icon(Icons.Rounded.AccountCircle, "账户") }, label = { Text("账户") })
-        NavigationBarItem(selected = currentTab == 2, onClick = { onTabSelected(2) }, icon = { Icon(Icons.Default.Info, "关于") }, label = { Text("关于") })
-        NavigationBarItem(selected = currentTab == 3, onClick = { onTabSelected(3) }, icon = { Icon(Icons.Default.Settings, "设置") }, label = { Text("设置") })
-    }
-}
-
-@Composable
-fun LaunchStopFAB(onClick: () -> Unit) {
-    FloatingActionButton(onClick = onClick) {
-        val icon = if (Services.isActive) Icons.Default.Stop else Icons.Default.PlayArrow
-        val description = if (Services.isActive) "停止" else "启动"
-        Icon(icon, contentDescription = description)
-    }
-}
-
-@Composable
-fun AppNavigationRail(currentTab: Int, onTabSelected: (Int) -> Unit, onStartToggle: () -> Unit) {
-    NavigationRail(modifier = Modifier.padding(top = 16.dp)) {
-        LaunchStopFAB(onClick = onStartToggle)
-        Spacer(Modifier.height(24.dp))
-        NavigationRailItem(selected = currentTab == 0, onClick = { onTabSelected(0) }, icon = { Icon(Icons.Default.Home, "主页") }, label = { Text("主页") })
-        NavigationRailItem(selected = currentTab == 1, onClick = { onTabSelected(1) }, icon = { Icon(Icons.Rounded.AccountCircle, "账户") }, label = { Text("账户") })
-        NavigationRailItem(selected = currentTab == 2, onClick = { onTabSelected(2) }, icon = { Icon(Icons.Default.Info, "关于") }, label = { Text("关于") })
-        NavigationRailItem(selected = currentTab == 3, onClick = { onTabSelected(3) }, icon = { Icon(Icons.Default.Settings, "设置") }, label = { Text("设置") })
-    }
-}
-
-@Composable
-fun PrivacyDialog(content: String, onAgree: () -> Unit, onDisagree: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDisagree,
-        title = { Text("隐私协议") },
-        text = { Text(content, modifier = Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { Button(onClick = onAgree) { Text("同意") } },
-        dismissButton = { Button(onClick = onDisagree) { Text("不同意") } }
-    )
-}
-
-@Composable
-fun NoticeDialog(info: NoticeInfo, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(info.title) },
-        text = { Text(info.message, modifier = Modifier.verticalScroll(rememberScrollState())) },
-        confirmButton = { Button(onClick = onDismiss) { Text("好的") } }
-    )
-}
-
-@Composable
-fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("发现新版本: ${info.versionName}") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("更新日志:\n${info.changelog}")
-            }
-        },
-        confirmButton = { Button(onClick = onUpdate) { Text("立即更新") } },
-        dismissButton = { Button(onClick = onDismiss) { Text("稍后") } }
-    )
-}
-
-//================================================================================//
-// ORIGINAL USER CODE (NOW FIXED)
-//================================================================================//
-
-data class NoticeInfo(val title: String, val message: String, val rawJson: String)
-data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
 
 private const val BASE_URL = "http://110.42.63.51:39078/d/apps"
 private const val PREFS_NAME = "app_verification_prefs"
@@ -241,7 +39,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     val vm: MainScreenViewModel = viewModel()
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     var isVerifying by remember { mutableStateOf(true) }
     var msg by remember { mutableStateOf("正在连接服务器...") }
@@ -333,7 +131,7 @@ private fun MainContentArea(
         AnimatedVisibility(visible = isVerifying, exit = fadeOut(tween(500))) {
             Surface(color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f), modifier = Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
-                    LinearProgressIndicator(progress = { animatedProgress }, Modifier.width(200.dp)); Spacer(Modifier.height(16.dp))
+                    LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.width(200.dp)); Spacer(Modifier.height(16.dp))
                     Text(msg, style = MaterialTheme.typography.titleMedium); err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             }
@@ -352,4 +150,81 @@ private fun MainContentArea(
         notice?.let { NoticeDialog(it) { onNoticeDismissed(it) } }
         update?.let { UpdateDialog(it, { onUpdate(it) }, onUpdateDismissed) }
     }
+}
+
+// --- UI Components for NewHomeScreen ---
+@Composable
+fun MainDashboard() { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("主面板") } }
+
+@Composable
+fun AccountPage() { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("账户页面") } }
+
+@Composable
+fun AboutPage() { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("关于页面") } }
+
+@Composable
+fun AppBottomNavigationBar(currentTab: Int, onTabSelected: (Int) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(selected = currentTab == 0, onClick = { onTabSelected(0) }, icon = { Icon(Icons.Default.Home, "主页") }, label = { Text("主页") })
+        NavigationBarItem(selected = currentTab == 1, onClick = { onTabSelected(1) }, icon = { Icon(Icons.Rounded.AccountCircle, "账户") }, label = { Text("账户") })
+        NavigationBarItem(selected = currentTab == 2, onClick = { onTabSelected(2) }, icon = { Icon(Icons.Default.Info, "关于") }, label = { Text("关于") })
+        NavigationBarItem(selected = currentTab == 3, onClick = { onTabSelected(3) }, icon = { Icon(Icons.Default.Settings, "设置") }, label = { Text("设置") })
+    }
+}
+
+@Composable
+fun LaunchStopFAB(onClick: () -> Unit) {
+    FloatingActionButton(onClick = onClick) {
+        val icon = if (Services.isActive) Icons.Default.Stop else Icons.Default.PlayArrow
+        val description = if (Services.isActive) "停止" else "启动"
+        Icon(icon, contentDescription = description)
+    }
+}
+
+@Composable
+fun AppNavigationRail(currentTab: Int, onTabSelected: (Int) -> Unit, onStartToggle: () -> Unit) {
+    NavigationRail(modifier = Modifier.padding(top = 16.dp)) {
+        LaunchStopFAB(onClick = onStartToggle)
+        Spacer(Modifier.height(24.dp))
+        NavigationRailItem(selected = currentTab == 0, onClick = { onTabSelected(0) }, icon = { Icon(Icons.Default.Home, "主页") }, label = { Text("主页") })
+        NavigationRailItem(selected = currentTab == 1, onClick = { onTabSelected(1) }, icon = { Icon(Icons.Rounded.AccountCircle, "账户") }, label = { Text("账户") })
+        NavigationRailItem(selected = currentTab == 2, onClick = { onTabSelected(2) }, icon = { Icon(Icons.Default.Info, "关于") }, label = { Text("关于") })
+        NavigationRailItem(selected = currentTab == 3, onClick = { onTabSelected(3) }, icon = { Icon(Icons.Default.Settings, "设置") }, label = { Text("设置") })
+    }
+}
+
+@Composable
+fun PrivacyDialog(content: String, onAgree: () -> Unit, onDisagree: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDisagree,
+        title = { Text("隐私协议") },
+        text = { Text(content, modifier = Modifier.verticalScroll(rememberScrollState())) },
+        confirmButton = { Button(onClick = onAgree) { Text("同意") } },
+        dismissButton = { Button(onClick = onDisagree) { Text("不同意") } }
+    )
+}
+
+@Composable
+fun NoticeDialog(info: NoticeInfo, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(info.title) },
+        text = { Text(info.message, modifier = Modifier.verticalScroll(rememberScrollState())) },
+        confirmButton = { Button(onClick = onDismiss) { Text("好的") } }
+    )
+}
+
+@Composable
+fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("发现新版本: ${info.versionName}") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("更新日志:\n${info.changelog}")
+            }
+        },
+        confirmButton = { Button(onClick = onUpdate) { Text("立即更新") } },
+        dismissButton = { Button(onClick = onDismiss) { Text("稍后") } }
+    )
 }

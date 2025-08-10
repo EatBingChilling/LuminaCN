@@ -1,8 +1,3 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * ... (License header remains the same) ...
- */
-
 package com.project.lumina.client.router.main
 
 import android.content.Context
@@ -33,14 +28,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.project.lumina.client.util.NetworkOptimizer
-import com.project.lumina.client.viewmodel.MainScreenViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.net.Socket
 
-/* ========================= Main Entry ========================= */
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
@@ -49,7 +41,6 @@ fun SettingsScreen() {
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
     val sp = remember { context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE) }
 
-    /* ---------- State ---------- */
     var optimizeNetworkEnabled by remember { mutableStateOf(sp.getBoolean("optimizeNetworkEnabled", false)) }
     var priorityThreadsEnabled by remember { mutableStateOf(sp.getBoolean("priorityThreadsEnabled", false)) }
     var fastDnsEnabled by remember { mutableStateOf(sp.getBoolean("fastDnsEnabled", false)) }
@@ -67,14 +58,12 @@ fun SettingsScreen() {
 
     var installedApps by remember { mutableStateOf<List<PackageInfo>>(emptyList()) }
 
-    /* ---------- Helper Functions ---------- */
     fun saveBool(key: String, value: Boolean) = sp.edit().putBoolean(key, value).apply()
     fun saveStr(key: String, value: String) = sp.edit().putString(key, value).apply()
     fun getAppName(pkg: String): String = try { context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(pkg, 0)).toString() } catch (e: Exception) { pkg }
     fun getAppVersion(pkg: String): String = try { context.packageManager.getPackageInfo(pkg, 0).versionName ?: "?" } catch (e: Exception) { "?" }
     fun getAppIcon(pkg: String): Drawable? = try { context.packageManager.getApplicationIcon(pkg) } catch (e: Exception) { null }
 
-    /* ---------- Initialization ---------- */
     LaunchedEffect(Unit) {
         mainScreenViewModel.selectGame(selectedAppPackage)
         scope.launch(Dispatchers.IO) {
@@ -84,7 +73,6 @@ fun SettingsScreen() {
         }
     }
 
-    /* ---------- UI Layout ---------- */
     val isPortrait = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
     if (isPortrait) {
         Column(
@@ -108,7 +96,6 @@ fun SettingsScreen() {
         }
     }
 
-    /* ---------- Dialogs ---------- */
     if (showPermissionDialog) {
         PermissionDialog(onDismiss = { showPermissionDialog = false }) { NetworkOptimizer.openWriteSettingsPermissionPage(context); showPermissionDialog = false }
     }
@@ -135,7 +122,6 @@ fun SettingsScreen() {
     }
 }
 
-/* ========================= Composable Content Sections ========================= */
 @Composable
 private fun SettingsContent(
     scope: CoroutineScope, context: Context,
