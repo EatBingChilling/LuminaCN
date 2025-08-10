@@ -35,13 +35,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.project.lumina.client.util.*
-import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
+// Removed import com.project.lumina.client.util.* as stubs are now in the same package
 import com.project.lumina.client.overlay.mods.NotificationType
 import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
 import com.project.lumina.client.service.Services
 import com.project.lumina.client.model.CaptureModeModel
-import com.project.lumina.client.manager.AccountManager
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -94,17 +92,17 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             var ok = true
-            try { 
+            try {
                 msg = "步骤1: 连接服务器..."
                 progress = 0.2f
                 makeHttpRequest("$BASE_URL/appstatus/a.ini")
             }
-            catch (e: Exception) { 
+            catch (e: Exception) {
                 err = "服务器连接失败"
                 msg = "验证失败，将跳过检查..."
-                ok = false 
+                ok = false
             }
-            if (ok) try { 
+            if (ok) try {
                 msg = "步骤2: 获取公告..."
                 progress = 0.4f
                 val r = makeHttpRequest("$BASE_URL/title/a.json")
@@ -112,29 +110,29 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                     val j = JSONObject(r)
                     notice = NoticeInfo(
                         j.getString("title"),
-                        "${j.optString("subtitle","")}\n\n${j.getString("content")}", 
+                        "${j.optString("subtitle","")}\n\n${j.getString("content")}",
                         r
                     )
                 }
             } catch (_: Exception) {}
-            if (ok) try { 
+            if (ok) try {
                 msg = "步骤3: 获取隐私协议..."
                 progress = 0.6f
                 val r = makeHttpRequest("$BASE_URL/privary/a.txt")
                 if (getSHAHash(r) != prefs.getString(KEY_PRIVACY_HASH, "")) privacy = r
-            } catch (e: Exception) { 
+            } catch (e: Exception) {
                 err = "无法获取隐私协议"
                 msg = "验证失败，将跳过检查..."
-                ok = false 
+                ok = false
             }
-            if (ok) try { 
+            if (ok) try {
                 msg = "步骤4: 检查更新..."
                 progress = 0.8f
                 val r = makeHttpRequest("$BASE_URL/update/a.json")
                 val j = JSONObject(r)
                 if (j.getLong("version") > getAppVersionCode(context)) {
                     update = UpdateInfo(
-                        j.getString("name"), 
+                        j.getString("name"),
                         j.getString("update_content"),
                         "http://110.42.63.51:39078/apps/apks"
                     )
@@ -159,9 +157,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                 Services.isLaunchingMinecraft = true
                 onStartToggle()
                 delay(2500)
-                if (!Services.isActive) { 
+                if (!Services.isActive) {
                     Services.isLaunchingMinecraft = false
-                    return@launch 
+                    return@launch
                 }
                 val intent = context.packageManager.getLaunchIntentForPackage(selectedGamePackage)
                 if (intent != null) {
@@ -171,7 +169,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                         ConnectionInfoOverlay.show(localIp)
                     }
                 } else {
-                    SimpleOverlayNotification.show("未安装指定游戏客户端", NotificationType.ERROR)
+                    SimpleOverlayNotification.show("未安装游戏客户端", NotificationType.ERROR)
                 }
                 Services.isLaunchingMinecraft = false
             }
@@ -451,8 +449,8 @@ private fun MainDashboard() {
 
 @Composable
 private fun AccountPage() {
-    AccountScreen { m, t -> 
-        SimpleOverlayNotification.show(m, t, 3000) 
+    AccountScreen { m, t ->
+        SimpleOverlayNotification.show(m, t, 3000)
     }
 }
 
@@ -469,8 +467,8 @@ private fun AboutPage() {
             tutorialText = try {
                 ctx.resources.openRawResource(ctx.resources.getIdentifier("t", "raw", ctx.packageName))
                     .bufferedReader().use { it.readText() }
-            } catch (e: Exception) { 
-                "无法加载教程内容" 
+            } catch (e: Exception) {
+                "无法加载教程内容"
             }
         }
     }
@@ -479,10 +477,10 @@ private fun AboutPage() {
             onDismissRequest = { showTutorial.value = false },
             title = { Text("使用教程") },
             text = { Text(tutorialText ?: "正在加载...") },
-            confirmButton = { 
-                TextButton({ showTutorial.value = false }) { 
-                    Text("确定") 
-                } 
+            confirmButton = {
+                TextButton({ showTutorial.value = false }) {
+                    Text("确定")
+                }
             }
         )
     }
@@ -517,12 +515,12 @@ private fun AboutPage() {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
                 Text("关于 Lumina", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Text("© LuminaCN 开发团队", style = MaterialTheme.typography.bodyLarge)
-                Text("Lumina 是一个现代化的 Minecraft 客户端管理工具。", style = MaterialTheme.typography.bodyLarge)
+                Text("Lumina 是一个现代化的 Minecraft 客户端作弊工具。", style = MaterialTheme.typography.bodyLarge)
                 Text("我们致力于为玩家提供最佳的游戏体验。", style = MaterialTheme.typography.bodyLarge)
-                Text("支持多种 Minecraft 版本和模组。", style = MaterialTheme.typography.bodyLarge)
+                Text("支持多种 Minecraft 版本", style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(16.dp))
                 Text("版权所有 © 2025 Project Lumina", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                Text("开发团队：LuminaCN", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text("CN 团队：LuminaCN", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
     }
@@ -606,15 +604,15 @@ private fun PrivacyDialog(text: String, onAgree: (String) -> Unit, onDisagree: (
                 }
             }
         },
-        confirmButton = { 
-            Button(onClick = { onAgree(text) }) { 
-                Text("同意并继续") 
-            } 
+        confirmButton = {
+            Button(onClick = { onAgree(text) }) {
+                Text("同意并继续")
+            }
         },
-        dismissButton = { 
-            TextButton(onClick = onDisagree) { 
-                Text("不同意并退出") 
-            } 
+        dismissButton = {
+            TextButton(onClick = onDisagree) {
+                Text("不同意并退出")
+            }
         }
     )
 }
@@ -624,15 +622,15 @@ private fun NoticeDialog(info: NoticeInfo, onDismiss: (NoticeInfo) -> Unit) {
     AlertDialog(
         onDismissRequest = { onDismiss(info) },
         title = { Text(info.title) },
-        text = { 
+        text = {
             Text(info.message, Modifier
                 .verticalScroll(rememberScrollState())
-                .heightIn(max = 300.dp)) 
+                .heightIn(max = 300.dp))
         },
-        confirmButton = { 
-            Button({ onDismiss(info) }) { 
-                Text("我已了解") 
-            } 
+        confirmButton = {
+            Button({ onDismiss(info) }) {
+                Text("我已了解")
+            }
         }
     )
 }
@@ -642,20 +640,20 @@ private fun UpdateDialog(info: UpdateInfo, onUpdate: (UpdateInfo) -> Unit, onDis
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("发现新版本: ${info.versionName}") },
-        text = { 
+        text = {
             Text(info.changelog, Modifier
                 .verticalScroll(rememberScrollState())
-                .heightIn(max = 200.dp)) 
+                .heightIn(max = 200.dp))
         },
-        confirmButton = { 
-            Button({ onUpdate(info) }) { 
-                Text("立即更新") 
-            } 
+        confirmButton = {
+            Button({ onUpdate(info) }) {
+                Text("立即更新")
+            }
         },
-        dismissButton = { 
-            TextButton(onDismiss) { 
-                Text("稍后") 
-            } 
+        dismissButton = {
+            TextButton(onDismiss) {
+                Text("稍后")
+            }
         }
     )
 }
