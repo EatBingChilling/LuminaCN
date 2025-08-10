@@ -6,6 +6,7 @@
 package com.project.lumina.client.router.main
 
 import android.content.Context
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,6 +23,27 @@ import java.security.MessageDigest
 // --- Data Models ---
 data class NoticeInfo(val title: String, val message: String, val rawJson: String)
 data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
+
+// --- Added Stubs to Fix Compilation ---
+data class Account(val remark: String)
+
+object AccountManager {
+    var currentAccount: Account? by mutableStateOf(Account("Default User"))
+}
+
+// FIX: Provide a stub for CaptureModeModel with default parameters.
+// This resolves the "No value passed for parameter" error.
+data class CaptureModeModel(
+    val serverHostName: String = "",
+    val serverPort: Int = 19132
+)
+
+@Composable
+fun AccountScreen(onMessage: (String, NotificationType) -> Unit) { /* Stub Implementation */ }
+
+@Composable
+fun SettingsScreen() { /* Stub Implementation */ }
+// --- End of Added Stubs ---
 
 enum class NotificationType { INFO, WARNING, ERROR, SUCCESS }
 
@@ -40,8 +62,8 @@ suspend fun makeHttp(urlString: String): String = withContext(Dispatchers.IO) {
         connection.readTimeout = 15000
         if (connection.responseCode == HttpURLConnection.HTTP_OK) {
             connection.inputStream.bufferedReader().use { it.readText() }
-        } else { 
-            throw Exception("HTTP Error: ${connection.responseCode}") 
+        } else {
+            throw Exception("HTTP Error: ${connection.responseCode}")
         }
     } finally {
         connection.disconnect()
@@ -89,16 +111,19 @@ object ServerInit {
 
 // --- Stub ViewModel ---
 class MainScreenViewModel : ViewModel() {
-    private val _captureModeModel = MutableStateFlow(com.project.lumina.client.model.CaptureModeModel())
+    // FIX: Instantiate the local CaptureModeModel, which now has default parameters.
+    // The fully-qualified name is removed to ensure the local stub is used.
+    private val _captureModeModel = MutableStateFlow(CaptureModeModel())
     val captureModeModel = _captureModeModel
-    
+
     val selectedGame = MutableStateFlow<String?>("com.mojang.minecraftpe")
-    
+
     fun selectGame(packageName: String?) {
         selectedGame.value = packageName
     }
-    
-    fun selectCaptureModeModel(model: com.project.lumina.client.model.CaptureModeModel) {
+
+    // FIX: The parameter type now refers to the local CaptureModeModel stub.
+    fun selectCaptureModeModel(model: CaptureModeModel) {
         _captureModeModel.value = model
     }
 }

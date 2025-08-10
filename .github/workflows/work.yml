@@ -1,4 +1,4 @@
-name: Choose APK Type
+name: Build
 
 on:
   workflow_dispatch:

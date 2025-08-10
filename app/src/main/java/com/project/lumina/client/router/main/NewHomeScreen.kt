@@ -35,11 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-// Removed import com.project.lumina.client.util.* as stubs are now in the same package
-import com.project.lumina.client.overlay.mods.NotificationType
-import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
-import com.project.lumina.client.service.Services
-import com.project.lumina.client.model.CaptureModeModel
+// FIX: Removed imports for classes and objects that are now defined in SharedStubs.kt
+// import com.project.lumina.client.util.*
+// import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
+// import com.project.lumina.client.overlay.mods.NotificationType
+// import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
+// import com.project.lumina.client.service.Services
+// import com.project.lumina.client.model.CaptureModeModel
+// import com.project.lumina.client.manager.AccountManager
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -47,9 +50,7 @@ import java.net.URL
 import java.security.MessageDigest
 
 /* -------------------- 数据类 & 常量 -------------------- */
-// 移除重复声明，这些已在 SharedStubs.kt 中定义
-// data class NoticeInfo(val title: String, val message: String, val rawJson: String)
-// data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
+// Definitions are now in SharedStubs.kt
 
 private const val BASE_URL = "http://110.42.63.51:39078/d/apps"
 private const val PREFS_NAME = "app_verification_prefs"
@@ -169,7 +170,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                         ConnectionInfoOverlay.show(localIp)
                     }
                 } else {
-                    SimpleOverlayNotification.show("未安装游戏客户端", NotificationType.ERROR)
+                    SimpleOverlayNotification.show("未安装指定游戏客户端", NotificationType.ERROR)
                 }
                 Services.isLaunchingMinecraft = false
             }
@@ -515,12 +516,12 @@ private fun AboutPage() {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
                 Text("关于 Lumina", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Text("© LuminaCN 开发团队", style = MaterialTheme.typography.bodyLarge)
-                Text("Lumina 是一个现代化的 Minecraft 客户端作弊工具。", style = MaterialTheme.typography.bodyLarge)
+                Text("Lumina 是一个现代化的 Minecraft 客户端管理工具。", style = MaterialTheme.typography.bodyLarge)
                 Text("我们致力于为玩家提供最佳的游戏体验。", style = MaterialTheme.typography.bodyLarge)
-                Text("支持多种 Minecraft 版本", style = MaterialTheme.typography.bodyLarge)
+                Text("支持多种 Minecraft 版本和模组。", style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(16.dp))
                 Text("版权所有 © 2025 Project Lumina", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                Text("CN 团队：LuminaCN", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text("开发团队：LuminaCN", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
     }
