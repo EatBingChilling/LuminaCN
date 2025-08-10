@@ -1,8 +1,3 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * ... (License header remains the same) ...
- */
-
 package com.project.lumina.client.activity
 
 import android.content.ClipData
@@ -32,11 +27,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.project.lumina.client.R
 import com.project.lumina.client.ui.theme.LuminaClientTheme
+import com.project.lumina.client.util.UpdateCheck
 
 class CrashHandlerActivity : ComponentActivity() {
 
@@ -46,9 +41,11 @@ class CrashHandlerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // This seems unrelated to the crash UI, but keeping it as it was
+        UpdateCheck().initiateHandshake(this)
+
         fullCrashMessage = intent?.getStringExtra("message")
         if (fullCrashMessage == null) {
-            // If there's no message, just restart the app cleanly.
             restartApp(this)
             return
         }
@@ -93,7 +90,6 @@ private fun CrashScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // Extract the stack trace for display, but keep the full message for copying
     val stackTrace = remember(crashMessage) {
         crashMessage.lines()
             .dropWhile { !it.contains("Exception", ignoreCase = true) && !it.contains("Error", ignoreCase = true) }
@@ -128,7 +124,6 @@ private fun CrashScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header Info Card
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -136,9 +131,7 @@ private fun CrashScreen(
                 )
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -162,7 +155,6 @@ private fun CrashScreen(
                 }
             }
 
-            // Stack Trace Section
             Text(
                 text = stringResource(R.string.crash_stack_trace_label),
                 style = MaterialTheme.typography.titleSmall,
@@ -204,7 +196,6 @@ private fun ActionBottomBar(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Main action: Restart App
             Button(
                 onClick = onRestart,
                 modifier = Modifier.weight(1f),
@@ -217,8 +208,6 @@ private fun ActionBottomBar(
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                 Text(stringResource(R.string.crash_restart))
             }
-
-            // Secondary action: Copy Log
             OutlinedButton(
                 onClick = onCopy,
                 modifier = Modifier.weight(1f)

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -28,7 +27,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.project.lumina.client.overlay.manager.OverlayManager
@@ -47,7 +45,6 @@ class SessionStatsOverlay : OverlayWindow() {
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            // Using WRAP_CONTENT for height to be more flexible
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.TOP or Gravity.START
@@ -65,40 +62,42 @@ class SessionStatsOverlay : OverlayWindow() {
             SessionStatsCard(
                 statLines = _statLines.value,
                 isVisible = _isVisible.value,
-                onDismiss = ::dismiss
+                onAnimatedOut = {
+                    OverlayManager.dismissOverlayWindow(this)
+                    currentOverlay = null
+                }
             )
         }
     }
-    
-    // Internal dismiss logic that triggers animations
-    private fun dismiss() {
+
+    fun updateStats(statLines: List<String>) {
+        _statLines.value = statLines
+    }
+
+    fun addStat(statLine: String) {
+        _statLines.value = _statLines.value + statLine
+    }
+
+    fun clearStats() {
+        _statLines.value = emptyList()
+    }
+
+    // --- API RESTORED to public ---
+    fun dismiss() {
         _isVisible.value = false
     }
-    
-    // Public API to manage stats
-    fun updateStats(statLines: List<String>) { _statLines.value = statLines }
-    fun addStat(statLine: String) { _statLines.value = _statLines.value + statLine }
-    fun clearStats() { _statLines.value = emptyList() }
-    
+
     companion object {
         private var currentOverlay: SessionStatsOverlay? = null
 
         fun showSessionStats(initialStats: List<String> = emptyList()): SessionStatsOverlay {
-            // Dismiss any existing overlay before showing a new one
             currentOverlay?.dismiss()
-
             val overlay = SessionStatsOverlay().apply {
                 updateStats(initialStats)
             }
-            
             OverlayManager.showOverlayWindow(overlay)
             currentOverlay = overlay
             return overlay
-        }
-        
-        fun dismissCurrent() {
-            currentOverlay?.dismiss()
-            currentOverlay = null
         }
     }
 }
@@ -107,9 +106,8 @@ class SessionStatsOverlay : OverlayWindow() {
 private fun SessionStatsCard(
     statLines: List<String>,
     isVisible: Boolean,
-    onDismiss: () -> Unit
+    onAnimatedOut: () -> Unit
 ) {
-    // Animation for the rainbow divider
     val infiniteTransition = rememberInfiniteTransition(label = "RainbowHueAnimation")
     val animatedHue by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -121,7 +119,6 @@ private fun SessionStatsCard(
         label = "Hue"
     )
 
-    // Animations for appearance and disappearance
     val scale by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0.9f,
         animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium),
@@ -133,12 +130,10 @@ private fun SessionStatsCard(
         label = "Alpha"
     )
 
-    // Dismiss the overlay window after the exit animation completes
-    if (!isVisible) {
-        LaunchedEffect(Unit) {
+    LaunchedEffect(isVisible) {
+        if (!isVisible) {
             delay(300)
-            // This assumes the overlay instance is managed outside.
-            // A more robust solution might pass the dismiss function from the overlay.
+            onAnimatedOut()
         }
     }
 
@@ -146,32 +141,24 @@ private fun SessionStatsCard(
         modifier = Modifier
             .scale(scale)
             .alpha(alpha)
-            .width(IntrinsicSize.Min) // Let the content determine the width
+            .width(IntrinsicSize.Min)
             .wrapContentHeight()
             .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
-            // --- MODIFIED: Use MaterialTheme color for background ---
             .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f))
             .padding(12.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // --- Title ---
             Text(
                 text = "游玩信息",
-                // --- MODIFIED: Use MaterialTheme typography and colors ---
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
-            // --- Rainbow Divider ---
             RainbowDivider(hue = animatedHue)
-
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- Stats List ---
             if (statLines.isEmpty()) {
                 Text(
                     text = "暂无数据",
@@ -180,9 +167,9 @@ private fun SessionStatsCard(
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
             } else {
-                 Column(
+                Column(
                     modifier = Modifier
-                        .width(180.dp) // Fixed width for stats section for alignment
+                        .width(180.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -221,7 +208,6 @@ private fun StatRow(statLine: String) {
     val parts = statLine.split(":", limit = 2)
     val label = parts.getOrNull(0)?.trim() ?: statLine
     val value = parts.getOrNull(1)?.trim()
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -229,7 +215,6 @@ private fun StatRow(statLine: String) {
     ) {
         Text(
             text = label,
-            // --- MODIFIED: Use MaterialTheme typography and colors ---
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -244,25 +229,20 @@ private fun StatRow(statLine: String) {
     }
 }
 
-
 @Preview(showBackground = true, backgroundColor = 0xFF1C1B1F)
 @Composable
 private fun SessionStatsCardPreview() {
-    val stats = remember {
-        mutableStateOf(
-            listOf(
-                "游玩时长: 1h 23m",
-                "击杀: 42",
-                "死亡: 3",
-                "获得经验: 1,204"
-            )
-        )
-    }
+    val stats = listOf(
+        "游玩时长: 1h 23m",
+        "击杀: 42",
+        "死亡: 3",
+        "获得经验: 1,204"
+    )
     MaterialTheme {
         SessionStatsCard(
-            statLines = stats.value,
+            statLines = stats,
             isVisible = true,
-            onDismiss = {}
+            onAnimatedOut = {}
         )
     }
 }
@@ -274,7 +254,7 @@ private fun SessionStatsCardEmptyPreview() {
         SessionStatsCard(
             statLines = emptyList(),
             isVisible = true,
-            onDismiss = {}
+            onAnimatedOut = {}
         )
     }
 }

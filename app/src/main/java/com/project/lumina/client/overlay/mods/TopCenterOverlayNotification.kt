@@ -1,8 +1,3 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * ... (License header remains the same) ...
- */
-
 package com.project.lumina.client.overlay.mods
 
 import android.view.Gravity
@@ -22,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +39,7 @@ class TopCenterOverlayNotification : OverlayWindow() {
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = 100 // Position from the top
+            y = 100
         }
     }
 
@@ -58,11 +52,11 @@ class TopCenterOverlayNotification : OverlayWindow() {
             val notification = notificationState.currentNotification
             val onDismiss = { notificationState.clearNotification() }
 
-            // Dismiss the overlay window when there's no notification
             LaunchedEffect(notification) {
-                if (notification == null) {
-                    delay(400) // Wait for exit animation
+                if (notification == null && instance != null) {
+                    delay(400)
                     OverlayManager.dismissOverlayWindow(this@TopCenterOverlayNotification)
+                    instance = null
                 }
             }
 
@@ -83,13 +77,14 @@ class TopCenterOverlayNotification : OverlayWindow() {
         private val notificationState = TopNotificationState()
         private var instance: TopCenterOverlayNotification? = null
 
-        fun showNotification(
+        // --- API RESTORED ---
+        fun addNotification(
             title: String,
             subtitle: String,
             iconRes: Int? = null,
-            duration: Long = 2500
+            progressDuration: Long = 2500
         ) {
-            notificationState.addNotification(title, subtitle, iconRes, duration)
+            notificationState.addNotification(title, subtitle, iconRes, progressDuration)
             if (instance == null) {
                 instance = TopCenterOverlayNotification()
                 OverlayManager.showOverlayWindow(instance!!)
@@ -97,7 +92,6 @@ class TopCenterOverlayNotification : OverlayWindow() {
         }
     }
 }
-
 
 @Composable
 private fun TopNotificationCard(
@@ -129,18 +123,14 @@ private fun TopNotificationCard(
 
     AnimatedVisibility(
         visible = visible,
-        enter = scaleIn(initialScale = 0.8f, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-                fadeIn(tween(200)),
-        exit = scaleOut(targetScale = 0.8f, animationSpec = tween(300)) +
-               fadeOut(tween(200))
+        enter = scaleIn(initialScale = 0.8f, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(200)),
+        exit = scaleOut(targetScale = 0.8f, animationSpec = tween(300)) + fadeOut(tween(200))
     ) {
         ElevatedCard(
             modifier = Modifier.widthIn(max = 360.dp),
             shape = MaterialTheme.shapes.large,
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = colorScheme.surfaceContainerHigh.copy(alpha = 0.9f)
-            )
+            colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surfaceContainerHigh.copy(alpha = 0.9f))
         ) {
             Column {
                 Row(
@@ -153,39 +143,16 @@ private fun TopNotificationCard(
                         contentAlignment = Alignment.Center
                     ) {
                         if (notification.iconRes != null) {
-                            Icon(
-                                painter = painterResource(id = notification.iconRes),
-                                contentDescription = notification.title,
-                                modifier = Modifier.size(24.dp),
-                                tint = colorScheme.onPrimary
-                            )
+                            Icon(painter = painterResource(id = notification.iconRes), contentDescription = notification.title, modifier = Modifier.size(24.dp), tint = colorScheme.onPrimary)
                         } else {
-                            Text(
-                                text = notification.title.firstOrNull()?.uppercase() ?: "!",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.onPrimary
-                            )
+                            Text(text = notification.title.firstOrNull()?.uppercase() ?: "!", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colorScheme.onPrimary)
                         }
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = notification.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Text(text = notification.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = notification.subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Text(text = notification.subtitle, style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
 
@@ -193,7 +160,7 @@ private fun TopNotificationCard(
                     progress = { progressAnimatable.value },
                     modifier = Modifier.fillMaxWidth().height(4.dp),
                     color = colorScheme.primary,
-                    trackColor = colorScheme.surfaceVariant,
+                    trackColor = colorScheme.surfaceVariant
                 )
             }
         }
@@ -203,63 +170,13 @@ private fun TopNotificationCard(
 private class TopNotificationState {
     var currentNotification by mutableStateOf<TopNotificationItem?>(null)
         private set
-
     private var nextId = 0
-
     fun addNotification(title: String, subtitle: String, iconRes: Int?, progressDuration: Long) {
-        currentNotification = TopNotificationItem(
-            id = nextId++,
-            title = title,
-            subtitle = subtitle,
-            iconRes = iconRes,
-            progressDuration = progressDuration
-        )
+        currentNotification = TopNotificationItem(id = nextId++, title = title, subtitle = subtitle, iconRes = iconRes, progressDuration = progressDuration)
     }
-
-    fun clearNotification() {
-        currentNotification = null
-    }
+    fun clearNotification() { currentNotification = null }
 }
 
 private data class TopNotificationItem(
-    val id: Int,
-    val title: String,
-    val subtitle: String,
-    val iconRes: Int?,
-    val progressDuration: Long
+    val id: Int, val title: String, val subtitle: String, val iconRes: Int?, val progressDuration: Long
 )
-
-
-@Preview(showBackground = true, backgroundColor = 0xFF1C1B1F)
-@Composable
-private fun TopNotificationCardPreview() {
-    MaterialTheme {
-        TopNotificationCard(
-            notification = TopNotificationItem(
-                id = 0,
-                title = "Aura Activated",
-                subtitle = "Targeting nearest entity",
-                iconRes = R.drawable.ic_discord,
-                progressDuration = 5000L
-            ),
-            onDismiss = {}
-        )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF1C1B1F)
-@Composable
-private fun TopNotificationCardNoIconPreview() {
-     MaterialTheme {
-        TopNotificationCard(
-            notification = TopNotificationItem(
-                id = 1,
-                title = "Profile Saved",
-                subtitle = "Your settings have been updated.",
-                iconRes = null,
-                progressDuration = 5000L
-            ),
-            onDismiss = {}
-        )
-    }
-}
