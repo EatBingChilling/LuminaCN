@@ -1,6 +1,72 @@
 /*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
- * Material Design 3 Expressive 风格适配
+ * You are free to use, modify, and redistribute this code under the terms
+ * of the GNU General Public License v3. See the LICENSE file for details.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This is open source — not open credit.
+ *
+ * If you're here to build, welcome. If you're here to repaint and reupload
+ * with your tag slapped on it… you're not fooling anyone.
+ *
+ * Changing colors and class names doesn't make you a developer.
+ * Copy-pasting isn't contribution.
+ *
+ * You have legal permission to fork. But ask yourself — are you improving,
+ * or are you just recycling someone else's work to feed your ego?
+ *
+ * Open source isn't about low-effort clones or chasing clout.
+ * It's about making things better. Sharper. Cleaner. Smarter.
+ *
+ * So go ahead, fork it — but bring something new to the table,
+ * or don't bother pretending.
+ *
+ * This message is philosophical. It does not override your legal rights under GPLv3.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * GPLv3 Summary:
+ * - You have the freedom to run, study, share, and modify this software.
+ * - If you distribute modified versions, you must also share the source code.
+ * - You must keep this license and copyright intact.
+ * - You cannot apply further restrictions — the freedom stays with everyone.
+ * - This license is irrevocable, and applies to all future redistributions.
+ *
+ * Full text: https://www.gnu.org/licenses/gpl-3.0.html
+ */
+/*
+ * © Project Lumina 2025 — Licensed under GNU GPLv3
+ * You are free to use, modify, and redistribute this code under the terms
+ * of the GNU General Public License v3. See the LICENSE file for details.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This is open source — not open credit.
+ *
+ * If you're here to build, welcome. If you're here to repaint and reupload
+ * with your tag slapped on it… you're not fooling anyone.
+ *
+ * Changing colors and class names doesn't make you a developer.
+ * Copy-pasting isn't contribution.
+ *
+ * You have legal permission to fork. But ask yourself — are you improving,
+ * or are you just recycling someone else's work to feed your ego?
+ *
+ * Open source isn't about low-effort clones or chasing clout.
+ * It's about making things better. Sharper. Cleaner. Smarter.
+ *
+ * So go ahead, fork it — but bring something new to the table,
+ * or don't bother pretending.
+ *
+ * This message is philosophical. It does not override your legal rights under GPLv3.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * GPLv3 Summary:
+ * - You have the freedom to run, study, share, and modify this software.
+ * - If you distribute modified versions, you must also share the source code.
+ * - You must keep this license and copyright intact.
+ * - You cannot apply further restrictions — the freedom stays with everyone.
+ * - This license is irrevocable, and applies to all future redistributions.
+ *
+ * Full text: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
 package com.project.lumina.client.router.main
@@ -19,16 +85,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,19 +109,38 @@ import kotlinx.coroutines.delay
 import kotlin.text.toIntOrNull
 import com.project.lumina.client.overlay.mods.NotificationType
 
+
 @OptIn(ExperimentalAnimationApi::class)
+private fun enterAnimation(delay: Int, duration: Int = 500) = fadeIn(
+    animationSpec = tween(
+        durationMillis = duration,
+        delayMillis = delay,
+        easing = FastOutSlowInEasing
+    )
+) + expandHorizontally(
+    animationSpec = tween(
+        durationMillis = duration,
+        delayMillis = delay,
+        easing = FastOutSlowInEasing
+    )
+)
+
 @Composable
 fun GameUI() {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    
     var uiVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
     var interactionTime by remember { mutableStateOf(0L) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val mainScreenViewModel: MainScreenViewModel = viewModel()
-    val captureModeModel by mainScreenViewModel.captureModeModel.collectAsStateWithLifecycle()
+    var showConnectionNotification by remember { mutableStateOf(false) }
+    var isConnected by remember { mutableStateOf(false) }
+    var lastConnectionChangeTime by remember { mutableLongStateOf(0L) }
+    val pages = listOf("Home", "About", "Settings")
+    var currentPage by rememberSaveable { mutableStateOf("Home") }
+    var selectedNavIndex by rememberSaveable { mutableStateOf(0) } 
+
     
     val backgroundBlurRadius by animateFloatAsState(
         targetValue = if (uiVisible) 2f else 0f,
@@ -64,43 +148,67 @@ fun GameUI() {
         label = "backgroundBlur"
     )
 
-    val infiniteTransition = rememberInfiniteTransition(label = "expressiveEffects")
+    
+    val infiniteTransition = rememberInfiniteTransition(label = "rippleEffect")
     val rippleScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.2f,
+        targetValue = 1.3f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = FastOutSlowInEasing),
+            animation = tween(3000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "rippleScale"
     )
 
-    val floatOffset by infiniteTransition.animateFloat(
+    
+    val floatOffsetLeft by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 8f,
+        targetValue = 4f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = FastOutSlowInEasing),
+            animation = tween(4000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "floatOffset"
+        label = "floatLeft"
     )
+
+    val floatOffsetRight by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, delayMillis = 800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatRight"
+    )
+
+    var showCustomNotification by remember { mutableStateOf(false) }
+    var customNotificationMessage by remember { mutableStateOf("") }
+    var customNotificationType by remember { mutableStateOf<NotificationType>(NotificationType.INFO) }
+    var lastCustomNotificationTime by remember { mutableLongStateOf(0L) }
+    val captureModeModel by mainScreenViewModel.captureModeModel.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
 
     var serverHostName by remember { mutableStateOf(captureModeModel.serverHostName) }
     var serverPort by remember { mutableStateOf(captureModeModel.serverPort.toString()) }
 
-    val onPostPermissionResult: (Boolean) -> Unit = { isGranted ->
+    val onPostPermissionResult: (Boolean) -> Unit = block@{ isGranted: Boolean ->
         if (!isGranted) {
             Toast.makeText(context, "请授权权限", Toast.LENGTH_SHORT).show()
-            return@let
+            return@block
         }
 
-        if (mainScreenViewModel.selectedGame.value == null) {
+        if (mainScreenViewModel.selectedGame.value === null) {
             Toast.makeText(context, "请选择一个游戏", Toast.LENGTH_SHORT).show()
-            return@let
+            return@block
         }
 
-        val captureModeModel = mainScreenViewModel.captureModeModel.value
-        Services.toggle(context, captureModeModel)
+        if (!Services.isActive) {
+            val captureModeModel = mainScreenViewModel.captureModeModel.value
+            Services.toggle(context, captureModeModel)
+            return@block
+        }
+
+        Services.toggle(context, mainScreenViewModel.captureModeModel.value)
     }
 
     val postNotificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -120,291 +228,268 @@ fun GameUI() {
         onPostPermissionResult(true)
     }
 
+    var isActiveBefore by rememberSaveable { mutableStateOf(Services.isActive) }
+
+    LaunchedEffect(Services.isActive) {
+        if (Services.isActive == isActiveBefore) {
+            return@LaunchedEffect
+        }
+
+        isActiveBefore = Services.isActive
+        isConnected = Services.isActive
+        showConnectionNotification = true
+        lastConnectionChangeTime = System.currentTimeMillis()
+
+        delay(5000)
+        if (System.currentTimeMillis() - lastConnectionChangeTime >= 4500) {
+            showConnectionNotification = false
+        }
+    }
+
+    
+    LaunchedEffect(interactionTime) {
+        delay(3000) 
+    }
+
+    
+    LaunchedEffect(Unit) {
+        delay(200)
+        uiVisible = true
+        interactionTime = System.currentTimeMillis()
+    }
+
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-            )
             .pointerInput(Unit) {
                 detectTapGestures {
-                    interactionTime = System.currentTimeMillis()
+                    interactionTime = System.currentTimeMillis() 
                 }
             }
     ) {
-        // Background with Expressive effects
+
         Box(modifier = Modifier.fillMaxSize()) {
-            VideoBackground()
+            VideoBackground(
+            )
+
             
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .alpha(0.05f)
+                    .alpha(0.03f)
                     .scale(rippleScale)
-                    .blur(60.dp)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                Color.Transparent
-                            )
-                        )
-                    )
+                    .blur(50.dp)
             )
         }
 
-        if (isLandscape) {
-            Row(
+        
+        AnimatedVisibility(
+            visible = uiVisible,
+            enter = enterAnimation(delay = 250, duration = 700),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(vertical = 48.dp, horizontal = 58.dp)
+                .graphicsLayer { translationY = floatOffsetRight }
+        ) {
+            GlassmorphicCard2(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxHeight(0.90f)
+                    .width(220.dp)
             ) {
-                // Left Panel - Server Config
-                AnimatedVisibility(
-                    visible = uiVisible,
-                    enter = fadeIn(animationSpec = tween(600, delayMillis = 200)) +
-                            slideInHorizontally(animationSpec = tween(600, delayMillis = 200)),
-                    modifier = Modifier
-                        .fillMaxHeight(0.85f)
-                        .weight(1f)
-                        .padding(end = 16.dp)
-                ) {
-                    GlassmorphicCard2(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            verticalArrangement = Arrangement.spacedBy(24.dp)
-                        ) {
-                            Text(
-                                "服务器配置",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
-                            )
-                            
-                            GlassmorphicOutlinedTextField(
-                                value = serverHostName,
-                                onValueChange = {
-                                    serverHostName = it
-                                    if (it.isNotEmpty()) {
-                                        mainScreenViewModel.selectCaptureModeModel(
-                                            captureModeModel.copy(serverHostName = it)
-                                        )
-                                    }
-                                },
-                                label = "服务器地址",
-                                placeholder = "例如 play.example.net",
-                                singleLine = true,
-                                enabled = !Services.isActive,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            
-                            GlassmorphicOutlinedTextField(
-                                value = serverPort,
-                                onValueChange = {
-                                    serverPort = it
-                                    val port = it.toIntOrNull()
-                                    if (port != null && port in 0..65535) {
-                                        mainScreenViewModel.selectCaptureModeModel(
-                                            captureModeModel.copy(serverPort = port)
-                                        )
-                                    }
-                                },
-                                label = "服务器端口",
-                                placeholder = "例如 19132",
-                                singleLine = true,
-                                enabled = !Services.isActive,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-
-                // Center Panel - Server Selector
-                AnimatedVisibility(
-                    visible = uiVisible,
-                    enter = fadeIn(animationSpec = tween(600, delayMillis = 400)),
-                    modifier = Modifier
-                        .fillMaxHeight(0.9f)
-                        .weight(1f)
-                ) {
-                    GlassmorphicCard2(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        ServerSelector()
-                    }
-                }
-
-                // Right Panel - Navigation
-                AnimatedVisibility(
-                    visible = uiVisible,
-                    enter = fadeIn(animationSpec = tween(600, delayMillis = 600)) +
-                            slideInHorizontally(animationSpec = tween(600, delayMillis = 600)),
-                    modifier = Modifier
-                        .fillMaxHeight(0.85f)
-                        .weight(0.5f)
-                        .padding(start = 16.dp)
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.SpaceBetween,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        VerticalNavButtons()
-                        
-                        GlassmorphicFloatingNavBar(
-                            selectedIndex = 0,
-                            onItemSelected = { }
-                        )
-                    }
-                }
+                ServerSelector()
             }
-        } else {
-            Column(
+        }
+
+        
+        AnimatedVisibility(
+            visible = uiVisible,
+            enter = enterAnimation(delay = 100, duration = 700),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(vertical = 48.dp, horizontal = 58.dp)
+                .graphicsLayer { translationY = floatOffsetLeft }
+        ) {
+            GlassmorphicCard2(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                    .fillMaxHeight(0.90f)
+                    .width(220.dp)
             ) {
-                // Top Server Selector
-                AnimatedVisibility(
-                    visible = uiVisible,
-                    enter = fadeIn(animationSpec = tween(600, delayMillis = 200)) +
-                            slideInVertically(animationSpec = tween(600, delayMillis = 200)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.4f)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    GlassmorphicCard2(
-                        modifier = Modifier.fillMaxSize()
+                    
+                    AnimatedVisibility(
+                        visible = uiVisible,
+                        enter = fadeIn(animationSpec = tween(700, delayMillis = 400)) +
+                                slideInVertically(
+                                    initialOffsetY = { -40 },
+                                    animationSpec = tween(700, delayMillis = 400)
+                                )
                     ) {
-                        ServerSelector()
-                    }
-                }
 
-                // Middle Config
-                AnimatedVisibility(
-                    visible = uiVisible,
-                    enter = fadeIn(animationSpec = tween(600, delayMillis = 400)) +
-                            slideInVertically(animationSpec = tween(600, delayMillis = 400)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.3f)
-                ) {
-                    GlassmorphicCard2(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            GlassmorphicOutlinedTextField(
-                                value = serverHostName,
-                                onValueChange = {
-                                    serverHostName = it
-                                    if (it.isNotEmpty()) {
-                                        mainScreenViewModel.selectCaptureModeModel(
-                                            captureModeModel.copy(serverHostName = it)
-                                        )
-                                    }
-                                },
-                                label = "服务器地址",
-                                placeholder = "例如 play.example.net",
-                                singleLine = true,
-                                enabled = !Services.isActive,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            
-                            GlassmorphicOutlinedTextField(
-                                value = serverPort,
-                                onValueChange = {
-                                    serverPort = it
-                                    val port = it.toIntOrNull()
-                                    if (port != null && port in 0..65535) {
-                                        mainScreenViewModel.selectCaptureModeModel(
-                                            captureModeModel.copy(serverPort = port)
-                                        )
-                                    }
-                                },
-                                label = "服务器端口",
-                                placeholder = "例如 19132",
-                                singleLine = true,
-                                enabled = !Services.isActive,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
                     }
-                }
 
-                // Bottom Controls
-                AnimatedVisibility(
-                    visible = uiVisible,
-                    enter = fadeIn(animationSpec = tween(600, delayMillis = 600)) +
-                            slideInVertically(animationSpec = tween(600, delayMillis = 600)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    
+                    AnimatedVisibility(
+                        visible = uiVisible,
+                        enter = fadeIn(animationSpec = tween(700, delayMillis = 500)) +
+                                slideInVertically(
+                                    initialOffsetY = { 40 },
+                                    animationSpec = tween(700, delayMillis = 500)
+                                )
                     ) {
-                        FlickeringStartButton(
-                            modifier = Modifier.scale(1.2f),
-                            onClick = {
-                                if (!Settings.canDrawOverlays(context)) {
-                                    Toast.makeText(context, R.string.request_overlay_permission, Toast.LENGTH_SHORT).show()
-                                    overlayPermissionLauncher.launch(
-                                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:${context.packageName}".toUri())
+                        GlassmorphicOutlinedTextField(
+                            value = serverHostName,
+                            onValueChange = {
+                                serverHostName = it
+                                if (it.isNotEmpty()) {
+                                    mainScreenViewModel.selectCaptureModeModel(
+                                        captureModeModel.copy(serverHostName = it)
                                     )
                                 }
-
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
-
-                                onPostPermissionResult(true)
-                            }
+                            },
+                            label = "服务器地址",
+                            placeholder = "例如 play.example.net",
+                            singleLine = true,
+                            enabled = !Services.isActive,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "© Project Lumina 2025 | v4.0.3",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp
-                            )
-                            
-                            Text(
-                                text = "The Game Ends When You Give Up",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp
-                            )
-                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = uiVisible,
+                        enter = fadeIn(animationSpec = tween(700, delayMillis = 600)) +
+                                slideInVertically(
+                                    initialOffsetY = { 40 },
+                                    animationSpec = tween(700, delayMillis = 600)
+                                )
+                    ) {
+                        GlassmorphicOutlinedTextField(
+                            value = serverPort,
+                            onValueChange = {
+                                serverPort = it
+                                val port = it.toIntOrNull()
+                                if (port != null && port in 0..65535) {
+                                    mainScreenViewModel.selectCaptureModeModel(
+                                        captureModeModel.copy(serverPort = port)
+                                    )
+                                }
+                            },
+                            label = "服务器端口",
+                            placeholder = "例如 19132",
+                            singleLine = true,
+                            enabled = !Services.isActive,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
         }
-    }
 
-    LaunchedEffect(Unit) {
-        delay(300)
-        uiVisible = true
+        
+        AnimatedVisibility(
+            visible = uiVisible,
+            enter = fadeIn(animationSpec = tween(600, delayMillis = 500)) +
+                    slideInVertically(
+                        initialOffsetY = { it / 3 },
+                        animationSpec = tween(600, easing = FastOutSlowInEasing)
+                    ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                
+                AnimatedVisibility(
+                    visible = uiVisible,
+                    enter = fadeIn(animationSpec = tween(600, delayMillis = 700)),
+                    modifier = Modifier.align(Alignment.BottomStart)
+                ) {
+                    Text(
+                        text = "© Project Lumina 2025 | v4.0.3",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 9.sp
+                    )
+                }
+
+                
+                FlickeringStartButton(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            alpha = if (uiVisible) 1f else 0f
+                            scaleX = if (uiVisible) 1f else 0.8f
+                            scaleY = if (uiVisible) 1f else 0.8f
+                        },
+                    onClick = {
+                        if (!Settings.canDrawOverlays(context)) {
+                            Toast.makeText(context, R.string.request_overlay_permission, Toast.LENGTH_SHORT).show()
+                            overlayPermissionLauncher.launch(
+                                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:${context.packageName}".toUri())
+                            )
+                        }
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+
+                        onPostPermissionResult(true)
+                    }
+                )
+
+                
+                AnimatedVisibility(
+                    visible = uiVisible,
+                    enter = fadeIn(animationSpec = tween(600, delayMillis = 700)),
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                ) {
+                    Text(
+                        text = "The Game Ends When You Give Up",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 9.sp
+                    )
+                }
+            }
+        }
+
+        
+        AnimatedVisibility(
+            visible = uiVisible,
+            enter = fadeIn(animationSpec = tween(600, delayMillis = 800)) +
+                    slideInHorizontally(
+                        initialOffsetX = { it / 4 },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
+                    ),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 10.dp, bottom = 50.dp)
+        ) {
+            GlassmorphicFloatingNavBar(
+                selectedIndex = selectedNavIndex,
+                onItemSelected = { index ->
+                    selectedNavIndex = index
+                    currentPage = pages[index]
+                }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = uiVisible,
+            enter = fadeIn(animationSpec = tween(450, delayMillis = 450)) +
+                    slideInHorizontally(
+                        initialOffsetX = { it / 6 },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
+                    ),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 10.dp, bottom = 30.dp)
+        ) {
+            VerticalNavButtons()
+        }
     }
 }

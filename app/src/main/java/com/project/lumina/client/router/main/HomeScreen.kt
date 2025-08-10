@@ -1,40 +1,106 @@
 /**
  * © Project Lumina 2025 — Licensed under GNU GPLv3
- * Material Design 3 Expressive 风格适配
+ * You are free to use, modify, and redistribute this code under the terms
+ * of the GNU General Public License v3. See the LICENSE file for details.
  */
 
 package com.project.lumina.client.router.main
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.lumina.client.R
 import com.project.lumina.client.constructors.AccountManager
-import com.project.lumina.client.util.*
+import com.project.lumina.client.util.InjectNeko
+import com.project.lumina.client.util.MCPackUtils
+import com.project.lumina.client.util.ServerInit
 import com.project.lumina.client.overlay.mods.NotificationType
 import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
 import com.project.lumina.client.service.Services
@@ -43,28 +109,67 @@ import com.project.lumina.client.viewmodel.MainScreenViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
+import com.project.lumina.client.ui.component.SubServerInfo
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onStartToggle: () -> Unit) {
+fun HomeScreen(
+    onStartToggle: () -> Unit
+) {
     val mainScreenViewModel: MainScreenViewModel = viewModel()
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    
     var selectedView by remember { mutableStateOf("ServerSelector") }
     var previousView by remember { mutableStateOf("ServerSelector") }
 
+    var showCustomNotification by remember { mutableStateOf(false) }
+    var customNotificationMessage by remember { mutableStateOf("") }
+    var customNotificationType by remember { mutableStateOf<NotificationType>(NotificationType.INFO) }
+    var lastCustomNotificationTime by remember { mutableLongStateOf(0L) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var progress by remember { mutableFloatStateOf(0f) }
+
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showBottomSheet by remember { mutableStateOf(false) }
+    var showConnectionDialog by remember { mutableStateOf(false) }
+
+    var isLaunchingMinecraft by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Services.isActive) {
+        if (Services.isActive) {
+            delay(600)
+            showBottomSheet = false
+        } else {
+            showBottomSheet = false
+        }
+    }
+
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
+    val density = LocalDensity.current
+
+    var showProgressDialog by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var currentPackName by remember { mutableStateOf("") }
 
     val sharedPreferences = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
     var InjectNekoPack by remember {
         mutableStateOf(sharedPreferences.getBoolean("injectNekoPackEnabled", false))
     }
 
-    val isCompactScreen = configuration.screenWidthDp.dp < 600.dp
+    val isCompactScreen = screenWidth < 600.dp
+
+    val leftColumnWidth = if (isCompactScreen) 0.4f else 0.5f
+    val localIp = remember { ConnectionInfoOverlay.getLocalIpAddress(context) }
+    val showNotification: (String, NotificationType) -> Unit = { message, type ->
+        SimpleOverlayNotification.show(
+            message = message,
+            type = type,
+            durationMs = 3000
+        )
+    }
 
     DisposableEffect(Unit) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
@@ -78,461 +183,789 @@ fun HomeScreen(onStartToggle: () -> Unit) {
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    )
-                )
-            )
+    Row(
+        Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        if (isLandscape) {
-            Row(
-                Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Left Panel
+
+        Column(
+            Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(leftColumnWidth)
+                .padding(
+                    start = if (isCompactScreen) 12.dp else 24.dp,
+                    end = if (isCompactScreen) 8.dp else 24.dp,
+                    top = if (isCompactScreen) 16.dp else 24.dp,
+                    bottom = if (isCompactScreen) 16.dp else 24.dp
+                ),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.Start
+        ) {
+
+            if (isCompactScreen) {
+
                 Column(
                     Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(0.5f)
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Top,
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    TabSelector(
-                        selectedView = selectedView,
-                        onViewSelected = { newView ->
-                            previousView = selectedView
-                            selectedView = newView
-                        },
-                        isLandscape = true
-                    )
+                    val tabs = listOf("ServerSelector", "View2", "View3")
+                    val tabNames = listOf(R.string.servers, R.string.accounts, R.string.packs)
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = selectedView == tab
+                        val interactionSource = remember { MutableInteractionSource() }
 
-                    TabContent(
-                        selectedView = selectedView,
-                        previousView = previousView,
-                        onStartToggle = onStartToggle,
-                        isLandscape = true
-                    )
-                }
-
-                // Right Panel
-                Column(
-                    Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                ) {
-                    AccountAndServerPanel(
-                        context = context,
-                        captureModeModel = captureModeModel,
-                        isCompactScreen = isCompactScreen
-                    )
-                }
-            }
-        } else {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                TabSelector(
-                    selectedView = selectedView,
-                    onViewSelected = { newView ->
-                        previousView = selectedView
-                        selectedView = newView
-                    },
-                    isLandscape = false
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                TabContent(
-                    selectedView = selectedView,
-                    previousView = previousView,
-                    onStartToggle = onStartToggle,
-                    isLandscape = false
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                AccountAndServerPanel(
-                    context = context,
-                    captureModeModel = captureModeModel,
-                    isCompactScreen = isCompactScreen
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TabSelector(
-    selectedView: String,
-    onViewSelected: (String) -> Unit,
-    isLandscape: Boolean
-) {
-    val tabs = listOf("ServerSelector", "View2", "View3")
-    val tabNames = listOf(R.string.servers, R.string.accounts, R.string.packs)
-
-    if (isLandscape) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            tabs.forEachIndexed { index, tab ->
-                val isSelected = selectedView == tab
-                
-                Surface(
-                    selected = isSelected,
-                    onClick = { onViewSelected(tab) },
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        stringResource(tabNames[index]),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            }
-        }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            tabs.forEachIndexed { index, tab ->
-                val isSelected = selectedView == tab
-                
-                Surface(
-                    selected = isSelected,
-                    onClick = { onViewSelected(tab) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        stringResource(tabNames[index]),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TabContent(
-    selectedView: String,
-    previousView: String,
-    onStartToggle: () -> Unit,
-    isLandscape: Boolean
-) {
-    val currentTabIndex = when (selectedView) {
-        "ServerSelector" -> 0
-        "View2" -> 1
-        "View3" -> 2
-        else -> 0
-    }
-
-    val previousTabIndex = when (previousView) {
-        "ServerSelector" -> 0
-        "View2" -> 1
-        "View3" -> 2
-        else -> 0
-    }
-
-    val enterTransition = if (currentTabIndex > previousTabIndex) {
-        slideInHorizontally(initialOffsetX = { it }) + fadeIn()
-    } else {
-        slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
-    }
-
-    val exitTransition = if (currentTabIndex > previousTabIndex) {
-        slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
-    } else {
-        slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
-    }
-
-    AnimatedContent(
-        targetState = selectedView,
-        transitionSpec = {
-            enterTransition togetherWith exitTransition using SizeTransform(clip = false)
-        }
-    ) { targetView ->
-        when (targetView) {
-            "ServerSelector" -> ServerSelector()
-            "View2" -> AccountScreen { m, t -> SimpleOverlayNotification.show(m, t, 3000) }
-            "View3" -> PacksScreen()
-        }
-    }
-}
-
-@Composable
-private fun AccountAndServerPanel(
-    context: Context,
-    captureModeModel: com.project.lumina.client.model.CaptureModeModel,
-    isCompactScreen: Boolean
-) {
-    val showNotification: (String, NotificationType) -> Unit = { message, type ->
-        SimpleOverlayNotification.show(
-            message = message,
-            type = type,
-            durationMs = 3000
-        )
-    }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        AnimatedContent(
-            targetState = AccountManager.currentAccount?.remark,
-            transitionSpec = {
-                (slideInVertically { height -> -height } + fadeIn()) togetherWith
-                        (slideOutVertically { height -> height } + fadeOut())
-            }
-        ) { accountRemark ->
-            if (accountRemark != null) {
-                AccountCard(
-                    accountName = accountRemark,
-                    isCompactScreen = isCompactScreen
-                )
-            } else if (AccountManager.accounts.isNotEmpty()) {
-                AccountSelectionCard(
-                    isCompactScreen = isCompactScreen
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ServerInfoCard(
-            serverName = captureModeModel.serverHostName,
-            serverPort = captureModeModel.serverPort,
-            isCompactScreen = isCompactScreen
-        )
-    }
-}
-
-@Composable
-private fun AccountCard(
-    accountName: String,
-    isCompactScreen: Boolean
-) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(if (isCompactScreen) 0.2f else 0.25f),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 4.dp,
-            pressedElevation = 8.dp
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Surface(
-                    modifier = Modifier.size(if (isCompactScreen) 48.dp else 56.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AccountCircle,
-                        contentDescription = null,
-                        modifier = Modifier.padding(if (isCompactScreen) 8.dp else 12.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Column {
-                    Text(
-                        "当前账户",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        accountName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AccountSelectionCard(
-    isCompactScreen: Boolean
-) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(if (isCompactScreen) 0.35f else 0.4f),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp,
-            pressedElevation = 4.dp
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                "选择一个账号",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(AccountManager.accounts) { account ->
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                if (account == AccountManager.currentAccount) {
-                                    AccountManager.selectAccount(null)
-                                } else {
-                                    AccountManager.selectAccount(account)
-                                }
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                previousView = selectedView
+                                selectedView = tab
                             },
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 2.dp
-                    ) {
-                        Row(
+                            label = {
+                                Text(
+                                    stringResource(tabNames[index]),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                .height(32.dp),
+                            interactionSource = interactionSource
+                        )
+                    }
+                }
+            } else {
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    val tabs = listOf("ServerSelector", "View2", "View3")
+                    val tabNames = listOf(R.string.servers, R.string.accounts, R.string.packs)
+
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = selectedView == tab
+                        val interactionSource = remember { MutableInteractionSource() }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .animateContentSize(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                )
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.AccountCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = account.remark,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    previousView = selectedView
+                                    selectedView = tab
+                                },
+                                label = {
+                                    Text(
+                                        stringResource(tabNames[index]),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(32.dp),
+                                interactionSource = interactionSource
                             )
                         }
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun ServerInfoCard(
-    serverName: String,
-    serverPort: Int,
-    isCompactScreen: Boolean
-) {
-    AnimatedVisibility(
-        visible = serverName.isNotBlank(),
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically()
-    ) {
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = if (isCompactScreen) 80.dp else 100.dp),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            ),
-            elevation = CardDefaults.elevatedCardElevation(
-                defaultElevation = 4.dp,
-                pressedElevation = 8.dp
-            ),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
+
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .weight(1f)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (isCompactScreen) 16.dp else 20.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = stringResource(R.string.selected_server),
-                        style = if (isCompactScreen)
-                            MaterialTheme.typography.bodyLarge else
-                            MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+
+                val currentTabIndex = when (selectedView) {
+                    "ServerSelector" -> 0
+                    "View2" -> 1
+                    "View3" -> 2
+                    else -> 0
                 }
-                Text(
-                    text = serverName,
-                    style = if (isCompactScreen)
-                        MaterialTheme.typography.bodyLarge else
-                        MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+
+                val previousTabIndex = when (previousView) {
+                    "ServerSelector" -> 0
+                    "View2" -> 1
+                    "View3" -> 2
+                    else -> 0
+                }
+
+                val enterTransition = if (currentTabIndex > previousTabIndex) {
+
+                    slideInHorizontally(initialOffsetX = { it }) + fadeIn()
+                } else {
+
+                    slideInHorizontally(initialOffsetX = { -it }) + fadeIn()
+                }
+
+                val exitTransition = if (currentTabIndex > previousTabIndex) {
+
+                    slideOutHorizontally(targetOffsetX = { -it }) + fadeOut()
+                } else {
+
+                    slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+                }
+
+                AnimatedContent(
+                    targetState = selectedView,
+                    transitionSpec = {
+                        enterTransition togetherWith exitTransition using SizeTransform(clip = false)
+                    },
+                    label = "tabContentAnimation"
+                ) { targetView ->
+                    when (targetView) {
+                        "ServerSelector" -> ServerSelector()
+                        "View2" -> AccountScreen(showNotification)
+                        "View3" -> PacksScreen()
+                    }
+                }
+            }
+        }
+
+
+        if (!isCompactScreen) {
+            VerticalDivider(
+                modifier = Modifier
+                    .fillMaxHeight(0.97f)
+                    .width(1.dp),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            )
+        }
+
+
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .padding(
+                    start = if (isCompactScreen) 8.dp else 16.dp,
+                    end = if (isCompactScreen) 12.dp else 16.dp,
+                    top = if (isCompactScreen) 16.dp else 16.dp,
+                    bottom = if (isCompactScreen) 16.dp else 16.dp
                 )
-                Text(
-                    text = stringResource(R.string.port, serverPort),
-                    style = if (isCompactScreen)
-                        MaterialTheme.typography.bodySmall else
-                        MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                )
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    AnimatedContent(
+                        targetState = AccountManager.currentAccount?.remark,
+                        transitionSpec = {
+                            (slideInVertically { height -> -height } + fadeIn()) togetherWith
+                                    (slideOutVertically { height -> height } + fadeOut())
+                        },
+                        label = "accountAnimation"
+                    ) { accountRemark ->
+                        if (accountRemark != null) {
+
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(if (isCompactScreen) 0.2f else 0.25f)
+                                    .animateContentSize(
+                                        animationSpec = spring(
+                                            dampingRatio = 0.7f,
+                                            stiffness = 400f
+                                        )
+                                    ),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                tonalElevation = 2.dp,
+                                shadowElevation = 1.dp
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+
+                                    if (isCompactScreen) {
+
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+
+                                            Surface(
+                                                modifier = Modifier.size(40.dp),
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.AccountCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .padding(2.dp)
+                                                        .size(36.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+
+
+                                            Text(
+                                                text = "你好!",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                                    alpha = 0.7f
+                                                )
+                                            )
+
+                                            Text(
+                                                text = accountRemark,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    } else {
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 24.dp, vertical = 16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+
+                                            Surface(
+                                                modifier = Modifier.size(56.dp),
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.AccountCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .padding(4.dp)
+                                                        .size(48.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "你好!",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(
+                                                        alpha = 0.7f
+                                                    )
+                                                )
+
+                                                Text(
+                                                    modifier = Modifier.padding(start = 4.dp),
+                                                    text = accountRemark,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Thin,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (AccountManager.accounts.isNotEmpty()) {
+
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(if (isCompactScreen) 0.35f else 0.4f)
+                                    .animateContentSize(
+                                        animationSpec = spring(
+                                            dampingRatio = 0.7f,
+                                            stiffness = 400f
+                                        )
+                                    ),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 1.dp
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(if (isCompactScreen) 12.dp else 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(if (isCompactScreen) 8.dp else 12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactScreen) 8.dp else 12.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.AccountCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(if (isCompactScreen) 18.dp else 24.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "选择一个账号",
+                                            style = if (isCompactScreen)
+                                                MaterialTheme.typography.bodyLarge else
+                                                MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Divider(
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                            alpha = 0.5f
+                                        )
+                                    )
+
+
+                                    LazyColumn(
+                                        modifier = Modifier.heightIn(
+                                            max = min(screenHeight.times(0.3f), 200.dp)
+                                        ),
+                                        verticalArrangement = Arrangement.spacedBy(if (isCompactScreen) 6.dp else 8.dp)
+                                    ) {
+                                        items(AccountManager.accounts) { account ->
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .clickable {
+                                                        if (account == AccountManager.currentAccount) {
+                                                            AccountManager.selectAccount(null)
+                                                        } else {
+                                                            AccountManager.selectAccount(account)
+                                                        }
+                                                    },
+                                                color = MaterialTheme.colorScheme.surface,
+                                                tonalElevation = 2.dp
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(
+                                                            horizontal = if (isCompactScreen) 8.dp else 12.dp,
+                                                            vertical = if (isCompactScreen) 8.dp else 10.dp
+                                                        ),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(if (isCompactScreen) 8.dp else 12.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.AccountCircle,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(if (isCompactScreen) 16.dp else 20.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Text(
+                                                        text = account.remark,
+                                                        style = if (isCompactScreen)
+                                                            MaterialTheme.typography.bodyMedium else
+                                                            MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+                    Spacer(modifier = Modifier.height(if (isCompactScreen) 8.dp else 16.dp))
+
+
+                    AnimatedVisibility(
+                        visible = showCustomNotification,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .width(if (isCompactScreen) 240.dp else 320.dp)
+                                .wrapContentHeight(),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = CardDefaults.cardColors(
+                                containerColor = when (customNotificationType) {
+                                    NotificationType.SUCCESS -> MaterialTheme.colorScheme.primaryContainer
+                                    NotificationType.ERROR -> MaterialTheme.colorScheme.errorContainer
+                                    NotificationType.INFO -> MaterialTheme.colorScheme.surfaceContainerHigh
+                                    NotificationType.WARNING -> MaterialTheme.colorScheme.tertiaryContainer
+                                }
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        horizontal = if (isCompactScreen) 12.dp else 16.dp,
+                                        vertical = if (isCompactScreen) 8.dp else 12.dp
+                                    ),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = customNotificationMessage,
+                                    style = if (isCompactScreen)
+                                        MaterialTheme.typography.bodySmall else
+                                        MaterialTheme.typography.bodyMedium,
+                                    color = when (customNotificationType) {
+                                        NotificationType.SUCCESS -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        NotificationType.ERROR -> MaterialTheme.colorScheme.onErrorContainer
+                                        NotificationType.INFO -> MaterialTheme.colorScheme.onSurface
+                                        NotificationType.WARNING -> MaterialTheme.colorScheme.onTertiaryContainer
+                                    }
+                                )
+                            }
+                        }
+
+
+                        Spacer(modifier = Modifier.height(if (isCompactScreen) 8.dp else 16.dp))
+                    }
+
+
+                    AnimatedVisibility(
+                        visible = captureModeModel.serverHostName.isNotBlank(),
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = if (isCompactScreen) 70.dp else 90.dp)
+                                .wrapContentHeight(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 2.dp,
+                                pressedElevation = 4.dp
+                            )
+                        ) {
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(if (isCompactScreen) 12.dp else 16.dp),
+                                horizontalAlignment = Alignment.Start,
+                                verticalArrangement = Arrangement.spacedBy(if (isCompactScreen) 4.dp else 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(if (isCompactScreen) 4.dp else 8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(if (isCompactScreen) 16.dp else 20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.selected_server),
+                                        style = if (isCompactScreen)
+                                            MaterialTheme.typography.bodyLarge else
+                                            MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Text(
+                                    text = captureModeModel.serverHostName,
+                                    style = if (isCompactScreen)
+                                        MaterialTheme.typography.bodyLarge else
+                                        MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = stringResource(R.string.port, captureModeModel.serverPort),
+                                    style = if (isCompactScreen)
+                                        MaterialTheme.typography.bodySmall else
+                                        MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+
+                Spacer(modifier = Modifier.weight(1f))
+
+
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(top = if (isCompactScreen) 12.dp else 20.dp),
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    AnimatedContent(
+                        targetState = Services.isActive,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(300)) togetherWith
+                                    fadeOut(animationSpec = tween(200))
+                        },
+                        label = "buttonLayoutAnimation"
+                    ) { isActive ->
+
+                        val scaleAnimation by animateFloatAsState(
+                            targetValue = if (isActive) 1f else 0.95f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            label = "buttonScaleAnimation"
+                        )
+
+                        if (isActive) {
+                            Button(
+                                onClick = {
+                                    isLaunchingMinecraft = false
+                                    onStartToggle()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (isCompactScreen) 48.dp else 56.dp),
+                                shape = RoundedCornerShape(if (isCompactScreen) 12.dp else 16.dp)
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Pause,
+                                        contentDescription = "停止",
+                                        modifier = Modifier.size(if (isCompactScreen) 20.dp else 24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.stop),
+                                        style = if (isCompactScreen)
+                                            MaterialTheme.typography.bodyLarge else
+                                            MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = if (isCompactScreen) 8.dp else 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                ExtendedFloatingActionButton(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(if (isCompactScreen) 48.dp else 56.dp)
+                                        .scale(scaleAnimation)
+                                        .animateContentSize(),
+                                    onClick = {
+                                        scope.launch {
+                                            delay(100)
+                                            isLaunchingMinecraft = true
+                                            Services.isLaunchingMinecraft = true
+                                            onStartToggle()
+                                            
+                                            delay(2500)
+                                            if (!Services.isActive) {
+                                                isLaunchingMinecraft = false
+                                                Services.isLaunchingMinecraft = false
+                                                return@launch
+                                            }
+                                            
+                                            val selectedGame = mainScreenViewModel.selectedGame.value
+                                            if (selectedGame != null) {
+                                                val intent = context.packageManager.getLaunchIntentForPackage(selectedGame)
+                                                if (intent != null && Services.isActive) {
+                                                    context.startActivity(intent)
+                                                    
+                                                    delay(3000)
+                                                    if (Services.isActive) {
+                                                        val disableConnectionInfoOverlay = sharedPreferences.getBoolean("disableConnectionInfoOverlay", false)
+                                                        if (!disableConnectionInfoOverlay) {
+                                                            ConnectionInfoOverlay.show(localIp)
+                                                        }
+                                                    }
+                                                    isLaunchingMinecraft = false
+                                                    Services.isLaunchingMinecraft = false
+                                                    
+                                                    try {
+                                                        when {
+                                                            InjectNekoPack == true && PackSelectionManager.selectedPack != null -> {
+                                                                PackSelectionManager.selectedPack?.let { selectedPack ->
+                                                                    currentPackName = selectedPack.name
+                                                                    showProgressDialog = true
+                                                                    downloadProgress = 0f
+
+                                                                    try {
+                                                                        MCPackUtils.downloadAndOpenPack(
+                                                                            context,
+                                                                            selectedPack
+                                                                        ) { progress ->
+                                                                            downloadProgress = progress
+                                                                        }
+                                                                        showProgressDialog = false
+                                                                    } catch (e: Exception) {
+                                                                        showProgressDialog = false
+                                                                        showNotification(
+                                                                            "材质包下载失败: ${e.message}",
+                                                                            NotificationType.ERROR
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            InjectNekoPack == true -> {
+                                                                try {
+                                                                    InjectNeko.injectNeko(
+                                                                        context = context,
+                                                                        onProgress = {
+                                                                            progress = it
+                                                                        }
+                                                                    )
+                                                                } catch (e: Exception) {
+                                                                    showNotification(
+                                                                        "Neko 注入失败: ${e.message}",
+                                                                        NotificationType.ERROR
+                                                                    )
+                                                                }
+                                                            }
+
+                                                            else -> {
+                                                                if (selectedGame == "com.mojang.minecraftpe") {
+                                                                    try {
+                                                                        ServerInit.addMinecraftServer(
+                                                                            context,
+                                                                            localIp
+                                                                        )
+                                                                    } catch (e: Exception) {
+                                                                        showNotification(
+                                                                            "服务器初始化失败: ${e.message}",
+                                                                            NotificationType.ERROR
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        showNotification(
+                                                            "一个未预料的错误发生: ${e.message}",
+                                                            NotificationType.ERROR
+                                                        )
+                                                    }
+                                                } else {
+                                                    showNotification(
+                                                        "游戏启动失败，请检查是否安装 Minecraft 或在 App 管理器中正确添加了客户端",
+                                                        NotificationType.ERROR
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    shape = RoundedCornerShape(if (isCompactScreen) 12.dp else 16.dp),
+                                    elevation = FloatingActionButtonDefaults.elevation(
+                                        defaultElevation = 4.dp,
+                                        pressedElevation = 8.dp
+                                    ),
+                                    icon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(if (isCompactScreen) 20.dp else 24.dp)
+                                        )
+                                    },
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.start),
+                                            style = if (isCompactScreen)
+                                                MaterialTheme.typography.bodyLarge else
+                                                MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                )
+
+                                if (showProgressDialog) {
+                                    Dialog(onDismissRequest = { /* Prevent dismissal during download */ }) {
+                                        Card(
+                                            modifier = Modifier
+                                                .padding(16.dp)
+                                                .wrapContentSize()
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .padding(16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Text(
+                                                    text = "正在下载: $currentPackName",
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                                CircularProgressIndicator(
+                                                    progress = { downloadProgress },
+                                                    modifier = Modifier.size(48.dp),
+                                                    trackColor = ProgressIndicatorDefaults.circularTrackColor,
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "${(downloadProgress * 100).toInt()}%",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = if (downloadProgress < 1f) "正在下载..." else "正在启动 Minecraft ...",
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
