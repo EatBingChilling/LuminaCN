@@ -21,8 +21,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,13 +33,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.project.lumina.client.R // Assuming R file is accessible for preview
+import com.project.lumina.client.R
 import com.project.lumina.client.overlay.manager.OverlayManager
 import com.project.lumina.client.overlay.manager.OverlayWindow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// A notification for events like KillAura activation
 class PacketNotificationOverlay(
     private val title: String,
     private val subtitle: String,
@@ -58,7 +56,7 @@ class PacketNotificationOverlay(
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = 100 // Position from the top
+            y = 100
         }
     }
 
@@ -67,7 +65,6 @@ class PacketNotificationOverlay(
 
     @Composable
     override fun Content() {
-        // Wrap with MaterialTheme to ensure colors are available
         MaterialTheme {
              PacketNotificationCard(title, subtitle, iconRes, duration, this)
         }
@@ -98,7 +95,6 @@ private fun PacketNotificationCard(
     var visible by remember { mutableStateOf(false) }
     val progressAnimatable = remember { Animatable(1f) }
 
-    // --- MODIFIED: Use MaterialTheme colors for the gradient ---
     val colorScheme = MaterialTheme.colorScheme
     val gradientBrush = remember {
         Brush.linearGradient(
@@ -108,7 +104,6 @@ private fun PacketNotificationCard(
         )
     }
 
-    // Lifecycle: Animate in, wait, animate out, then dismiss
     LaunchedEffect(Unit) {
         visible = true
         scope.launch {
@@ -119,7 +114,7 @@ private fun PacketNotificationCard(
         }
         delay(duration)
         visible = false
-        delay(300) // Wait for exit animation
+        delay(300)
         OverlayManager.dismissOverlayWindow(overlay)
     }
 
@@ -130,38 +125,36 @@ private fun PacketNotificationCard(
         exit = scaleOut(targetScale = 0.8f, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
                fadeOut(tween(200))
     ) {
-        Box(
+        ElevatedCard(
             modifier = Modifier
-                .width(280.dp) // A bit wider for better text spacing
-                .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
-                .clip(RoundedCornerShape(16.dp))
-                .background(colorScheme.surfaceContainerHigh.copy(alpha = 0.9f))
+                .width(280.dp)
+                .wrapContentHeight(),
+            shape = MaterialTheme.shapes.large,
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = colorScheme.surfaceContainerHigh.copy(alpha = 0.9f)
+            )
         ) {
             Column {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Icon with gradient background
                     Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(gradientBrush),
+                        modifier = Modifier.size(40.dp).clip(CircleShape).background(gradientBrush),
                         contentAlignment = Alignment.Center
                     ) {
                         if (iconRes != null) {
-                            Image(
+                            Icon(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = title,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(24.dp),
+                                tint = colorScheme.onPrimary
                             )
                         } else {
                             Text(
                                 text = title.firstOrNull()?.uppercase() ?: "!",
-                                // --- MODIFIED: Use onPrimary for text on a primary-colored background ---
                                 color = colorScheme.onPrimary,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
@@ -169,13 +162,9 @@ private fun PacketNotificationCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    // Title and Subtitle Column
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = title,
-                            // --- MODIFIED: Use MaterialTheme typography and colors ---
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = colorScheme.onSurface,
@@ -191,20 +180,12 @@ private fun PacketNotificationCard(
                     }
                 }
 
-                // Progress Bar
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .background(colorScheme.surfaceVariant) // Background for the progress track
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progressAnimatable.value)
-                            .height(4.dp)
-                            .background(gradientBrush)
-                    )
-                }
+                LinearProgressIndicator(
+                    progress = { progressAnimatable.value },
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    color = colorScheme.primary,
+                    trackColor = colorScheme.surfaceVariant,
+                )
             }
         }
     }
@@ -213,21 +194,29 @@ private fun PacketNotificationCard(
 @Preview
 @Composable
 private fun PacketNotificationPreview() {
+    // --- FIXED: Create an anonymous instance of the abstract class for the preview ---
+    val dummyOverlay = object : OverlayWindow() {
+        @Composable
+        override fun Content() {}
+        override val layoutParams: WindowManager.LayoutParams
+            get() = WindowManager.LayoutParams()
+    }
+
     MaterialTheme {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             PacketNotificationCard(
                 title = "Kill Aura",
                 subtitle = "Target locked: Notch",
-                iconRes = R.drawable.ic_discord, // Example icon
+                iconRes = R.drawable.ic_discord,
                 duration = 3000L,
-                overlay = OverlayWindow() // Dummy overlay for preview
+                overlay = dummyOverlay
             )
             PacketNotificationCard(
                 title = "Flight",
                 subtitle = "Packet fly enabled",
-                iconRes = null, // Preview without icon
+                iconRes = null,
                 duration = 3000L,
-                overlay = OverlayWindow()
+                overlay = dummyOverlay
             )
         }
     }
