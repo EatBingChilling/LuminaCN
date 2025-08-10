@@ -29,7 +29,7 @@ jobs:
 
       # 构建
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew :app:compileDebugKotlin
 
       # 上传构建产物
       - name: Upload APKs
