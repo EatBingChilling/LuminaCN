@@ -444,27 +444,26 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             }
             // >>> MODIFIED END
 
-            /* 弹窗 */
-            privacy?.let {
-                PrivacyDialog(it, {
-                    prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(it)).apply()
-                    privacy = null
-                }) { (context as? Activity)?.finish() }
-            }
-            notice?.let {
-                NoticeDialog(it) {
-                    prefs.edit().putString(KEY_NOTICE_HASH, getSHA(it.rawJson)).apply()
-                    notice = null
-                }
-            }
-            update?.let {
-                UpdateDialog(it, {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url)))
-                    update = null
-                }) { update = null }
-            }
+    /* 弹窗 */
+    privacy?.let {
+        PrivacyDialog(it, {
+            prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(it)).apply()
+            privacy = null
+        }) { (context as? Activity)?.finish() }
+    }
+    notice?.let {
+        NoticeDialog(it) {
+            prefs.edit().putString(KEY_NOTICE_HASH, getSHA(it.rawJson)).apply()
+            notice = null
         }
     }
+    update?.let {
+        UpdateDialog(it, {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url)))
+            update = null
+        }) { update = null }
+    }
+}
 
 /* ======================================================
    页面内容
