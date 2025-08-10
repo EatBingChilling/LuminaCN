@@ -2,36 +2,6 @@
  * © Project Lumina 2025 — Licensed under GNU GPLv3
  * You are free to use, modify, and redistribute this code under the terms
  * of the GNU General Public License v3. See the LICENSE file for details.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * This is open source — not open credit.
- *
- * If you're here to build, welcome. If you're here to repaint and reupload
- * with your tag slapped on it… you're not fooling anyone.
- *
- * Changing colors and class names doesn't make you a developer.
- * Copy-pasting isn't contribution.
- *
- * You have legal permission to fork. But ask yourself — are you improving,
- * or are you just recycling someone else's work to feed your ego?
- *
- * Open source isn't about low-effort clones or chasing clout.
- * It's about making things better. Sharper. Cleaner. Smarter.
- *
- * So go ahead, fork it — but bring something new to the table,
- * or don't bother pretending.
- *
- * This message is philosophical. It does not override your legal rights under GPLv3.
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * GPLv3 Summary:
- * - You have the freedom to run, study, share, and modify this software.
- * - If you distribute modified versions, you must also share the source code.
- * - You must keep this license and copyright intact.
- * - You cannot apply further restrictions — the freedom stays with everyone.
- * - This license is irrevocable, and applies to all future redistributions.
- *
- * Full text: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
 package com.project.lumina.client.router.main
@@ -39,35 +9,16 @@ package com.project.lumina.client.router.main
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Help
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -79,28 +30,25 @@ import java.io.InputStreamReader
 
 @Composable
 fun AboutScreen() {
-    val scrollState = rememberScrollState()
     val context = LocalContext.current
-    // 用于控制使用教程对话框的显示状态
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    
+    val scrollState = rememberScrollState()
     val showTutorialDialog = remember { mutableStateOf(false) }
-    // 存储教程文本内容
     val tutorialText = remember { mutableStateOf("") }
 
-    // 如果对话框需要显示，读取教程内容
     if (showTutorialDialog.value && tutorialText.value.isEmpty()) {
         try {
-            // 从 raw 资源中读取 t.txt 文件内容
             val inputStream = context.resources.openRawResource(R.raw.t)
             val reader = BufferedReader(InputStreamReader(inputStream))
             val text = reader.use { it.readText() }
             tutorialText.value = text
         } catch (e: Exception) {
             tutorialText.value = "无法加载教程内容"
-            e.printStackTrace()
         }
     }
 
-    // 使用教程对话框
     if (showTutorialDialog.value) {
         AlertDialog(
             onDismissRequest = { showTutorialDialog.value = false },
@@ -118,137 +66,183 @@ fun AboutScreen() {
         )
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        // === 实用工具卡片放在最上方 ===
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth(),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
+                )
             )
-        ) {
+    ) {
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                ToolsCard(
+                    modifier = Modifier.weight(1f),
+                    onShowTutorial = { showTutorialDialog.value = true },
+                    context = context
+                )
+                
+                AboutLuminaCard(
+                    modifier = Modifier.weight(1f),
+                    context = context
+                )
+            }
+        } else {
             Column(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // 主标题：实用工具
-                Text(
-                    "实用工具",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                ToolsCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onShowTutorial = { showTutorialDialog.value = true },
+                    context = context
                 )
                 
-                // 副标题：推荐使用
-                Text(
-                    "推荐使用",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                AboutLuminaCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    context = context
                 )
-                
-                Spacer(modifier = Modifier.padding(8.dp))
-                
-                // 工具按钮区域
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // 下载客户端按钮
-                    ToolButton(
-                        icon = Icons.Filled.Download,
-                        text = "下载客户端",
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    
-                    // 加入群聊按钮
-                    ToolButton(
-                        icon = Icons.Filled.Group,
-                        text = "加入群聊",
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/dxqhrjC9Nu"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    
-                    // 使用教程按钮
-                    ToolButton(
-                        icon = Icons.Filled.Help,
-                        text = "使用教程",
-                        onClick = { showTutorialDialog.value = true }
-                    )
-                }
             }
         }
+    }
+}
 
-        // 关于 Lumina 卡片（原第一个卡片）
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+@Composable
+private fun ToolsCard(
+    modifier: Modifier = Modifier,
+    onShowTutorial: () -> Unit,
+    context: Context
+) {
+    ElevatedCard(
+        modifier = modifier,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 6.dp,
+            pressedElevation = 8.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(
+                "实用工具",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                "推荐使用",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
             Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                
-                Text(
-                    stringResource(R.string.about_lumina),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                ToolButton(
+                    icon = Icons.Filled.Download,
+                    text = "下载客户端",
+                    onClick = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net")))
+                    }
                 )
                 
+                ToolButton(
+                    icon = Icons.Filled.Group,
+                    text = "加入群聊",
+                    onClick = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/dxqhrjC9Nu")))
+                    }
+                )
                 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                ToolButton(
+                    icon = Icons.Filled.Help,
+                    text = "使用教程",
+                    onClick = onShowTutorial
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AboutLuminaCard(
+    modifier: Modifier = Modifier,
+    context: Context
+) {
+    ElevatedCard(
+        modifier = modifier,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 6.dp,
+            pressedElevation = 8.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text(
+                stringResource(R.string.about_lumina),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    stringResource(R.string.luminacn_dev),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 
-                     Text(
-                        stringResource(R.string.luminacn_dev),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        stringResource(R.string.lumina_introduction),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Text(
-                        stringResource(R.string.lumina_expectation),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Text(
-                        stringResource(R.string.lumina_compatibility),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Text(
+                    stringResource(R.string.lumina_introduction),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 
-                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    stringResource(R.string.lumina_expectation),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 
-                
+                Text(
+                    stringResource(R.string.lumina_compatibility),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     stringResource(R.string.lumina_copyright),
                     style = MaterialTheme.typography.bodySmall,
@@ -260,71 +254,56 @@ fun AboutScreen() {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Connect with us",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
                 
-                
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        stringResource(R.string.connect_with_us),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
+                    SocialMediaIcon(
+                        icon = painterResource(id = R.drawable.ic_github),
+                        label = "GitHub",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/EatBingChilling/LuminaCN")))
+                        }
                     )
                     
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
+                    SocialMediaIcon(
+                        icon = painterResource(id = R.drawable.ic_discord),
+                        label = "Discord",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/invite/6kz3dcndrN")))
+                        }
+                    )
                     
+                    SocialMediaIcon(
+                        icon = Icons.Filled.Public,
+                        label = "QQ",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/fQ5wdjaeOc")))
+                        }
+                    )
                     
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        
-                        SocialMediaIcon(
-                            icon = painterResource(id = R.drawable.ic_github),
-                            label = "GitHub",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/EatBingChilling/LuminaCN"))
-                                context.startActivity(intent)
-                            }
-                        )
-                        
-                        
-                        SocialMediaIcon(
-                            icon = painterResource(id = R.drawable.ic_discord),
-                            label = "Discord",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/invite/6kz3dcndrN"))
-                                context.startActivity(intent)
-                            }
-                        )
-                        
-                        
-                        SocialMediaIcon(
-                            icon = Icons.Filled.Public,
-                            label = "QQ",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/fQ5wdjaeOc"))
-                                context.startActivity(intent)
-                            }
-                        )
-                        
-                        
-                        SocialMediaIcon(
-                            icon = painterResource(id = R.drawable.ic_youtube),
-                            label = "YouTube",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://youtube.com/@prlumina"))
-                                context.startActivity(intent)
-                            }
-                        )
-                    }
+                    SocialMediaIcon(
+                        icon = painterResource(id = R.drawable.ic_youtube),
+                        label = "YouTube",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://youtube.com/@prlumina")))
+                        }
+                    )
                 }
             }
         }
@@ -332,22 +311,51 @@ fun AboutScreen() {
 }
 
 @Composable
-private fun FeatureItem(text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+private fun ToolButton(
+    icon: Any,
+    text: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        tonalElevation = 1.dp
     ) {
-        Icon(
-            imageVector = Icons.Filled.Check,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            when (icon) {
+                is androidx.compose.ui.graphics.painter.Painter -> {
+                    Icon(
+                        painter = icon,
+                        contentDescription = text,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                is androidx.compose.ui.graphics.vector.ImageVector -> {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = text,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
@@ -361,8 +369,9 @@ private fun SocialMediaIcon(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(8.dp)
+            .padding(12.dp)
     ) {
         when (icon) {
             is androidx.compose.ui.graphics.painter.Painter -> {
@@ -386,48 +395,6 @@ private fun SocialMediaIcon(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-// 新增的工具按钮组件
-@Composable
-private fun ToolButton(
-    icon: Any,
-    text: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        when (icon) {
-            is androidx.compose.ui.graphics.painter.Painter -> {
-                Icon(
-                    painter = icon,
-                    contentDescription = text,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            is androidx.compose.ui.graphics.vector.ImageVector -> {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = text,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-        
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary
         )
     }

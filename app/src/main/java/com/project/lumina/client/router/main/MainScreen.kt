@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Home
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
@@ -25,8 +23,19 @@ enum class MainScreenPages(
     val content: @Composable () -> Unit
 ) {
     HomePage(
-        icon = { Icon(Icons.TwoTone.Home, contentDescription = null) },
-        label = { Text(stringResource(R.string.home)) },
+        icon = { 
+            Icon(
+                Icons.TwoTone.Home, 
+                contentDescription = null,
+                modifier = Modifier.size(28.dp)
+            ) 
+        },
+        label = { 
+            Text(
+                stringResource(R.string.home),
+                style = MaterialTheme.typography.labelLarge
+            ) 
+        },
         content = { NewHomePageContent() }
     )
 }
@@ -34,14 +43,20 @@ enum class MainScreenPages(
 @Composable
 fun MainScreen() {
     val mainScreenViewModel: MainScreenViewModel = viewModel()
+    
     Box(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    )
+                )
+            )
     ) {
-        
         NewHomePageContent()
-        
         
         Box(modifier = Modifier.zIndex(10f)) {
             SimpleOverlayNotification.Content()
