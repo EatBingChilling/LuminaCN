@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +35,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.window.core.layout.WindowWidthSizeClass
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.lumina.client.R
 import com.project.lumina.client.constructors.*
@@ -177,11 +175,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
 
 
     val configuration = LocalConfiguration.current
-    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
     
     // Determine if we should use NavigationRail (landscape/wide screen) or NavigationBar (portrait)
-    val useNavigationRail = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
-            windowAdaptiveInfo.windowSizeClass.windowWidthSizeClass != WindowWidthSizeClass.COMPACT
+    val useNavigationRail = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
     val navigationItems = listOf(
         "主仪表盘" to Icons.Filled.Dashboard,
@@ -255,33 +251,33 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                     val selectedAppPackage = settingsPrefs.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe"
                     
                     ExtendedFloatingActionButton(
-                        onClick = {
-                            // Show snackbar only when starting the service
-                            if (!Services.isActive) {
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "服务正在启动...",
+                onClick = {
+                    // Show snackbar only when starting the service
+                    if (!Services.isActive) {
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "服务正在启动...",
                                         actionLabel = "启动应用",
-                                        duration = SnackbarDuration.Long
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
+                                duration = SnackbarDuration.Long
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
                                         // Use the selectedAppPackage from SettingsScreen instead of hardcoded package
                                         val intent = context.packageManager.getLaunchIntentForPackage(selectedAppPackage)
-                                        if (intent != null) {
-                                            context.startActivity(intent)
-                                        } else {
-                                            SimpleOverlayNotification.show(
+                                if (intent != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    SimpleOverlayNotification.show(
                                                 "未安装选定的应用，请在设置中配置正确的应用包名",
-                                                NotificationType.ERROR,
-                                                3000
-                                            )
-                                        }
-                                    }
+                                        NotificationType.ERROR,
+                                        3000
+                                    )
                                 }
                             }
-                            // Always call the toggle function
-                            onStartToggle()
-                        },
+                        }
+                    }
+                    // Always call the toggle function
+                    onStartToggle()
+                },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(16.dp),
@@ -291,9 +287,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                             defaultElevation = 6.dp,
                             pressedElevation = 12.dp
                         )
-                    ) {
-                        Icon(
-                            if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+            ) {
+                Icon(
+                    if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                             contentDescription = if (Services.isActive) "停止服务" else "启动服务"
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -379,33 +375,33 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
-                }
             }
-        ) { inner ->
-            Box(Modifier.padding(inner)) {
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> -width } + fadeOut()
-                        } else {
-                            slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> width } + fadeOut()
-                        }
-                    },
-                    label = "tab"
-                ) { t ->
-                    when (t) {
-                        0 -> MainDashboard()
-                        1 -> AccountPage()
-                        2 -> AboutPage()
-                        3 -> SettingsScreen()
+        }
+    ) { inner ->
+        Box(Modifier.padding(inner)) {
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> -width } + fadeOut()
+                    } else {
+                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> width } + fadeOut()
+                    }
+                },
+                label = "tab"
+            ) { t ->
+                when (t) {
+                    0 -> MainDashboard()
+                    1 -> AccountPage()
+                    2 -> AboutPage()
+                    3 -> SettingsScreen()
                     }
                 }
             }
-        }
-    }
+                }
+            }
 
             // <<< MODIFIED: 验证遮罩动画化
             // 1. 使用 `animateFloatAsState` 创建一个 `progress` 的动画版本

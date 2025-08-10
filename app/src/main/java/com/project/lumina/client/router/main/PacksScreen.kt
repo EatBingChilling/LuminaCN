@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +26,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.window.core.layout.WindowWidthSizeClass
 import com.project.lumina.client.ui.component.PackItem
 import com.project.lumina.client.util.API
 import com.project.lumina.client.util.MCPack
@@ -45,22 +43,16 @@ val nekourl = API.FILES_SERVICE_PACK_INDEX_JSON
 fun PacksScreen() {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
     
     var packs by remember { mutableStateOf<List<MCPack>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     
     // Determine layout based on screen size and orientation
-    val useGridLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
-            windowAdaptiveInfo.windowSizeClass.windowWidthSizeClass != WindowWidthSizeClass.COMPACT
+    val useGridLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
     // Determine number of columns for grid layout
-    val columns = when {
-        windowAdaptiveInfo.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED -> 3
-        useGridLayout -> 2
-        else -> 1
-    }
+    val columns = if (useGridLayout) 2 else 1
 
     LaunchedEffect(Unit) {
         try {
@@ -159,8 +151,8 @@ fun PacksScreen() {
                         contentAlignment = Alignment.Center
                     ) {
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                                 .padding(24.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.errorContainer
@@ -212,8 +204,8 @@ fun PacksScreen() {
                 packs.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    contentAlignment = Alignment.Center
+                ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -224,16 +216,16 @@ fun PacksScreen() {
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(48.dp)
                             )
-                            Text(
+                    Text(
                                 text = "暂无可用的材质包",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+                        textAlign = TextAlign.Center
+                    )
                 }
-                
+            }
+        }
+
                 else -> {
                     if (useGridLayout && columns > 1) {
                         // Grid layout for wide screens
@@ -262,13 +254,13 @@ fun PacksScreen() {
                             contentPadding = PaddingValues(16.dp)
                         ) {
                             items(packs) { pack ->
-                                PackItem(
-                                    pack = pack,
-                                    isSelected = PackSelectionManager.selectedPack == pack,
-                                    onClick = {
-                                        PackSelectionManager.selectedPack = pack
-                                    }
-                                )
+            PackItem(
+                pack = pack,
+                isSelected = PackSelectionManager.selectedPack == pack,
+                onClick = {
+                    PackSelectionManager.selectedPack = pack
+                }
+            )
                             }
                         }
                     }

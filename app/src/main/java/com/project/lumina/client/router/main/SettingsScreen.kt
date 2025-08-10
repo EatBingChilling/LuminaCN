@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -540,7 +541,7 @@ private fun AppManagerCard(
                         shape = RoundedCornerShape(12.dp),
                         shadowElevation = 2.dp
                     ) {
-                        Image(
+                    Image(
                             bitmap = it.toBitmap(112, 112).asImageBitmap(),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize()

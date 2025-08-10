@@ -1,37 +1,5 @@
 /*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
- * You are free to use, modify, and redistribute this code under the terms
- * of the GNU General Public License v3. See the LICENSE file for details.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * This is open source — not open credit.
- *
- * If you're here to build, welcome. If you're here to repaint and reupload
- * with your tag slapped on it… you're not fooling anyone.
- *
- * Changing colors and class names doesn't make you a developer.
- * Copy-pasting isn't contribution.
- *
- * You have legal permission to fork. But ask yourself — are you improving,
- * or are you just recycling someone else's work to feed your ego?
- *
- * Open source isn't about low-effort clones or chasing clout.
- * It's about making things better. Sharper. Cleaner. Smarter.
- *
- * So go ahead, fork it — but bring something new to the table,
- * or don't bother pretending.
- *
- * This message is philosophical. It does not override your legal rights under GPLv3.
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * GPLv3 Summary:
- * - You have the freedom to run, study, share, and modify this software.
- * - If you distribute modified versions, you must also share the source code.
- * - You must keep this license and copyright intact.
- * - You cannot apply further restrictions — the freedom stays with everyone.
- * - This license is irrevocable, and applies to all future redistributions.
- *
- * Full text: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
 package com.project.lumina.client.router.main
@@ -48,17 +16,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.window.core.layout.WindowWidthSizeClass
 import com.project.lumina.client.R
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -67,7 +34,6 @@ import java.io.InputStreamReader
 fun AboutScreen() {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
     
     // 用于控制使用教程对话框的显示状态
     var showTutorialDialog by remember { mutableStateOf(false) }
@@ -75,20 +41,19 @@ fun AboutScreen() {
     var tutorialText by remember { mutableStateOf("") }
     
     // Determine layout based on screen size and orientation
-    val useWideLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
-            windowAdaptiveInfo.windowSizeClass.windowWidthSizeClass != WindowWidthSizeClass.COMPACT
+    val useWideLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // 如果对话框需要显示，读取教程内容
-    if (showTutorialDialog && tutorialText.isEmpty()) {
-        try {
-            // 从 raw 资源中读取 t.txt 文件内容
-            val inputStream = context.resources.openRawResource(R.raw.t)
-            val reader = BufferedReader(InputStreamReader(inputStream))
-            val text = reader.use { it.readText() }
-            tutorialText = text
-        } catch (e: Exception) {
-            tutorialText = "无法加载教程内容"
-            e.printStackTrace()
+    LaunchedEffect(showTutorialDialog) {
+        if (showTutorialDialog && tutorialText.isEmpty()) {
+            try {
+                val inputStream = context.resources.openRawResource(R.raw.t)
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                tutorialText = reader.use { it.readText() }
+            } catch (e: Exception) {
+                tutorialText = "无法加载教程内容"
+                e.printStackTrace()
+            }
         }
     }
 
@@ -178,8 +143,9 @@ fun AboutScreen() {
         }
     }
 }
+
 @Composable
-private fun ToolsCard(onTutorialClick: () -> Unit) {
+fun ToolsCard(onTutorialClick: () -> Unit) {
     val context = LocalContext.current
     
     ElevatedCard(
@@ -262,138 +228,139 @@ private fun ToolsCard(onTutorialClick: () -> Unit) {
     }
 }
 
-        // 关于 Lumina 卡片（原第一个卡片）
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            )
+@Composable
+fun AboutCard() {
+    val context = LocalContext.current
+    
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 4.dp
+        ),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                
-                Text(
-                    stringResource(R.string.about_lumina),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                Surface(
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                
-                     Text(
-                        stringResource(R.string.luminacn_dev),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        stringResource(R.string.lumina_introduction),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Text(
-                        stringResource(R.string.lumina_expectation),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Text(
-                        stringResource(R.string.lumina_compatibility),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+                    Icon(
+                        Icons.Filled.Info,
+                        contentDescription = null,
+                        modifier = Modifier.padding(6.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 
-                Spacer(modifier = Modifier.weight(1f))
-                
-                
+                Text(
+                    stringResource(R.string.about_lumina),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            // About content
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    stringResource(R.string.luminacn_dev),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    stringResource(R.string.lumina_introduction),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    stringResource(R.string.lumina_expectation),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    stringResource(R.string.lumina_compatibility),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            HorizontalDivider(
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            )
+            
+            // Copyright info
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     stringResource(R.string.lumina_copyright),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
                 Text(
                     stringResource(R.string.lumina_team),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            
+            // Social media links
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    stringResource(R.string.connect_with_us),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
                 
-                
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        stringResource(R.string.connect_with_us),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
+                    SocialMediaButton(
+                        icon = painterResource(id = R.drawable.ic_github),
+                        label = "GitHub",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/EatBingChilling/LuminaCN"))
+                            context.startActivity(intent)
+                        }
                     )
                     
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
+                    SocialMediaButton(
+                        icon = painterResource(id = R.drawable.ic_discord),
+                        label = "Discord",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.gg/lumina"))
+                            context.startActivity(intent)
+                        }
+                    )
                     
-                    
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        
-                        SocialMediaIcon(
-                            icon = painterResource(id = R.drawable.ic_github),
-                            label = "GitHub",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/EatBingChilling/LuminaCN"))
-                                context.startActivity(intent)
-                            }
-                        )
-                        
-                        
-                        SocialMediaIcon(
-                            icon = painterResource(id = R.drawable.ic_discord),
-                            label = "Discord",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/invite/6kz3dcndrN"))
-                                context.startActivity(intent)
-                            }
-                        )
-                        
-                        
-                        SocialMediaIcon(
-                            icon = Icons.Filled.Public,
-                            label = "QQ",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/fQ5wdjaeOc"))
-                                context.startActivity(intent)
-                            }
-                        )
-                        
-                        
-                        SocialMediaIcon(
-                            icon = painterResource(id = R.drawable.ic_youtube),
-                            label = "YouTube",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://youtube.com/@prlumina"))
-                                context.startActivity(intent)
-                            }
-                        )
-                    }
+                    SocialMediaButton(
+                        icon = painterResource(id = R.drawable.ic_public),
+                        label = "官网",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://lumina-cn.com"))
+                            context.startActivity(intent)
+                        }
+                    )
                 }
             }
         }
@@ -401,103 +368,82 @@ private fun ToolsCard(onTutorialClick: () -> Unit) {
 }
 
 @Composable
-private fun FeatureItem(text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+fun ToolButton(
+    icon: ImageVector,
+    text: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 1.dp
     ) {
-        Icon(
-            imageVector = Icons.Filled.Check,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.padding(8.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
-private fun SocialMediaIcon(
-    icon: Any,
+fun SocialMediaButton(
+    icon: androidx.compose.ui.graphics.painter.Painter,
     label: String,
     onClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Surface(
         modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(8.dp)
+            .size(48.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shadowElevation = 2.dp
     ) {
-        when (icon) {
-            is androidx.compose.ui.graphics.painter.Painter -> {
-                Icon(
-                    painter = icon,
-                    contentDescription = label,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-            is androidx.compose.ui.graphics.vector.ImageVector -> {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        }
-        
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-// 新增的工具按钮组件
-@Composable
-private fun ToolButton(
-    icon: Any,
-    text: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        when (icon) {
-            is androidx.compose.ui.graphics.painter.Painter -> {
-                Icon(
-                    painter = icon,
-                    contentDescription = text,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            is androidx.compose.ui.graphics.vector.ImageVector -> {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = text,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-        
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary
+        Icon(
+            painter = icon,
+            contentDescription = label,
+            modifier = Modifier.padding(12.dp),
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }

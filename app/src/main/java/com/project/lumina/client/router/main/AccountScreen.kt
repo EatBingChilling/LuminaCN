@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.BorderStroke
-import androidx.window.core.layout.WindowWidthSizeClass
 import com.project.lumina.client.R
 import com.project.lumina.client.constructors.AccountManager
 import com.project.lumina.client.util.AuthWebView
@@ -48,11 +46,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun AccountScreen(showNotification: (String, NotificationType) -> Unit) {
     val configuration = LocalConfiguration.current
-    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
     
     // Determine layout based on screen size and orientation
-    val useWideLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
-            windowAdaptiveInfo.windowSizeClass.windowWidthSizeClass != WindowWidthSizeClass.COMPACT
+    val useWideLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
     Surface(
         modifier = Modifier.fillMaxSize(),
