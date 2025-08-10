@@ -3,12 +3,12 @@
  * You are free to use, modify, and redistribute this code under the terms
  * of the GNU General Public License v3. See the LICENSE file for details.
  */
+
 package com.project.lumina.client.router.main
 
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -28,21 +28,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-// FIX: Removed imports for classes and objects that are now defined in SharedStubs.kt
-// import com.project.lumina.client.util.*
-// import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
-// import com.project.lumina.client.overlay.mods.NotificationType
-// import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
-// import com.project.lumina.client.service.Services
-// import com.project.lumina.client.model.CaptureModeModel
-// import com.project.lumina.client.manager.AccountManager
+import com.project.lumina.client.R
+import com.project.lumina.client.constructors.*
+import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
+import com.project.lumina.client.overlay.mods.NotificationType
+import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
+import com.project.lumina.client.service.Services
+import com.project.lumina.client.util.*
+import com.project.lumina.client.viewmodel.MainScreenViewModel
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -50,10 +49,14 @@ import java.net.URL
 import java.security.MessageDigest
 
 /* -------------------- 数据类 & 常量 -------------------- */
-// Definitions are now in SharedStubs.kt
+// FIX: NoticeInfo's message field will be constructed from subtitle and content.
+data class NoticeInfo(val title: String, val message: String, val rawJson: String)
+// FIX: UpdateInfo fields updated to match server response from reference code.
+data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
 
 private const val BASE_URL = "http://110.42.63.51:39078/d/apps"
 private const val PREFS_NAME = "app_verification_prefs"
+// FIX: Updated SharedPreferences keys for clarity, matching reference code.
 private const val KEY_NOTICE_HASH = "notice_hash"
 private const val KEY_PRIVACY_HASH = "privacy_hash"
 
@@ -67,282 +70,245 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val vm: MainScreenViewModel = viewModel()
+    val model by vm.captureModeModel.collectAsState()
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
-    val settingsPrefs = remember { context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE) }
-
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     /* 状态 */
     var isVerifying by remember { mutableStateOf(true) }
+    var step by remember { mutableIntStateOf(1) }
     var msg by remember { mutableStateOf("正在连接服务器...") }
     var err by remember { mutableStateOf<String?>(null) }
     var progress by remember { mutableFloatStateOf(0f) }
+
     var notice by remember { mutableStateOf<NoticeInfo?>(null) }
     var privacy by remember { mutableStateOf<String?>(null) }
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
+
     var tab by remember { mutableIntStateOf(0) }
 
-    /* 当前选中的游戏包名 */
-    var selectedGamePackage by remember {
-        mutableStateOf(settingsPrefs.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe")
-    }
-    val localIp = remember { ConnectionInfoOverlay.getLocalIpAddress(context) }
-
-    /* 验证流程 */
+    /* 验证流程 (FIX: Reworked verification logic to be more robust and correct JSON parsing) */
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            var ok = true
+            var allStepsSuccess = true
+
+            // Step 1: Check Server Status
             try {
-                msg = "步骤1: 连接服务器..."
-                progress = 0.2f
-                makeHttpRequest("$BASE_URL/appstatus/a.ini")
-            }
-            catch (e: Exception) {
-                err = "服务器连接失败"
-                msg = "验证失败，将跳过检查..."
-                ok = false
-            }
-            if (ok) try {
-                msg = "步骤2: 获取公告..."
-                progress = 0.4f
-                val r = makeHttpRequest("$BASE_URL/title/a.json")
-                if (getSHAHash(r) != prefs.getString(KEY_NOTICE_HASH, "")) {
-                    val j = JSONObject(r)
-                    notice = NoticeInfo(
-                        j.getString("title"),
-                        "${j.optString("subtitle","")}\n\n${j.getString("content")}",
-                        r
-                    )
-                }
-            } catch (_: Exception) {}
-            if (ok) try {
-                msg = "步骤3: 获取隐私协议..."
-                progress = 0.6f
-                val r = makeHttpRequest("$BASE_URL/privary/a.txt")
-                if (getSHAHash(r) != prefs.getString(KEY_PRIVACY_HASH, "")) privacy = r
+                step = 1; msg = "步骤1: 连接服务器..."; progress = 0.2f; delay(500)
+                makeHttp("$BASE_URL/appstatus/a.ini") // We just need a 200 OK
             } catch (e: Exception) {
-                err = "无法获取隐私协议"
+                err = "服务器连接失败: ${e.message}"
                 msg = "验证失败，将跳过检查..."
-                ok = false
+                allStepsSuccess = false
             }
-            if (ok) try {
-                msg = "步骤4: 检查更新..."
-                progress = 0.8f
-                val r = makeHttpRequest("$BASE_URL/update/a.json")
-                val j = JSONObject(r)
-                if (j.getLong("version") > getAppVersionCode(context)) {
-                    update = UpdateInfo(
-                        j.getString("name"),
-                        j.getString("update_content"),
-                        "http://110.42.63.51:39078/apps/apks"
-                    )
+
+            // Step 2: Fetch Notice
+            if (allStepsSuccess) {
+                try {
+                    step = 2; msg = "步骤2: 获取公告..."; progress = 0.4f; delay(500)
+                    val resp = makeHttp("$BASE_URL/title/a.json")
+                    if (getSHA(resp) != prefs.getString(KEY_NOTICE_HASH, "")) {
+                        val j = JSONObject(resp)
+                        // FIX: Correctly parse subtitle and content, not "message"
+                        val noticeMessage = "${j.optString("subtitle", "")}\n\n${j.getString("content")}"
+                        notice = NoticeInfo(j.getString("title"), noticeMessage, resp)
+                    }
+                } catch (e: Exception) {
+                    // Non-critical error, just log and continue
+                    println("Failed to fetch notice: ${e.message}")
                 }
-            } catch (_: Exception) {}
+            }
+
+
+            // Step 3: Fetch Privacy Policy
+            if (allStepsSuccess) {
+                try {
+                    step = 3; msg = "步骤3: 获取隐私协议..."; progress = 0.6f; delay(500)
+                    val resp = makeHttp("$BASE_URL/privary/a.txt")
+                    if (getSHA(resp) != prefs.getString(KEY_PRIVACY_HASH, "")) {
+                        privacy = resp
+                    }
+                } catch (e: Exception) {
+                    err = "无法获取隐私协议: ${e.message}"
+                    msg = "验证失败，将跳过检查..."
+                    allStepsSuccess = false
+                }
+            }
+
+
+            // Step 4: Check for Updates
+            if (allStepsSuccess) {
+                try {
+                    step = 4; msg = "步骤4: 检查更新..."; progress = 0.8f; delay(500)
+                    val resp = makeHttp("$BASE_URL/update/a.json")
+                    val j = JSONObject(resp)
+                    val cloudVersion = j.getLong("version")
+                    val localVersion = getLocalVersionCode(context)
+
+                    if (cloudVersion > localVersion) {
+                        update = UpdateInfo(
+                            versionName = j.getString("name"),
+                            changelog = j.getString("update_content"),
+                            // The reference code hardcodes this URL, so we will too.
+                            url = "http://110.42.63.51:39078/apps/apks"
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Non-critical error, just log and continue
+                    println("Failed to check for updates: ${e.message}")
+                }
+            }
+
+
+            // Finalization
             progress = 1f
-            msg = if (ok) "验证完成" else "验证流程已跳过"
+            msg = if (allStepsSuccess) "验证完成" else "验证流程已跳过"
             delay(800)
             isVerifying = false
-            if (!ok && err != null) {
-                SimpleOverlayNotification.show(err!!, NotificationType.ERROR, 3000)
+
+            if (!allStepsSuccess && err != null) {
+                SimpleOverlayNotification.show(err ?: "验证失败，应用可能工作不正常", NotificationType.ERROR, 3000)
             }
         }
     }
 
-    /* FAB 启动逻辑：自动拉起已选包名 */
-    val launchStopAction: () -> Unit = {
-        if (Services.isActive) {
-            onStartToggle()
-        } else {
-            scope.launch {
-                Services.isLaunchingMinecraft = true
-                onStartToggle()
-                delay(2500)
-                if (!Services.isActive) {
-                    Services.isLaunchingMinecraft = false
-                    return@launch
-                }
-                val intent = context.packageManager.getLaunchIntentForPackage(selectedGamePackage)
-                if (intent != null) {
-                    context.startActivity(intent)
-                    delay(3000)
-                    if (Services.isActive && !settingsPrefs.getBoolean("disableConnectionInfoOverlay", false)) {
-                        ConnectionInfoOverlay.show(localIp)
-                    }
-                } else {
-                    SimpleOverlayNotification.show("未安装指定游戏客户端", NotificationType.ERROR)
-                }
-                Services.isLaunchingMinecraft = false
-            }
-        }
-    }
 
-    /* -------------------- 布局 -------------------- */
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { if (!isLandscape) BottomBar(tab) { tab = it } },
-        floatingActionButton = {
-            if (!isLandscape && tab == 0) {
-                FloatingActionButton(onClick = launchStopAction) {
-                    Icon(
-                        if (Services.isActive) Icons.Default.Stop else Icons.Default.PlayArrow,
-                        contentDescription = null
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            NavigationBar {
+                listOf("主仪表盘" to Icons.Filled.Dashboard,
+                    "账户"   to Icons.Rounded.AccountCircle,
+                    "关于"   to Icons.Filled.Info,
+                    "设置"   to Icons.Filled.Settings).forEachIndexed { idx, (label, icon) ->
+                    NavigationBarItem(
+                        selected = tab == idx,
+                        onClick = { tab = idx },
+                        icon = { Icon(icon, label) },
+                        label = { Text(label) }
                     )
                 }
+            }
+        },
+        floatingActionButton = {
+            if (tab == 0) FloatingActionButton(
+                onClick = {
+                    // Show snackbar only when starting the service
+                    if (!Services.isActive) {
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "服务正在启动...",
+                                actionLabel = "进入 Minecraft",
+                                duration = SnackbarDuration.Long
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                val intent = context.packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
+                                if (intent != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    SimpleOverlayNotification.show(
+                                        "未安装 Minecraft，请你手动进入你的客户端",
+                                        NotificationType.ERROR,
+                                        3000
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // Always call the toggle function
+                    onStartToggle()
+                },
+                containerColor = if (Services.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                    contentDescription = if (Services.isActive) "停止" else "开始"
+                )
             }
         }
     ) { inner ->
-        Row(Modifier.fillMaxSize().padding(inner)) {
-            if (isLandscape) {
-                NavigationRail(
-                    modifier = Modifier.fillMaxHeight(),
-                    containerColor = MaterialTheme.colorScheme.surface
+        Box(Modifier.padding(inner)) {
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> -width } + fadeOut()
+                    } else {
+                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> width } + fadeOut()
+                    }
+                },
+                label = "tab"
+            ) { t ->
+                when (t) {
+                    0 -> MainDashboard()
+                    1 -> AccountPage()
+                    2 -> AboutPage()
+                    3 -> SettingsScreen()
+                }
+            }
+
+            // <<< MODIFIED: 验证遮罩动画化
+            // 1. 使用 `animateFloatAsState` 创建一个 `progress` 的动画版本
+            val animatedProgress by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+                label = "VerificationProgressAnimation"
+            )
+
+            // 2. 使用 `AnimatedVisibility` 包裹整个遮罩，实现优雅的淡出效果
+            AnimatedVisibility(
+                visible = isVerifying,
+                exit = fadeOut(animationSpec = tween(durationMillis = 500))
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                    modifier = Modifier.fillMaxSize(),
+                    // 添加 clickable 以阻止下层UI的交互
+                    onClick = {}
                 ) {
-                    /* 让 NavigationRail 占满高度，FAB 放在最上方 */
                     Column(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .padding(vertical = 16.dp),
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        Modifier.fillMaxSize(),
+                        Arrangement.Center,
+                        Alignment.CenterHorizontally
                     ) {
-                        FloatingActionButton(onClick = launchStopAction) {
-                            Icon(
-                                if (Services.isActive) Icons.Default.Stop else Icons.Default.PlayArrow,
-                                contentDescription = null
-                            )
-                        }
-                        Spacer(Modifier.height(24.dp))
-                        listOf(Icons.Default.Home to 0,
-                               Icons.Rounded.AccountCircle to 1,
-                               Icons.Default.Info to 2,
-                               Icons.Default.Settings to 3).forEach { (ic, idx) ->
-                            NavigationRailItem(
-                                selected = tab == idx,
-                                onClick = { tab = idx },
-                                icon = { Icon(ic, null) },
-                                label = { Text(listOf("主页","账户","关于","设置")[idx]) }
-                            )
-                        }
+                        // 3. 将 `LinearProgressIndicator` 的 progress 指向我们创建的 `animatedProgress`
+                        LinearProgressIndicator(
+                            progress = { animatedProgress },
+                            Modifier.width(200.dp)
+                        )
+                        // 注意: 如果你想要的是那种无限循环的波浪线加载动画 (不显示具体进度),
+                        // 只需将上面的调用改为不带 progress 参数即可:
+                        // LinearProgressIndicator(Modifier.width(200.dp))
+
+                        Spacer(Modifier.height(16.dp))
+                        Text(msg, style = MaterialTheme.typography.titleMedium)
+                        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     }
                 }
             }
+            // >>> MODIFIED END
 
-            MainContentArea(
-                modifier = if (isLandscape) Modifier.weight(1f) else Modifier.fillMaxSize(),
-                currentTab = tab,
-                isVerifying = isVerifying,
-                progress = progress,
-                msg = msg,
-                err = err,
-                privacy = privacy,
-                notice = notice,
-                update = update,
-                onPrivacyAgreed = { privacy = null; prefs.edit().putString(KEY_PRIVACY_HASH, getSHAHash(it)).apply() },
-                onPrivacyDisagreed = { (context as? Activity)?.finish() },
-                onNoticeDismissed = { notice = null; prefs.edit().putString(KEY_NOTICE_HASH, getSHAHash(it.rawJson)).apply() },
-                onUpdate = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url))); update = null },
-                onUpdateDismissed = { update = null }
-            )
-        }
-    }
-}
-
-/* -------------------- 下面保持原样 -------------------- */
-@Composable
-private fun BottomBar(current: Int, onTab: (Int) -> Unit) {
-    NavigationBar {
-        listOf("主页" to Icons.Default.Home,
-               "账户" to Icons.Rounded.AccountCircle,
-               "关于" to Icons.Default.Info,
-               "设置" to Icons.Default.Settings).forEachIndexed { idx, (label, icon) ->
-            NavigationBarItem(
-                selected = current == idx,
-                onClick = { onTab(idx) },
-                icon = { Icon(icon, label) },
-                label = { Text(label) }
-            )
-        }
-    }
-}
-
-/* ======================================================
-   主内容区域
-   ====================================================== */
-@Composable
-private fun MainContentArea(
-    modifier: Modifier,
-    currentTab: Int,
-    isVerifying: Boolean,
-    progress: Float,
-    msg: String,
-    err: String?,
-    privacy: String?,
-    notice: NoticeInfo?,
-    update: UpdateInfo?,
-    onPrivacyAgreed: (String) -> Unit,
-    onPrivacyDisagreed: () -> Unit,
-    onNoticeDismissed: (NoticeInfo) -> Unit,
-    onUpdate: (UpdateInfo) -> Unit,
-    onUpdateDismissed: () -> Unit
-) {
-    Box(modifier) {
-        /* 主页面切换 */
-        AnimatedContent(
-            targetState = currentTab,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInHorizontally { it } + fadeIn() togetherWith
-                            slideOutHorizontally { -it } + fadeOut()
-                } else {
-                    slideInHorizontally { -it } + fadeIn() togetherWith
-                            slideOutHorizontally { it } + fadeOut()
-                }
-            },
-            label = "tab-content"
-        ) { t ->
-            when (t) {
-                0 -> MainDashboard()
-                1 -> AccountPage()
-                2 -> AboutPage()
-                3 -> SettingsScreen()
+            /* 弹窗 */
+            privacy?.let {
+                PrivacyDialog(it, {
+                    prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(it)).apply()
+                    privacy = null
+                }) { (context as? Activity)?.finish() }
             }
-        }
-
-        /* 验证遮罩 */
-        val animatedProgress by animateFloatAsState(
-            targetValue = progress,
-            animationSpec = tween(600, easing = FastOutSlowInEasing),
-            label = "verificationProgress"
-        )
-        AnimatedVisibility(
-            visible = isVerifying,
-            exit = fadeOut(tween(500))
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Column(
-                    Modifier.fillMaxSize(),
-                    Arrangement.Center,
-                    Alignment.CenterHorizontally
-                ) {
-                    LinearProgressIndicator(
-                        progress = { animatedProgress },
-                        modifier = Modifier.width(200.dp)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(msg, style = MaterialTheme.typography.titleMedium)
-                    err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            notice?.let {
+                NoticeDialog(it) {
+                    prefs.edit().putString(KEY_NOTICE_HASH, getSHA(it.rawJson)).apply()
+                    notice = null
                 }
             }
+            update?.let {
+                UpdateDialog(it, {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url)))
+                    update = null
+                }) { update = null }
+            }
         }
-
-        /* 弹窗 */
-        privacy?.let { PrivacyDialog(it, onPrivacyAgreed, onPrivacyDisagreed) }
-        notice?.let { NoticeDialog(it, onNoticeDismissed) }
-        update?.let { UpdateDialog(it, onUpdate, onUpdateDismissed) }
     }
 }
 
@@ -364,7 +330,6 @@ private fun MainDashboard() {
             .verticalScroll(scroll),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        /* 当前账户 */
         AnimatedVisibility(AccountManager.currentAccount != null) {
             Card(
                 Modifier.fillMaxWidth(),
@@ -391,7 +356,6 @@ private fun MainDashboard() {
             }
         }
 
-        /* 服务器配置卡片（从 SettingsScreen 搬回） */
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
@@ -412,7 +376,6 @@ private fun MainDashboard() {
             }
         }
 
-        /* 服务状态 */
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -429,12 +392,9 @@ private fun MainDashboard() {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 val iconScale by animateFloatAsState(if (Services.isActive) 1.2f else 1f, label = "")
-                val iconColor by animateColorAsState(
-                    if (Services.isActive) colors.onTertiaryContainer else colors.onErrorContainer,
-                    label = ""
-                )
+                val iconColor by animateColorAsState(if (Services.isActive) colors.onTertiaryContainer else colors.onErrorContainer, label = "")
                 Icon(
-                    if (Services.isActive) Icons.Default.Check else Icons.Default.Stop,
+                    if (Services.isActive) Icons.Filled.Check else Icons.Filled.Stop,
                     null,
                     tint = iconColor,
                     modifier = Modifier.scale(iconScale)
@@ -445,14 +405,14 @@ private fun MainDashboard() {
                 }
             }
         }
+
+        // --- KEY BINDING SECTION REMOVED AS REQUESTED ---
     }
 }
 
 @Composable
 private fun AccountPage() {
-    AccountScreen { m, t ->
-        SimpleOverlayNotification.show(m, t, 3000)
-    }
+    AccountScreen { m, t -> SimpleOverlayNotification.show(m, t, 3000) }
 }
 
 @Composable
@@ -466,25 +426,20 @@ private fun AboutPage() {
     LaunchedEffect(showTutorial.value) {
         if (showTutorial.value && tutorialText == null) {
             tutorialText = try {
-                ctx.resources.openRawResource(ctx.resources.getIdentifier("t", "raw", ctx.packageName))
-                    .bufferedReader().use { it.readText() }
-            } catch (e: Exception) {
-                "无法加载教程内容"
-            }
+                ctx.resources.openRawResource(R.raw.t).bufferedReader().use { it.readText() }
+            } catch (e: Exception) { "无法加载教程内容" }
         }
     }
+
     if (showTutorial.value) {
         AlertDialog(
             onDismissRequest = { showTutorial.value = false },
             title = { Text("使用教程") },
             text = { Text(tutorialText ?: "正在加载...") },
-            confirmButton = {
-                TextButton({ showTutorial.value = false }) {
-                    Text("确定")
-                }
-            }
+            confirmButton = { TextButton({ showTutorial.value = false }) { Text("确定") } }
         )
     }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -494,34 +449,35 @@ private fun AboutPage() {
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         ElevatedCard(
-            Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
         ) {
             Column(Modifier.padding(24.dp)) {
                 Text("实用工具", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
                 Spacer(Modifier.height(8.dp))
-                ToolButton(Icons.Default.Download, "下载客户端") {
+                ToolButton(Icons.Filled.Download, "下载客户端") {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://mcapks.net")))
                 }
-                ToolButton(Icons.Default.Group, "加入群聊") {
+                ToolButton(Icons.Filled.Group, "加入群聊") {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/dxqhrjC9Nu")))
                 }
-                ToolButton(Icons.Default.Help, "使用教程") { showTutorial.value = true }
+                ToolButton(Icons.Filled.Help, "使用教程") { showTutorial.value = true }
             }
         }
+
         ElevatedCard(
-            Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
         ) {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
-                Text("关于 Lumina", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
-                Text("© LuminaCN 开发团队", style = MaterialTheme.typography.bodyLarge)
-                Text("Lumina 是一个现代化的 Minecraft 客户端管理工具。", style = MaterialTheme.typography.bodyLarge)
-                Text("我们致力于为玩家提供最佳的游戏体验。", style = MaterialTheme.typography.bodyLarge)
-                Text("支持多种 Minecraft 版本和模组。", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.about_lumina), style = MaterialTheme.typography.headlineMedium, color = colors.primary)
+                Text(stringResource(R.string.luminacn_dev), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.lumina_introduction), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.lumina_expectation), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.lumina_compatibility), style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(16.dp))
-                Text("版权所有 © 2025 Project Lumina", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                Text("开发团队：LuminaCN", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(stringResource(R.string.lumina_copyright), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(stringResource(R.string.lumina_team), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
     }
@@ -531,11 +487,12 @@ private fun AboutPage() {
    子组件 & 工具
    ====================================================== */
 @Composable
-private fun ServerConfigSection(vm: MainScreenViewModel, model: CaptureModeModel) {
+private fun ServerConfigSection(vm: MainScreenViewModel, model: com.project.lumina.client.model.CaptureModeModel) {
     val ctx = LocalContext.current
     var ip by remember(model.serverHostName) { mutableStateOf(model.serverHostName) }
     var port by remember(model.serverPort) { mutableStateOf(model.serverPort.toString()) }
     val colors = MaterialTheme.colorScheme
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = ip,
@@ -567,6 +524,8 @@ private fun ServerConfigSection(vm: MainScreenViewModel, model: CaptureModeModel
     }
 }
 
+// --- KeyBindingItem COMPOSABLE REMOVED ---
+
 @Composable
 private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onClick: () -> Unit) {
     Row(
@@ -586,7 +545,7 @@ private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, te
    Dialog 组件
    ====================================================== */
 @Composable
-private fun PrivacyDialog(text: String, onAgree: (String) -> Unit, onDisagree: () -> Unit) {
+private fun PrivacyDialog(text: String, onAgree: () -> Unit, onDisagree: () -> Unit) {
     AlertDialog(
         onDismissRequest = {},
         title = { Text("隐私协议更新") },
@@ -605,64 +564,40 @@ private fun PrivacyDialog(text: String, onAgree: (String) -> Unit, onDisagree: (
                 }
             }
         },
-        confirmButton = {
-            Button(onClick = { onAgree(text) }) {
-                Text("同意并继续")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDisagree) {
-                Text("不同意并退出")
-            }
-        }
+        confirmButton = { Button(onClick = onAgree) { Text("同意并继续") } },
+        dismissButton = { TextButton(onClick = onDisagree) { Text("不同意并退出") } }
     )
 }
 
 @Composable
-private fun NoticeDialog(info: NoticeInfo, onDismiss: (NoticeInfo) -> Unit) {
+private fun NoticeDialog(info: NoticeInfo, onDismiss: () -> Unit) {
     AlertDialog(
-        onDismissRequest = { onDismiss(info) },
+        onDismissRequest = onDismiss,
         title = { Text(info.title) },
-        text = {
-            Text(info.message, Modifier
-                .verticalScroll(rememberScrollState())
-                .heightIn(max = 300.dp))
-        },
-        confirmButton = {
-            Button({ onDismiss(info) }) {
-                Text("我已了解")
-            }
-        }
+        text = { Text(info.message, Modifier
+            .verticalScroll(rememberScrollState())
+            .heightIn(max = 300.dp)) },
+        confirmButton = { Button(onDismiss) { Text("我已了解") } }
     )
 }
 
 @Composable
-private fun UpdateDialog(info: UpdateInfo, onUpdate: (UpdateInfo) -> Unit, onDismiss: () -> Unit) {
+private fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("发现新版本: ${info.versionName}") },
-        text = {
-            Text(info.changelog, Modifier
-                .verticalScroll(rememberScrollState())
-                .heightIn(max = 200.dp))
-        },
-        confirmButton = {
-            Button({ onUpdate(info) }) {
-                Text("立即更新")
-            }
-        },
-        dismissButton = {
-            TextButton(onDismiss) {
-                Text("稍后")
-            }
-        }
+        text = { Text(info.changelog, Modifier
+            .verticalScroll(rememberScrollState())
+            .heightIn(max = 200.dp)) },
+        confirmButton = { Button(onUpdate) { Text("立即更新") } },
+        dismissButton = { TextButton(onDismiss) { Text("稍后") } }
     )
 }
 
 /* ======================================================
    网络/哈希工具
    ====================================================== */
-private suspend fun makeHttpRequest(url: String): String = withContext(Dispatchers.IO) {
+private suspend fun makeHttp(url: String): String = withContext(Dispatchers.IO) {
     val conn = URL(url).openConnection() as HttpURLConnection
     conn.apply {
         requestMethod = "GET"
@@ -675,13 +610,14 @@ private suspend fun makeHttpRequest(url: String): String = withContext(Dispatche
     conn.inputStream.bufferedReader().use { it.readText() }
 }
 
-private fun getSHAHash(input: String): String =
+private fun getSHA(input: String): String =
     MessageDigest.getInstance("SHA-256")
         .digest(input.toByteArray())
         .joinToString("") { "%02x".format(it) }
 
+// FIX: Added robust version code getter from reference code.
 @Suppress("DEPRECATION")
-private fun getAppVersionCode(context: Context): Long {
+private fun getLocalVersionCode(context: Context): Long {
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
         packageInfo.longVersionCode
