@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,8 @@ import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
 import com.project.lumina.client.overlay.mods.NotificationType
 import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
 import com.project.lumina.client.service.Services
+import com.project.lumina.client.model.CaptureModeModel
+import com.project.lumina.client.manager.AccountManager
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -46,8 +49,9 @@ import java.net.URL
 import java.security.MessageDigest
 
 /* -------------------- 数据类 & 常量 -------------------- */
-data class NoticeInfo(val title: String, val message: String, val rawJson: String)
-data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
+// 移除重复声明，这些已在 SharedStubs.kt 中定义
+// data class NoticeInfo(val title: String, val message: String, val rawJson: String)
+// data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
 
 private const val BASE_URL = "http://110.42.63.51:39078/d/apps"
 private const val PREFS_NAME = "app_verification_prefs"
@@ -90,31 +94,59 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             var ok = true
-            try { msg = "步骤1: 连接服务器..."; progress = 0.2f; makeHttp("$BASE_URL/appstatus/a.ini") }
-            catch (e: Exception) { err = "服务器连接失败"; msg = "验证失败，将跳过检查..."; ok = false }
-            if (ok) try { msg = "步骤2: 获取公告..."; progress = 0.4f
-                val r = makeHttp("$BASE_URL/title/a.json")
-                if (getSHA(r) != prefs.getString(KEY_NOTICE_HASH, "")) {
+            try { 
+                msg = "步骤1: 连接服务器..."
+                progress = 0.2f
+                makeHttpRequest("$BASE_URL/appstatus/a.ini")
+            }
+            catch (e: Exception) { 
+                err = "服务器连接失败"
+                msg = "验证失败，将跳过检查..."
+                ok = false 
+            }
+            if (ok) try { 
+                msg = "步骤2: 获取公告..."
+                progress = 0.4f
+                val r = makeHttpRequest("$BASE_URL/title/a.json")
+                if (getSHAHash(r) != prefs.getString(KEY_NOTICE_HASH, "")) {
                     val j = JSONObject(r)
-                    notice = NoticeInfo(j.getString("title"),
-                        "${j.optString("subtitle","")}\n\n${j.getString("content")}", r)
+                    notice = NoticeInfo(
+                        j.getString("title"),
+                        "${j.optString("subtitle","")}\n\n${j.getString("content")}", 
+                        r
+                    )
                 }
             } catch (_: Exception) {}
-            if (ok) try { msg = "步骤3: 获取隐私协议..."; progress = 0.6f
-                val r = makeHttp("$BASE_URL/privary/a.txt")
-                if (getSHA(r) != prefs.getString(KEY_PRIVACY_HASH, "")) privacy = r
-            } catch (e: Exception) { err = "无法获取隐私协议"; msg = "验证失败，将跳过检查..."; ok = false }
-            if (ok) try { msg = "步骤4: 检查更新..."; progress = 0.8f
-                val r = makeHttp("$BASE_URL/update/a.json")
+            if (ok) try { 
+                msg = "步骤3: 获取隐私协议..."
+                progress = 0.6f
+                val r = makeHttpRequest("$BASE_URL/privary/a.txt")
+                if (getSHAHash(r) != prefs.getString(KEY_PRIVACY_HASH, "")) privacy = r
+            } catch (e: Exception) { 
+                err = "无法获取隐私协议"
+                msg = "验证失败，将跳过检查..."
+                ok = false 
+            }
+            if (ok) try { 
+                msg = "步骤4: 检查更新..."
+                progress = 0.8f
+                val r = makeHttpRequest("$BASE_URL/update/a.json")
                 val j = JSONObject(r)
-                if (j.getLong("version") > getLocalVersionCode(context)) {
-                    update = UpdateInfo(j.getString("name"), j.getString("update_content"),
-                        "http://110.42.63.51:39078/apps/apks")
+                if (j.getLong("version") > getAppVersionCode(context)) {
+                    update = UpdateInfo(
+                        j.getString("name"), 
+                        j.getString("update_content"),
+                        "http://110.42.63.51:39078/apps/apks"
+                    )
                 }
             } catch (_: Exception) {}
-            progress = 1f; msg = if (ok) "验证完成" else "验证流程已跳过"
-            delay(800); isVerifying = false
-            if (!ok && err != null) SimpleOverlayNotification.show(err!!, NotificationType.ERROR, 3000)
+            progress = 1f
+            msg = if (ok) "验证完成" else "验证流程已跳过"
+            delay(800)
+            isVerifying = false
+            if (!ok && err != null) {
+                SimpleOverlayNotification.show(err!!, NotificationType.ERROR, 3000)
+            }
         }
     }
 
@@ -127,7 +159,10 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                 Services.isLaunchingMinecraft = true
                 onStartToggle()
                 delay(2500)
-                if (!Services.isActive) { Services.isLaunchingMinecraft = false; return@launch }
+                if (!Services.isActive) { 
+                    Services.isLaunchingMinecraft = false
+                    return@launch 
+                }
                 val intent = context.packageManager.getLaunchIntentForPackage(selectedGamePackage)
                 if (intent != null) {
                     context.startActivity(intent)
@@ -204,9 +239,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                 privacy = privacy,
                 notice = notice,
                 update = update,
-                onPrivacyAgreed = { privacy = null; prefs.edit().putString(KEY_PRIVACY_HASH, getSHA(it)).apply() },
+                onPrivacyAgreed = { privacy = null; prefs.edit().putString(KEY_PRIVACY_HASH, getSHAHash(it)).apply() },
                 onPrivacyDisagreed = { (context as? Activity)?.finish() },
-                onNoticeDismissed = { notice = null; prefs.edit().putString(KEY_NOTICE_HASH, getSHA(it.rawJson)).apply() },
+                onNoticeDismissed = { notice = null; prefs.edit().putString(KEY_NOTICE_HASH, getSHAHash(it.rawJson)).apply() },
                 onUpdate = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url))); update = null },
                 onUpdateDismissed = { update = null }
             )
@@ -416,7 +451,9 @@ private fun MainDashboard() {
 
 @Composable
 private fun AccountPage() {
-    AccountScreen { m, t -> SimpleOverlayNotification.show(m, t, 3000) }
+    AccountScreen { m, t -> 
+        SimpleOverlayNotification.show(m, t, 3000) 
+    }
 }
 
 @Composable
@@ -430,8 +467,11 @@ private fun AboutPage() {
     LaunchedEffect(showTutorial.value) {
         if (showTutorial.value && tutorialText == null) {
             tutorialText = try {
-                ctx.resources.openRawResource(R.raw.t).bufferedReader().use { it.readText() }
-            } catch (e: Exception) { "无法加载教程内容" }
+                ctx.resources.openRawResource(ctx.resources.getIdentifier("t", "raw", ctx.packageName))
+                    .bufferedReader().use { it.readText() }
+            } catch (e: Exception) { 
+                "无法加载教程内容" 
+            }
         }
     }
     if (showTutorial.value) {
@@ -439,7 +479,11 @@ private fun AboutPage() {
             onDismissRequest = { showTutorial.value = false },
             title = { Text("使用教程") },
             text = { Text(tutorialText ?: "正在加载...") },
-            confirmButton = { TextButton({ showTutorial.value = false }) { Text("确定") } }
+            confirmButton = { 
+                TextButton({ showTutorial.value = false }) { 
+                    Text("确定") 
+                } 
+            }
         )
     }
     Column(
@@ -471,14 +515,14 @@ private fun AboutPage() {
             colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
         ) {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
-                Text(stringResource(R.string.about_lumina), style = MaterialTheme.typography.headlineMedium, color = colors.primary)
-                Text(stringResource(R.string.luminacn_dev), style = MaterialTheme.typography.bodyLarge)
-                Text(stringResource(R.string.lumina_introduction), style = MaterialTheme.typography.bodyLarge)
-                Text(stringResource(R.string.lumina_expectation), style = MaterialTheme.typography.bodyLarge)
-                Text(stringResource(R.string.lumina_compatibility), style = MaterialTheme.typography.bodyLarge)
+                Text("关于 Lumina", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
+                Text("© LuminaCN 开发团队", style = MaterialTheme.typography.bodyLarge)
+                Text("Lumina 是一个现代化的 Minecraft 客户端管理工具。", style = MaterialTheme.typography.bodyLarge)
+                Text("我们致力于为玩家提供最佳的游戏体验。", style = MaterialTheme.typography.bodyLarge)
+                Text("支持多种 Minecraft 版本和模组。", style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.lumina_copyright), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                Text(stringResource(R.string.lumina_team), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text("版权所有 © 2025 Project Lumina", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text("开发团队：LuminaCN", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
     }
@@ -488,7 +532,7 @@ private fun AboutPage() {
    子组件 & 工具
    ====================================================== */
 @Composable
-private fun ServerConfigSection(vm: MainScreenViewModel, model: com.project.lumina.client.model.CaptureModeModel) {
+private fun ServerConfigSection(vm: MainScreenViewModel, model: CaptureModeModel) {
     val ctx = LocalContext.current
     var ip by remember(model.serverHostName) { mutableStateOf(model.serverHostName) }
     var port by remember(model.serverPort) { mutableStateOf(model.serverPort.toString()) }
@@ -543,7 +587,7 @@ private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, te
    Dialog 组件
    ====================================================== */
 @Composable
-private fun PrivacyDialog(text: String, onAgree: () -> Unit, onDisagree: () -> Unit) {
+private fun PrivacyDialog(text: String, onAgree: (String) -> Unit, onDisagree: () -> Unit) {
     AlertDialog(
         onDismissRequest = {},
         title = { Text("隐私协议更新") },
@@ -562,40 +606,64 @@ private fun PrivacyDialog(text: String, onAgree: () -> Unit, onDisagree: () -> U
                 }
             }
         },
-        confirmButton = { Button(onClick = onAgree) { Text("同意并继续") } },
-        dismissButton = { TextButton(onClick = onDisagree) { Text("不同意并退出") } }
+        confirmButton = { 
+            Button(onClick = { onAgree(text) }) { 
+                Text("同意并继续") 
+            } 
+        },
+        dismissButton = { 
+            TextButton(onClick = onDisagree) { 
+                Text("不同意并退出") 
+            } 
+        }
     )
 }
 
 @Composable
-private fun NoticeDialog(info: NoticeInfo, onDismiss: () -> Unit) {
+private fun NoticeDialog(info: NoticeInfo, onDismiss: (NoticeInfo) -> Unit) {
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { onDismiss(info) },
         title = { Text(info.title) },
-        text = { Text(info.message, Modifier
-            .verticalScroll(rememberScrollState())
-            .heightIn(max = 300.dp)) },
-        confirmButton = { Button(onDismiss) { Text("我已了解") } }
+        text = { 
+            Text(info.message, Modifier
+                .verticalScroll(rememberScrollState())
+                .heightIn(max = 300.dp)) 
+        },
+        confirmButton = { 
+            Button({ onDismiss(info) }) { 
+                Text("我已了解") 
+            } 
+        }
     )
 }
 
 @Composable
-private fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -> Unit) {
+private fun UpdateDialog(info: UpdateInfo, onUpdate: (UpdateInfo) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("发现新版本: ${info.versionName}") },
-        text = { Text(info.changelog, Modifier
-            .verticalScroll(rememberScrollState())
-            .heightIn(max = 200.dp)) },
-        confirmButton = { Button(onUpdate) { Text("立即更新") } },
-        dismissButton = { TextButton(onDismiss) { Text("稍后") } }
+        text = { 
+            Text(info.changelog, Modifier
+                .verticalScroll(rememberScrollState())
+                .heightIn(max = 200.dp)) 
+        },
+        confirmButton = { 
+            Button({ onUpdate(info) }) { 
+                Text("立即更新") 
+            } 
+        },
+        dismissButton = { 
+            TextButton(onDismiss) { 
+                Text("稍后") 
+            } 
+        }
     )
 }
 
 /* ======================================================
    网络/哈希工具
    ====================================================== */
-private suspend fun makeHttp(url: String): String = withContext(Dispatchers.IO) {
+private suspend fun makeHttpRequest(url: String): String = withContext(Dispatchers.IO) {
     val conn = URL(url).openConnection() as HttpURLConnection
     conn.apply {
         requestMethod = "GET"
@@ -608,13 +676,13 @@ private suspend fun makeHttp(url: String): String = withContext(Dispatchers.IO) 
     conn.inputStream.bufferedReader().use { it.readText() }
 }
 
-private fun getSHA(input: String): String =
+private fun getSHAHash(input: String): String =
     MessageDigest.getInstance("SHA-256")
         .digest(input.toByteArray())
         .joinToString("") { "%02x".format(it) }
 
 @Suppress("DEPRECATION")
-private fun getLocalVersionCode(context: Context): Long {
+private fun getAppVersionCode(context: Context): Long {
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
         packageInfo.longVersionCode

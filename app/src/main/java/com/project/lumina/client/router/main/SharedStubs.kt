@@ -1,3 +1,8 @@
+/*
+ * © Project Lumina 2025 — Licensed under GNU GPLv3
+ * You are free to use, modify, and redistribute this code under the terms
+ * of the GNU General Public License v3. See the LICENSE file for details.
+ */
 package com.project.lumina.client.router.main
 
 import android.content.Context
@@ -14,12 +19,10 @@ import java.net.Socket
 import java.net.URL
 import java.security.MessageDigest
 
-// 已移除所有与 Packs 相关的定义和不再需要的 import
-
-// --- Stub Data Models ---
-data class CaptureModeModel(val serverHostName: String = "127.0.0.1", val serverPort: Int = 19132)
+// --- Data Models ---
 data class NoticeInfo(val title: String, val message: String, val rawJson: String)
 data class UpdateInfo(val versionName: String, val changelog: String, val url: String)
+
 enum class NotificationType { INFO, WARNING, ERROR, SUCCESS }
 
 // --- Stub Services ---
@@ -33,10 +36,13 @@ suspend fun makeHttp(urlString: String): String = withContext(Dispatchers.IO) {
     val url = URL(urlString)
     val connection = url.openConnection() as HttpURLConnection
     try {
-        connection.connectTimeout = 15000; connection.readTimeout = 15000
+        connection.connectTimeout = 15000
+        connection.readTimeout = 15000
         if (connection.responseCode == HttpURLConnection.HTTP_OK) {
             connection.inputStream.bufferedReader().use { it.readText() }
-        } else { throw Exception("HTTP Error: ${connection.responseCode}") }
+        } else { 
+            throw Exception("HTTP Error: ${connection.responseCode}") 
+        }
     } finally {
         connection.disconnect()
     }
@@ -83,8 +89,16 @@ object ServerInit {
 
 // --- Stub ViewModel ---
 class MainScreenViewModel : ViewModel() {
-    val captureModeModel = MutableStateFlow(CaptureModeModel())
+    private val _captureModeModel = MutableStateFlow(com.project.lumina.client.model.CaptureModeModel())
+    val captureModeModel = _captureModeModel
+    
     val selectedGame = MutableStateFlow<String?>("com.mojang.minecraftpe")
-    fun selectGame(packageName: String?) {}
-    fun selectCaptureModeModel(model: CaptureModeModel) {}
+    
+    fun selectGame(packageName: String?) {
+        selectedGame.value = packageName
+    }
+    
+    fun selectCaptureModeModel(model: com.project.lumina.client.model.CaptureModeModel) {
+        _captureModeModel.value = model
+    }
 }
