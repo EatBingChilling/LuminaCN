@@ -152,7 +152,7 @@ class NetBound(val luminaRelaySession: LuminaRelaySession) : ComposedPacketHandl
             if (interceptablePacket.isIntercepted) return true
         }
 
-        displayClientMessage("[LuminaCN | B20]", TextPacket.Type.TIP)
+        displayClientMessage("[LuminaCN | B21]", TextPacket.Type.TIP)
 
         return false
     }
