@@ -124,8 +124,11 @@ private fun MainContentArea(
         AnimatedVisibility(visible = isVerifying, exit = fadeOut(tween(500))) {
             Surface(color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f), modifier = Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
-                    LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.width(200.dp)); Spacer(Modifier.height(16.dp))
-                    Text(msg, style = MaterialTheme.typography.titleMedium); err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    // FIX: Using named argument `progress = { ... }` to resolve compiler ambiguity.
+                    LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.width(200.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text(msg, style = MaterialTheme.typography.titleMedium)
+                    err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             }
         }
