@@ -41,22 +41,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.lumina.client.ui.theme.PColorItem1
 import com.project.lumina.client.viewmodel.MainScreenViewModel
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.TextButton
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 
 data class Server(
@@ -66,57 +61,87 @@ data class Server(
     val onClick: () -> Unit
 )
 
-data class SubServerInfo(
-    val id: String,
-    val region: String,
-    val serverAddress: String,
-    val serverPort: Int
-)
-
 @Composable
-fun ServerSelector(
-    onShowZeqaBottomSheet: () -> Unit = {}
-) {
+fun ServerSelector() {
     val mainScreenViewModel: MainScreenViewModel = viewModel()
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
 
-    // 删除预设服务器列表
-    val servers = emptyList<Server>()
+
+    val rawServers = listOf(
+        Triple("NMOTHVH", "node2.yunmc.vip", 20028),
+        Triple("EaseCation Test", "ntest.easecation.net", 19132),
+        Triple("2b2tpe", "2b2tpe.org", 19132),
+        Triple("2b2tmcpe", "2b2tmcpe.org", 19132),
+        Triple("Sega", "segamc.net", 19132),
+        Triple("The Hive", "geo.hivebedrock.network", 19132),
+        Triple("Lifeboat", "play.lbsg.net", 19132),
+        Triple("NetherGames", "ap.nethergames.org", 19132),
+        Triple("CubeCraft", "play.cubecraft.net", 19132),
+        Triple("Galaxite", "play.galaxite.net", 19132),
+        Triple("Venity", "play.venitymc.com", 19132),
+    )
+
+    val servers = rawServers.map { (name, address, port) ->
+        Server(name, address, port) {
+            mainScreenViewModel.selectCaptureModeModel(
+                captureModeModel.copy(serverHostName = address, serverPort = port)
+            )
+        }
+    }
 
     var selectedServer by remember { mutableStateOf<Server?>(null) }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
-        // 显示自定义服务器配置提示
-        Card(
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Informational text for custom server input
+        Text(
+            text = "如果需要使用自定义服务器，请自己在上方输入服务器 IP 和端口。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            ),
-            shape = RoundedCornerShape(12.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    "服务器配置",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    "请在主仪表盘中配置服务器信息",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            items(servers) { server ->
+                val isSelected = server == selectedServer ||
+                        captureModeModel.serverHostName == server.serverAddress
+
+                val itemShape = MaterialTheme.shapes.medium
+
+                ListItem(
+                    headlineContent = { Text(server.name) },
+                    trailingContent = {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Selected",
+                                tint = PColorItem1
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(itemShape) // Clip the area for the ripple and border
+                        .clickable {
+                            selectedServer = server
+                            server.onClick()
+                        }
+                        .border(
+                            width = if (isSelected) 1.5.dp else 0.dp,
+                            color = if (isSelected) PColorItem1 else Color.Transparent,
+                            shape = itemShape
+                        ),
+                    colors = ListItemDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        headlineColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f)
+                    )
                 )
             }
         }
     }
 }
-

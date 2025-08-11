@@ -217,7 +217,7 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.surfaceContainer
+        color = MaterialTheme.colorScheme.background
     ) {
         if (isPortrait || screenWidthDp < 800) {
             // Portrait or narrow screen: single column layout
@@ -233,7 +233,7 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
                         text = "应用设置",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
@@ -245,7 +245,7 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
                         text = "连接配置",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
                     )
                 }
@@ -276,7 +276,7 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
                         text = "应用设置",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Content()
@@ -290,7 +290,7 @@ var selectedGUI by remember { mutableStateOf(sp.getString("selectedGUI", "Protoh
                         text = "连接配置",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     ServerConfigCard(serverIp, serverPort) { showServerDialog = true }

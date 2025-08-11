@@ -8,12 +8,14 @@ package com.project.lumina.client.activity
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -139,12 +141,41 @@ class NewMainActivity : ComponentActivity() {
         
         // 设置日志工厂
         InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
+        Log.i("MainApplication", "Forced Netty to use JUL logger instead of Log4j2.")
+        
+        // 电池优化请求
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val packageName = packageName
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        }
+        
+        // EdgeToEdge 设置
+        enableEdgeToEdge()
+        
+        // Hash验证
+        val verifier = HashCat.getInstance()
+        val isValid = verifier.LintHashInit(this)
+        if (isValid) {
+            // 如果验证成功，可以设置沉浸式模式（可选）
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            // 验证失败时使用标准系统栏
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+        }
         
         // 请求存储权限
         requestStoragePermissions()
-        
-        // 关闭沉浸式，遵循系统栏
-        WindowCompat.setDecorFitsSystemWindows(window, true)
         
         // 设置内容
         setContent {
@@ -196,6 +227,9 @@ class NewMainActivity : ComponentActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
-        currentInstance = null
+        ArrayListManager.releaseSounds()
+        if (currentInstance == this) {
+            currentInstance = null
+        }
     }
 }

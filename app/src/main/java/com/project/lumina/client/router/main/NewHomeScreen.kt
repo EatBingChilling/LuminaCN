@@ -27,6 +27,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -42,6 +43,7 @@ import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
 import com.project.lumina.client.overlay.mods.NotificationType
 import com.project.lumina.client.overlay.mods.SimpleOverlayNotification
 import com.project.lumina.client.service.Services
+import com.project.lumina.client.ui.component.ServerSelector
 import com.project.lumina.client.util.*
 import com.project.lumina.client.viewmodel.MainScreenViewModel
 import kotlinx.coroutines.*
@@ -437,7 +439,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                         // LinearProgressIndicator(Modifier.width(200.dp))
 
                         Spacer(Modifier.height(16.dp))
-                        Text(msg, style = MaterialTheme.typography.titleMedium)
+                        Text(msg, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
                         err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     }
                 }
@@ -528,6 +530,9 @@ private fun MainDashboard() {
                 }
             }
         }
+
+        // 服务器选择器卡片
+        ServerSelectorCard()
 
         Card(
             Modifier.fillMaxWidth(),
@@ -776,5 +781,129 @@ private fun getLocalVersionCode(context: Context): Long {
         packageInfo.longVersionCode
     } else {
         packageInfo.versionCode.toLong()
+    }
+}
+
+/* ======================================================
+   服务器选择器卡片组件
+   ====================================================== */
+@Composable
+private fun ServerSelectorCard() {
+    val colors = MaterialTheme.colorScheme
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            Modifier.animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+        ) {
+            // 标题行，带展开/收起按钮
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        Modifier.size(40.dp),
+                        CircleShape,
+                        colors.primary.copy(alpha = 0.1f)
+                    ) {
+                        Icon(
+                            Icons.Filled.Storage,
+                            contentDescription = null,
+                            Modifier.padding(8.dp),
+                            tint = colors.primary
+                        )
+                    }
+                    Column {
+                        Text(
+                            "服务器列表",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.onSurface
+                        )
+                        Text(
+                            if (isExpanded) "点击收起列表" else "点击展开选择服务器",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                // 展开/收起按钮
+                Surface(
+                    Modifier.size(32.dp),
+                    CircleShape,
+                    colors.secondaryContainer
+                ) {
+                    val rotationAngle by animateFloatAsState(
+                        targetValue = if (isExpanded) 180f else 0f,
+                        animationSpec = tween(300),
+                        label = "chevron_rotation"
+                    )
+                    Icon(
+                        Icons.Filled.ExpandMore,
+                        contentDescription = if (isExpanded) "收起" else "展开",
+                        Modifier
+                            .padding(4.dp)
+                            .rotate(rotationAngle),
+                        tint = colors.onSecondaryContainer
+                    )
+                }
+            }
+
+            // 可展开的服务器选择器内容
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ) + fadeIn(),
+                exit = shrinkVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ) + fadeOut()
+            ) {
+                Column(
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = colors.outline.copy(alpha = 0.2f),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    
+                    // 使用约束高度避免占用过多空间
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                    ) {
+                        ServerSelector()
+                    }
+                    
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
     }
 }
