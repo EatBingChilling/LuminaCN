@@ -66,7 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import com.project.lumina.client.R
-import com.project.lumina.client.activity.MainActivity
+import com.project.lumina.client.activity.NewMainActivity
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.game.module.api.config.ConfigManagerElement
 import kotlinx.coroutines.delay
@@ -185,7 +185,7 @@ fun ConfigCategoryContent() {
                     FilledTonalButton(
                         onClick = {
                             try {
-                                MainActivity.launchConfigImport()
+                                NewMainActivity.launchConfigImport()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "在打开文件时遇到错误: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
