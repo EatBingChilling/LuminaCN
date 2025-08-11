@@ -390,7 +390,7 @@ class AppVerificationManager(
             val updateBtn = MaterialButton(activity).apply {
                 text = "立即更新"
                 setOnClickListener {
-                    activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://110.42.63.51:39078/apps/apks")))
+                    activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.123684.com/s/09SNjv-Zoxod")))
                     activity.finish()
                 }
             }

@@ -153,7 +153,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                             versionName = j.getString("name"),
                             changelog = j.getString("update_content"),
                             // The reference code hardcodes this URL, so we will too.
-                            url = "http://110.42.63.51:39078/apps/apks"
+                            url = "https://www.123684.com/s/09SNjv-Zoxod"
                         )
                     }
                 } catch (e: Exception) {
