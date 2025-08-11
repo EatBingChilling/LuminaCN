@@ -27,8 +27,6 @@ import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.project.lumina.client.constructors.ArrayListManager
 import com.project.lumina.client.constructors.GameManager
@@ -161,18 +159,9 @@ class NewMainActivity : ComponentActivity() {
         // Hash验证
         val verifier = HashCat.getInstance()
         val isValid = verifier.LintHashInit(this)
-        if (isValid) {
-            // 如果验证成功，可以设置沉浸式模式（可选）
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-                controller.hide(WindowInsetsCompat.Type.systemBars())
-                controller.systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        } else {
-            // 验证失败时使用标准系统栏
-            WindowCompat.setDecorFitsSystemWindows(window, true)
-        }
+        
+        // 设置窗口适配系统栏（保持edge-to-edge，但不隐藏系统栏）
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         
         // 请求存储权限
         requestStoragePermissions()

@@ -128,22 +128,22 @@ private fun SessionStatsCard(
             .scale(scale)
             .alpha(alpha)
             .wrapContentWidth()
-            .height(36.dp),
-        shape = RoundedCornerShape(32.dp),
+            .height(28.dp), // 缩小高度
+        shape = RoundedCornerShape(24.dp), // 缩小圆角
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
         shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp) // 缩小内边距
                 .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp) // 缩小间距
         ) {
             // Fixed brand text
             Text(
                 text = "LuminaCN B21",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall, // 缩小字体
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
@@ -153,12 +153,25 @@ private fun SessionStatsCard(
                 // Divider
                 VerticalDivider()
 
-                // Stats
-                statLines.forEachIndexed { index, statLine ->
+                // Stats - 过滤攻击相关统计
+                val filteredStats = statLines.filter { statLine ->
+                    val label = statLine.split(":", limit = 2).getOrNull(0)?.trim()?.lowercase() ?: ""
+                    // 隐藏攻击、击杀、死亡等相关统计
+                    !label.contains("攻击") && 
+                    !label.contains("击杀") && 
+                    !label.contains("死亡") &&
+                    !label.contains("kill") &&
+                    !label.contains("death") &&
+                    !label.contains("attack") &&
+                    !label.contains("状态") &&
+                    !label.contains("status")
+                }
+                
+                filteredStats.forEachIndexed { index, statLine ->
                     StatItem(statLine)
                     
                     // Add divider between stats (but not after the last one)
-                    if (index < statLines.lastIndex) {
+                    if (index < filteredStats.lastIndex) {
                         VerticalDivider()
                     }
                 }
@@ -172,7 +185,7 @@ private fun VerticalDivider() {
     Box(
         modifier = Modifier
             .width(1.dp)
-            .height(16.dp)
+            .height(12.dp) // 缩小分隔线高度
             .background(
                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
                 RoundedCornerShape(0.5.dp)
@@ -189,18 +202,18 @@ private fun StatItem(statLine: String) {
     if (value != null) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(3.dp) // 缩小间距
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall, // 更小的字体
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall, // 缩小字体
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -210,7 +223,7 @@ private fun StatItem(statLine: String) {
     } else {
         Text(
             text = statLine,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall, // 缩小字体
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -223,9 +236,8 @@ private fun StatItem(statLine: String) {
 private fun SessionStatsCardPreview() {
     val stats = listOf(
         "时长: 1h 23m",
-        "击杀: 42",
-        "死亡: 3",
-        "经验: 1,204"
+        "经验: 1,204",
+        "等级: 12"
     )
     MaterialTheme {
         Box(

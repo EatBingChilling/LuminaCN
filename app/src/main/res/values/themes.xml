@@ -4,16 +4,7 @@
     <!-- 重写版主题文件 -->
     
     <!-- Lumina主题 - 适配Compose -->
-    <style name="Theme.LuminaClient" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- 状态栏颜色 -->
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <!-- 导航栏颜色 -->
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <!-- 对话框主题 -->
-        <!-- 适配Compose -->
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowLightStatusBar">true</item>
+    <style name="Theme.LuminaClient" parent="Theme.Material3.DynamicColors.DayNight">
     </style>
 
     <!-- Phoenix主题 - 动态色彩 + 对话框兼容 -->

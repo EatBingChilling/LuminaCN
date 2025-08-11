@@ -81,7 +81,7 @@ class OverlayNotification : OverlayWindow() {
         val notifications = notificationState.notifications
         val configuration = LocalConfiguration.current
         val screenWidth = configuration.screenWidthDp.dp
-        val maxNotifications = (screenWidth / 220.dp).toInt().coerceAtLeast(2).coerceAtMost(5)
+        val maxNotifications = (screenWidth / 280.dp).toInt().coerceAtLeast(2).coerceAtMost(4)
         
         // When the list becomes empty, schedule dismissal
         LaunchedEffect(notifications.isEmpty()) {
@@ -103,7 +103,7 @@ class OverlayNotification : OverlayWindow() {
         ) {
             Column(
                 modifier = Modifier.wrapContentSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.End
             ) {
                 notifications.forEach { item ->
@@ -173,13 +173,13 @@ private fun NotificationCard(
     Card(
         modifier = Modifier
             .offset(x = offsetX.dp)
-            .alpha(alpha)
+            .alpha(alpha * 0.85f) // 半透明效果
             .scale(scale)
-            .width(200.dp)
-            .height(72.dp),
+            .width(260.dp) // 增加卡片宽度
+            .height(88.dp), // 增加卡片高度
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = colorScheme.surfaceContainerHigh
+            containerColor = colorScheme.surfaceContainerHigh.copy(alpha = 0.9f) // 半透明背景
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 6.dp
@@ -188,9 +188,9 @@ private fun NotificationCard(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(20.dp), // 增加内边距
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp) // 增加元素间距
         ) {
             // Material Switch on the left
             Switch(
@@ -209,7 +209,7 @@ private fun NotificationCard(
             // Content column
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp) // 增加垂直间距
             ) {
                 // Module name and status
                 Row(
@@ -219,10 +219,10 @@ private fun NotificationCard(
                 ) {
                     Text(
                         text = item.moduleName,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium, // 稍大的字体
                         color = colorScheme.onSurface,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1,
+                        maxLines = 2, // 允许两行显示
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
@@ -230,14 +230,14 @@ private fun NotificationCard(
                     // Status indicator badge
                     Surface(
                         shape = CircleShape,
-                        color = if (isEnabled) colorScheme.primaryContainer else colorScheme.errorContainer,
+                        color = if (isEnabled) colorScheme.primaryContainer.copy(alpha = 0.8f) else colorScheme.errorContainer.copy(alpha = 0.8f), // 半透明状态徽章
                         modifier = Modifier.padding(start = 8.dp)
                     ) {
                         Text(
                             text = statusText,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium, // 稍大的标签字体
                             color = if (isEnabled) colorScheme.onPrimaryContainer else colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp) // 增加内边距
                         )
                     }
                 }

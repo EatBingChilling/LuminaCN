@@ -357,7 +357,7 @@ fun HomeCategoryUi() {
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "您正在使用 LuminaCN B20",
+                        text = "您正在使用 LuminaCN B21",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
