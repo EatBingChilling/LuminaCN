@@ -41,16 +41,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.project.lumina.client.ui.theme.PColorItem1
 import com.project.lumina.client.viewmodel.MainScreenViewModel
 
 
@@ -65,7 +66,6 @@ data class Server(
 fun ServerSelector() {
     val mainScreenViewModel: MainScreenViewModel = viewModel()
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
-
 
     val rawServers = listOf(
         Triple("NMOTHVH", "node2.yunmc.vip", 20028),
@@ -91,7 +91,10 @@ fun ServerSelector() {
 
     var selectedServer by remember { mutableStateOf<Server?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         // Informational text for custom server input
         Text(
             text = "如果需要使用自定义服务器，请自己在上方输入服务器 IP 和端口。",
@@ -99,48 +102,87 @@ fun ServerSelector() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        // Material Design 3 Container for the server list
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shadowElevation = 2.dp,
+            tonalElevation = 1.dp
         ) {
-            items(servers) { server ->
-                val isSelected = server == selectedServer ||
-                        captureModeModel.serverHostName == server.serverAddress
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(servers) { server ->
+                    val isSelected = server == selectedServer ||
+                            captureModeModel.serverHostName == server.serverAddress
 
-                val itemShape = MaterialTheme.shapes.medium
+                    val itemShape = MaterialTheme.shapes.medium
+                    val containerColor = if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    }
+                    val contentColor = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
 
-                ListItem(
-                    headlineContent = { Text(server.name) },
-                    trailingContent = {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = "Selected",
-                                tint = PColorItem1
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedServer = server
+                                server.onClick()
+                            },
+                        shape = itemShape,
+                        color = containerColor,
+                        shadowElevation = if (isSelected) 3.dp else 1.dp,
+                        tonalElevation = if (isSelected) 2.dp else 0.dp
+                    ) {
+                        ListItem(
+                            headlineContent = {
+                                Text(
+                                    text = server.name,
+                                    color = contentColor,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = "${server.serverAddress}:${server.port}",
+                                    color = contentColor.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            },
+                            trailingContent = {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "已选择",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            },
+                            colors = ListItemDefaults.colors(
+                                containerColor = Color.Transparent,
+                                headlineColor = contentColor,
+                                supportingColor = contentColor.copy(alpha = 0.7f)
                             )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(itemShape) // Clip the area for the ripple and border
-                        .clickable {
-                            selectedServer = server
-                            server.onClick()
-                        }
-                        .border(
-                            width = if (isSelected) 1.5.dp else 0.dp,
-                            color = if (isSelected) PColorItem1 else Color.Transparent,
-                            shape = itemShape
-                        ),
-                    colors = ListItemDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        headlineColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f)
-                    )
-                )
+                        )
+                    }
+                }
             }
         }
     }
