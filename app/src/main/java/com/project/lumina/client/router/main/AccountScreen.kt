@@ -52,7 +52,7 @@ fun AccountScreen(showNotification: (String, NotificationType) -> Unit) {
     
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.surfaceContainer
+        color = MaterialTheme.colorScheme.background // 与其他 screen 保持一致
     ) {
         if (useWideLayout) {
             // Wide layout: centered with more space
@@ -111,11 +111,11 @@ private fun AccountCard(
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surface // 在 background 基础上使用 surface
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 6.dp,
-            pressedElevation = 12.dp
+            defaultElevation = 0.dp, // 删除阴影
+            pressedElevation = 0.dp // 删除阴影
         )
     ) {
         Column(
@@ -214,8 +214,8 @@ private fun AccountCard(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    tonalElevation = 2.dp
+                    color = MaterialTheme.colorScheme.surfaceVariant, // 调整为与新背景协调的颜色
+                    tonalElevation = 0.dp // 删除阴影
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -321,8 +321,8 @@ private fun AccountCard(
                             color = if (account == AccountManager.currentAccount)
                                 MaterialTheme.colorScheme.primaryContainer
                             else
-                                MaterialTheme.colorScheme.surfaceContainerLow,
-                            tonalElevation = if (account == AccountManager.currentAccount) 4.dp else 0.dp
+                                MaterialTheme.colorScheme.surfaceVariant, // 调整为与新背景协调的颜色
+                            tonalElevation = 0.dp // 删除阴影
                         ) {
                             Row(
                                 modifier = Modifier
@@ -486,13 +486,12 @@ private fun AccountDialog(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.95f),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), // 删除 elevation
                         titleContentColor = MaterialTheme.colorScheme.onSurface,
                         navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier
-                        .shadow(elevation = 4.dp)
-                        .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                        .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)) // 删除阴影
                 )
             }
         ) {

@@ -131,7 +131,7 @@ private fun SessionStatsCard(
             .height(28.dp), // 缩小高度
         shape = RoundedCornerShape(24.dp), // 缩小圆角
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-        shadowElevation = 8.dp
+        shadowElevation = 0.dp // 删除阴影
     ) {
         Row(
             modifier = Modifier
@@ -153,10 +153,10 @@ private fun SessionStatsCard(
                 // Divider
                 VerticalDivider()
 
-                // Stats - 过滤攻击相关统计
+                // Stats - 过滤攻击和坐标相关统计
                 val filteredStats = statLines.filter { statLine ->
                     val label = statLine.split(":", limit = 2).getOrNull(0)?.trim()?.lowercase() ?: ""
-                    // 隐藏攻击、击杀、死亡等相关统计
+                    // 隐藏攻击、击杀、死亡、坐标等相关统计
                     !label.contains("攻击") && 
                     !label.contains("击杀") && 
                     !label.contains("死亡") &&
@@ -164,7 +164,15 @@ private fun SessionStatsCard(
                     !label.contains("death") &&
                     !label.contains("attack") &&
                     !label.contains("状态") &&
-                    !label.contains("status")
+                    !label.contains("status") &&
+                    !label.contains("坐标") &&
+                    !label.contains("位置") &&
+                    !label.contains("pos") &&
+                    !label.contains("coord") &&
+                    !label.contains("x:") &&
+                    !label.contains("y:") &&
+                    !label.contains("z:") &&
+                    !label.contains("xyz")
                 }
                 
                 filteredStats.forEachIndexed { index, statLine ->

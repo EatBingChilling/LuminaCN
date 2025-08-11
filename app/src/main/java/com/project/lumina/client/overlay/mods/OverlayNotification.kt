@@ -219,7 +219,7 @@ private fun NotificationCard(
                 ) {
                     Text(
                         text = item.moduleName,
-                        style = MaterialTheme.typography.titleMedium, // 稍大的字体
+                        style = MaterialTheme.typography.bodyMedium, // 缩小字体
                         color = colorScheme.onSurface,
                         fontWeight = FontWeight.Medium,
                         maxLines = 2, // 允许两行显示
@@ -235,9 +235,9 @@ private fun NotificationCard(
                     ) {
                         Text(
                             text = statusText,
-                            style = MaterialTheme.typography.labelMedium, // 稍大的标签字体
+                            style = MaterialTheme.typography.labelSmall, // 缩小标签字体
                             color = if (isEnabled) colorScheme.onPrimaryContainer else colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp) // 增加内边距
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp) // 缩小内边距
                         )
                     }
                 }

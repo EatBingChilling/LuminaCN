@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home">主页</string>
     <string name="what_is_this">这是什么？</string>
@@ -25,6 +25,7 @@
     <string name="game_selector">游戏选择器</string>
     <string name="select_game_first">请先选择一个游戏</string>
     <string name="failed_to_launch_game">无法启动游戏</string>
+
     <string name="account">账号</string>
     <string name="add_account">添加账号</string>
     <string name="fetch_account_failed">获取账号失败</string>

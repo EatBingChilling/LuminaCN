@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name" translatable="false">LuminaCN</string>
     <string name="home">Home</string>
     <string name="what_is_this">What\'s this?</string>
@@ -270,5 +270,6 @@
     <string name="crash_stack_trace_label">技术细节</string>
     <string name="crash_restart">重启应用</string>
     <string name="crash_copy_log">复制日志</string>
+
     
 </resources>
