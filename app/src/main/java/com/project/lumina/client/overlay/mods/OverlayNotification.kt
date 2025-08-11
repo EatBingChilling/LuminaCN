@@ -1,4 +1,4 @@
-package com.project.lumina.client.overlay.mods
+﻿package com.project.lumina.client.overlay.mods
 
 import android.graphics.PixelFormat
 import android.view.Gravity
@@ -8,13 +8,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,7 +34,7 @@ class OverlayNotification : OverlayWindow() {
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.BOTTOM or Gravity.END
-            x = 24 // Adjusted for better screen padding
+            x = 24
             y = 24
             format = PixelFormat.TRANSLUCENT
         }
@@ -77,13 +78,22 @@ class OverlayNotification : OverlayWindow() {
     @Composable
     override fun Content() {
         val notifications = notificationState.notifications
+        val configuration = LocalConfiguration.current
+        val screenWidth = configuration.screenWidthDp.dp
+        val maxNotifications = (screenWidth / 220.dp).toInt().coerceAtLeast(2).coerceAtMost(5)
+        
         // When the list becomes empty, schedule dismissal
         LaunchedEffect(notifications.isEmpty()) {
             if (notifications.isEmpty()) {
-                delay(300) // Wait for exit animation to complete
+                delay(300)
                 OverlayManager.dismissOverlayWindow(this@OverlayNotification)
                 onOverlayDismissed()
             }
+        }
+
+        // Update notification state with screen-based limit
+        LaunchedEffect(maxNotifications) {
+            notificationState.updateMaxNotifications(maxNotifications)
         }
 
         Box(
@@ -115,22 +125,22 @@ private fun NotificationCard(
     // Lifecycle of the notification card
     LaunchedEffect(item.id) {
         delay(50)
-        visible = true // Animate in
+        visible = true
         delay(2500)
-        exitState = true // Animate out
+        exitState = true
         delay(400)
-        state.removeNotification(item.id) // Remove from state
+        state.removeNotification(item.id)
     }
 
     // Animation states
-    val springSpec = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
+    val springSpec = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium)
     val offsetX by animateFloatAsState(
         targetValue = if (exitState) 300f else if (visible) 0f else 300f,
         animationSpec = springSpec,
         label = "NotificationOffsetX"
     )
     val scale by animateFloatAsState(
-        targetValue = if (exitState) 0.8f else 1f,
+        targetValue = if (exitState) 0.9f else 1f,
         animationSpec = springSpec,
         label = "NotificationScale"
     )
@@ -140,94 +150,108 @@ private fun NotificationCard(
         label = "NotificationAlpha"
     )
 
+    // Switch animation state
+    var switchChecked by remember { mutableStateOf(item.action == ModuleAction.DISABLE) }
+    LaunchedEffect(item.action) {
+        delay(200) // Slight delay for visual effect
+        switchChecked = item.action == ModuleAction.ENABLE
+    }
+
     // Progress bar animation
     val progressAnimation = remember { Animatable(1f) }
     LaunchedEffect(Unit) {
         progressAnimation.animateTo(0f, tween(durationMillis = 2500, easing = LinearEasing))
     }
 
-    // --- MODIFIED: Use MaterialTheme colors for state indication ---
+    // Material Design 3 colors
     val colorScheme = MaterialTheme.colorScheme
-    val accentColor = when (item.action) {
-        ModuleAction.ENABLE -> colorScheme.primary
-        ModuleAction.DISABLE -> colorScheme.error
-    }
-    val statusText = when (item.action) {
-        ModuleAction.ENABLE -> "Enabled"
-        ModuleAction.DISABLE -> "Disabled"
-    }
+    val isEnabled = item.action == ModuleAction.ENABLE
+    val statusText = if (isEnabled) "Enabled" else "Disabled"
 
-    Box(
+    // Card with Material Design 3 styling
+    Card(
         modifier = Modifier
             .offset(x = offsetX.dp)
             .alpha(alpha)
             .scale(scale)
-            .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .width(180.dp) // Slightly wider for better text fit
-            .height(60.dp)
-            .background(colorScheme.surfaceContainerHigh.copy(alpha = 0.85f)) // Use a semi-transparent surface color
+            .width(200.dp)
+            .height(72.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = colorScheme.surfaceContainerHigh
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 6.dp
+        )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Top row: Module name and status indicator
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.moduleName,
-                    // --- MODIFIED: Use MaterialTheme typography and colors ---
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false) // Prevent text from pushing the dot
-                )
-                Spacer(Modifier.width(8.dp))
-                // Status dot
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(accentColor, CircleShape)
-                )
-            }
+            // Material Switch on the left
+            Switch(
+                checked = switchChecked,
+                onCheckedChange = { }, // Read-only for display
+                enabled = false, // Disable interaction
+                colors = SwitchDefaults.colors(
+                    disabledCheckedThumbColor = colorScheme.primary,
+                    disabledCheckedTrackColor = colorScheme.primaryContainer,
+                    disabledUncheckedThumbColor = colorScheme.outline,
+                    disabledUncheckedTrackColor = colorScheme.surfaceVariant
+                ),
+                modifier = Modifier.scale(0.8f) // Slightly smaller for compact design
+            )
 
-            // Bottom row: Status text and progress bar
-            Column {
-                Text(
-                    text = statusText,
-                    // --- MODIFIED: Use MaterialTheme typography and colors ---
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(4.dp))
-                // Progress bar
-                Box(
+            // Content column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Module name and status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = item.moduleName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    
+                    // Status indicator badge
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isEnabled) colorScheme.primaryContainer else colorScheme.errorContainer,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isEnabled) colorScheme.onPrimaryContainer else colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                // Material Design 3 Progress Indicator
+                LinearProgressIndicator(
+                    progress = { progressAnimation.value },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp)
-                        .clip(CircleShape)
-                        .background(colorScheme.surfaceVariant)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progressAnimation.value)
-                            .height(4.dp)
-                            .clip(CircleShape)
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(accentColor, accentColor.copy(alpha = 0.7f))
-                                )
-                            )
-                    )
-                }
+                        .clip(CircleShape),
+                    color = if (isEnabled) colorScheme.primary else colorScheme.error,
+                    trackColor = colorScheme.surfaceVariant,
+                    strokeCap = StrokeCap.Round,
+                )
             }
         }
     }
@@ -248,14 +272,24 @@ private class NotificationState {
 
     private var nextId = 0
     private val activeKeys = mutableSetOf<String>()
+    private var maxNotifications = 3
+
+    fun updateMaxNotifications(max: Int) {
+        maxNotifications = max
+        // Trim existing notifications if needed
+        while (_notifications.size > maxNotifications) {
+            val oldest = _notifications.removeFirst()
+            activeKeys.remove("${oldest.moduleName}-${oldest.action.name}")
+        }
+    }
 
     fun addNotification(moduleName: String, action: ModuleAction) {
         val key = "$moduleName-${action.name}"
-        if (key in activeKeys) return // Prevent duplicate notifications
+        if (key in activeKeys) return
         activeKeys.add(key)
 
-        // Limit the number of visible notifications
-        if (_notifications.size >= 3) {
+        // Use dynamic max notifications based on screen size
+        if (_notifications.size >= maxNotifications) {
             val oldest = _notifications.removeFirst()
             activeKeys.remove("${oldest.moduleName}-${oldest.action.name}")
         }
@@ -283,9 +317,14 @@ private fun NotificationCardPreview() {
     }
 
     MaterialTheme {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            NotificationCard(item = item, state = state)
-            NotificationCard(item = item2, state = state)
+        Surface(
+            modifier = Modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                NotificationCard(item = item, state = state)
+                NotificationCard(item = item2, state = state)
+            }
         }
     }
 }

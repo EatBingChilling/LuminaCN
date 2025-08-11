@@ -110,7 +110,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.project.lumina.client.overlay.manager.ConnectionInfoOverlay
-import com.project.lumina.client.ui.component.SubServerInfo
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable

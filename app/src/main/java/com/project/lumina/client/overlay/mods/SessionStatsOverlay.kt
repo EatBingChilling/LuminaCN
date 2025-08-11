@@ -1,4 +1,4 @@
-/*
+﻿/*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
  * ... (License header remains the same) ...
  */
@@ -8,13 +8,13 @@ package com.project.lumina.client.overlay.mods
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,11 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.project.lumina.client.overlay.manager.OverlayManager
@@ -47,9 +44,9 @@ class SessionStatsOverlay : OverlayWindow() {
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
-            gravity = Gravity.TOP or Gravity.START
-            x = 24
-            y = 100
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            x = 0
+            y = 60
         }
     }
 
@@ -108,19 +105,8 @@ private fun SessionStatsCard(
     isVisible: Boolean,
     onAnimatedOut: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "RainbowHueAnimation")
-    val animatedHue by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "Hue"
-    )
-
     val scale by animateFloatAsState(
-        targetValue = if (isVisible) 1f else 0.9f,
+        targetValue = if (isVisible) 1f else 0.95f,
         animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium),
         label = "Scale"
     )
@@ -137,44 +123,43 @@ private fun SessionStatsCard(
         }
     }
 
-    Box(
+    Surface(
         modifier = Modifier
             .scale(scale)
             .alpha(alpha)
-            .width(IntrinsicSize.Min)
-            .wrapContentHeight()
-            .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f))
-            .padding(12.dp)
+            .wrapContentWidth()
+            .height(36.dp),
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+        shadowElevation = 8.dp
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Fixed brand text
             Text(
-                text = "游玩信息",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
+                text = "LuminaCN B21",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            RainbowDivider(hue = animatedHue)
-            Spacer(modifier = Modifier.height(8.dp))
 
-            if (statLines.isEmpty()) {
-                Text(
-                    text = "暂无数据",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .width(180.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    statLines.forEach { statLine ->
-                        StatRow(statLine)
+            if (statLines.isNotEmpty()) {
+                // Divider
+                VerticalDivider()
+
+                // Stats
+                statLines.forEachIndexed { index, statLine ->
+                    StatItem(statLine)
+                    
+                    // Add divider between stats (but not after the last one)
+                    if (index < statLines.lastIndex) {
+                        VerticalDivider()
                     }
                 }
             }
@@ -183,49 +168,53 @@ private fun SessionStatsCard(
 }
 
 @Composable
-private fun RainbowDivider(hue: Float) {
-    Canvas(
+private fun VerticalDivider() {
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .clip(RoundedCornerShape(1.dp))
-    ) {
-        val segmentCount = 20
-        val segmentWidth = size.width / segmentCount
-        for (i in 0 until segmentCount) {
-            val currentHue = (hue + (i * 18f)) % 360f
-            drawRect(
-                color = Color.hsv(currentHue, 0.8f, 0.95f),
-                topLeft = Offset(i * segmentWidth, 0f),
-                size = Size(segmentWidth, size.height)
+            .width(1.dp)
+            .height(16.dp)
+            .background(
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                RoundedCornerShape(0.5.dp)
             )
-        }
-    }
+    )
 }
 
 @Composable
-private fun StatRow(statLine: String) {
+private fun StatItem(statLine: String) {
     val parts = statLine.split(":", limit = 2)
     val label = parts.getOrNull(0)?.trim() ?: statLine
     val value = parts.getOrNull(1)?.trim()
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (value != null) {
+
+    if (value != null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+    } else {
+        Text(
+            text = statLine,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -233,17 +222,24 @@ private fun StatRow(statLine: String) {
 @Composable
 private fun SessionStatsCardPreview() {
     val stats = listOf(
-        "游玩时长: 1h 23m",
+        "时长: 1h 23m",
         "击杀: 42",
         "死亡: 3",
-        "获得经验: 1,204"
+        "经验: 1,204"
     )
     MaterialTheme {
-        SessionStatsCard(
-            statLines = stats,
-            isVisible = true,
-            onAnimatedOut = {}
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            SessionStatsCard(
+                statLines = stats,
+                isVisible = true,
+                onAnimatedOut = {}
+            )
+        }
     }
 }
 
@@ -251,10 +247,17 @@ private fun SessionStatsCardPreview() {
 @Composable
 private fun SessionStatsCardEmptyPreview() {
     MaterialTheme {
-        SessionStatsCard(
-            statLines = emptyList(),
-            isVisible = true,
-            onAnimatedOut = {}
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            SessionStatsCard(
+                statLines = emptyList(),
+                isVisible = true,
+                onAnimatedOut = {}
+            )
+        }
     }
 }
