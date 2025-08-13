@@ -209,18 +209,25 @@ public class DynamicIslandView extends FrameLayout {
 
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        // 核心修复：强制视图在屏幕顶部水平居中，忽略父布局的限制
-        int screenWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
-        int newLeft = (screenWidth - getMeasuredWidth()) / 2;
-        int newRight = newLeft + getMeasuredWidth();
         // 调用 super.onLayout 以便子视图（如Switch）能正确布局
-        super.onLayout(changed, newLeft, top, newRight, bottom);
-        // 但我们自己要强制设置自己的最终位置
-        layout(newLeft, top, newRight, bottom);
-
+        super.onLayout(changed, left, top, right, bottom);
+        
         if (changed) {
             updateGlowShader();
         }
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        // 在添加到窗口后设置居中位置
+        post(() -> {
+            ViewGroup.LayoutParams params = getLayoutParams();
+            if (params instanceof FrameLayout.LayoutParams) {
+                ((FrameLayout.LayoutParams) params).gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+                setLayoutParams(params);
+            }
+        });
     }
 
     private void updateGlowShader() {
