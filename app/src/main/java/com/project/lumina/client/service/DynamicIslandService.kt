@@ -20,28 +20,29 @@ class DynamicIslandService : Service() {
     private var windowParams: WindowManager.LayoutParams? = null
 
     companion object {
-        // 用于设置的 Action 和 Extra
+        // ... (之前的 Action 和 Extra)
         const val ACTION_UPDATE_TEXT = "com.project.lumina.client.ACTION_UPDATE_TEXT"
         const val ACTION_UPDATE_Y_OFFSET = "com.project.lumina.client.ACTION_UPDATE_Y_OFFSET"
         const val EXTRA_TEXT = "extra_text"
         const val EXTRA_Y_OFFSET_DP = "extra_y_offset_dp"
         
-        // 用于显示模块开关通知的 Action 和 Extra
         const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.project.lumina.client.ACTION_SHOW_NOTIFICATION_SWITCH"
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
         
-        // 用于显示进度条通知的 Action 和 Extra
         const val ACTION_SHOW_PROGRESS = "com.project.lumina.client.ACTION_SHOW_PROGRESS"
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_SUBTITLE = "extra_subtitle"
         const val EXTRA_ICON_RES_ID = "extra_icon_res_id"
         const val EXTRA_DURATION_MS = "extra_duration_ms"
+
+        // 【新增】为 TargetHUD 创建专用的 Action 和 Extra，以更好地区分和去重
+        const val ACTION_UPDATE_TARGET_HUD = "com.project.lumina.client.ACTION_UPDATE_TARGET_HUD"
+        const val EXTRA_TARGET_USERNAME = "extra_target_username"
+        const val EXTRA_TARGET_DISTANCE = "extra_target_distance"
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -52,22 +53,19 @@ class DynamicIslandService : Service() {
     private fun showFloatingWindow() {
         if (dynamicIslandView != null) return
 
-        // 【修改】
-        // 1. 创建一个 ContextThemeWrapper，将 Service 的基础上下文和您的 Material3 主题打包在一起。
-        //    我们直接引用您在 themes.xml 中定义的主题，例如 R.style.Theme_LuminaClient。
         val themedContext = ContextThemeWrapper(this, R.style.Theme_LuminaClient)
-
-        // 2. 使用这个被“主题化”的上下文来创建 DynamicIslandView，以确保它能访问到所有主题属性。
         dynamicIslandView = DynamicIslandView(themedContext)
         
         windowParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            // 【修改】让悬浮窗宽度占满屏幕，这是实现真·居中的关键
+            WindowManager.LayoutParams.MATCH_PARENT, 
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.TOP or Gravity.START // 改为 START，因为我们手动处理水平居中
+            x = 0 // 从屏幕最左边开始
             val sp = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
             val yOffsetDp = sp.getFloat("dynamicIslandYOffset", 20f)
             y = dpToPx(yOffsetDp)
@@ -83,49 +81,65 @@ class DynamicIslandService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.action?.let { action ->
             when (action) {
-                ACTION_UPDATE_TEXT -> {
-                    val text = intent.getStringExtra(EXTRA_TEXT)
-                    if (text != null) {
-                        dynamicIslandView?.setPersistentText(text)
-                    }
+                // ... (其他 action case 保持不变)
+                ACTION_UPDATE_TEXT, ACTION_UPDATE_Y_OFFSET, ACTION_SHOW_NOTIFICATION_SWITCH, ACTION_SHOW_PROGRESS -> {
+                     handleStandardActions(intent)
                 }
-                ACTION_UPDATE_Y_OFFSET -> {
-                    val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 20f)
-                    windowParams?.let { params ->
-                        params.y = dpToPx(yOffsetDp)
-                        windowManager.updateViewLayout(dynamicIslandView, params)
-                    }
-                }
-                ACTION_SHOW_NOTIFICATION_SWITCH -> {
-                    val moduleName = intent.getStringExtra(EXTRA_MODULE_NAME)
-                    val moduleState = intent.getBooleanExtra(EXTRA_MODULE_STATE, false)
+                
+                // 【新增】处理 TargetHUD 的更新
+                ACTION_UPDATE_TARGET_HUD -> {
+                    val username = intent.getStringExtra(EXTRA_TARGET_USERNAME)
+                    val distance = intent.getFloatExtra(EXTRA_TARGET_DISTANCE, 0f)
                     
-                    if (moduleName != null) {
-                        dynamicIslandView?.addSwitch(moduleName, moduleState)
-                    }
-                }
-                ACTION_SHOW_PROGRESS -> {
-                    val title = intent.getStringExtra(EXTRA_TITLE)
-                    val duration = intent.getLongExtra(EXTRA_DURATION_MS, 1000L)
-                    
-                    val iconResId = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
-                    val iconDrawable: Drawable? = if (iconResId != -1) {
-                        try {
-                            ContextCompat.getDrawable(this, iconResId)
-                        } catch (e: Exception) {
-                            null
-                        }
-                    } else {
-                        null
-                    }
-                    
-                    if (title != null) {
-                        dynamicIslandView?.addProgress(title, iconDrawable, duration)
+                    if (username != null) {
+                        val title = "$username (${"%.1f".format(distance)}m)"
+                        // 调用 addProgress，并使用 username 作为去重的 key
+                        dynamicIslandView?.addProgress(title, null, 3000L, username)
                     }
                 }
             }
         }
         return START_STICKY
+    }
+
+    // 将标准 Action 的处理逻辑提取到一个函数中，保持 onStartCommand 的整洁
+    private fun handleStandardActions(intent: Intent) {
+        when (intent.action) {
+             ACTION_UPDATE_TEXT -> {
+                val text = intent.getStringExtra(EXTRA_TEXT)
+                if (text != null) {
+                    dynamicIslandView?.setPersistentText(text)
+                }
+            }
+            ACTION_UPDATE_Y_OFFSET -> {
+                val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 20f)
+                windowParams?.let { params ->
+                    params.y = dpToPx(yOffsetDp)
+                    windowManager.updateViewLayout(dynamicIslandView, params)
+                }
+            }
+            ACTION_SHOW_NOTIFICATION_SWITCH -> {
+                val moduleName = intent.getStringExtra(EXTRA_MODULE_NAME)
+                val moduleState = intent.getBooleanExtra(EXTRA_MODULE_STATE, false)
+                if (moduleName != null) {
+                    dynamicIslandView?.addSwitch(moduleName, moduleState)
+                }
+            }
+            ACTION_SHOW_PROGRESS -> {
+                val title = intent.getStringExtra(EXTRA_TITLE)
+                val duration = intent.getLongExtra(EXTRA_DURATION_MS, 1000L)
+                val iconResId = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
+                val iconDrawable: Drawable? = if (iconResId != -1) {
+                    try { ContextCompat.getDrawable(this, iconResId) } catch (e: Exception) { null }
+                } else {
+                    null
+                }
+                if (title != null) {
+                    // 对于通用进度条，我们使用 title 作为 key 来去重
+                    dynamicIslandView?.addProgress(title, iconDrawable, duration, title)
+                }
+            }
+        }
     }
     
     override fun onDestroy() {
