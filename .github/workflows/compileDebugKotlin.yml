@@ -1,0 +1,33 @@
+name: compileDebugKotlin
+
+on:
+  push:
+    branches:
+      - main  # 当推送到 main 分支时触发
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"  # 禁用 Gradle 守护进程
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 Java 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      # 给 gradlew 执行权限
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # 构建
+      - name: compileDebugKotlin
+        run: ./gradlew :app:compileDebugKotlin
+

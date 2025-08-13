@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 重写版主题文件 -->
+    
+    <!-- Lumina主题 - 适配Compose -->
+    <style name="Theme.LuminaClient" parent="Theme.Material3.DynamicColors.DayNight">
+    </style>
+
+    <!-- Phoenix主题 - 动态色彩 + 对话框兼容 -->
+    <style name="Theme.Phoenix" parent="Theme.Material3.DynamicColors.DayNight">
+        <!-- Customize your theme here, e.g., colors, fonts, etc. -->
+          <item name="windowActionBar">false</item>
+          <item name="windowNoTitle">true</item>
+    </style>
+
+</resources>
