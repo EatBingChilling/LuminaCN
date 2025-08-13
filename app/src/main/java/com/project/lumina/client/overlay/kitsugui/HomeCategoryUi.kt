@@ -357,7 +357,7 @@ fun HomeCategoryUi() {
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "您正在使用 LuminaCN B21",
+                        text = "您正在使用 LuminaCN B22",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -368,7 +368,7 @@ fun HomeCategoryUi() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "开发者: Phoen1x_, 十一\n技术支持: 一剪沐橙",
+                        text = "开发者: Phoen1x_, 十一\n技术支持: 一剪沐橙\n\n请根据教程后进入 127.0.0.1:19132 再使用功能，否则无效！\n不按照教程进行社区提问的，一律移出",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )

@@ -54,6 +54,9 @@ class NetBound(val luminaRelaySession: LuminaRelaySession) : ComposedPacketHandl
     val protocolVersion: Int
         get() = luminaRelaySession.server.codec.protocolVersion
 
+
+    private var welcomeTipShown = false
+
     private val mappingProviderContext = AppContext.instance
 
     private val blockMappingProvider = BlockMappingProvider(mappingProviderContext)
@@ -152,7 +155,10 @@ class NetBound(val luminaRelaySession: LuminaRelaySession) : ComposedPacketHandl
             if (interceptablePacket.isIntercepted) return true
         }
 
-        displayClientMessage("[LuminaCN | B21]", TextPacket.Type.TIP)
+        if (!welcomeTipShown && packet is StartGamePacket) {
+    welcomeTipShown = true
+    displayClientMessage("§lLuminaCN §7代理服务§a已连接", TextPacket.Type.TIP)
+}
 
         return false
     }

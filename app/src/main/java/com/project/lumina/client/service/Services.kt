@@ -194,6 +194,9 @@ class Services : Service() {
         }
     }
 
+    // 添加标志来追踪服务是否被用户主动停止
+    private var isStoppedByUser = false
+
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
@@ -208,36 +211,44 @@ class Services : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_CAPTURE_START -> {
+                isStoppedByUser = false
                 val captureModeModel = CaptureModeModel.from(
                     getSharedPreferences("game_settings", Context.MODE_PRIVATE)
                 )
                 on(applicationContext, captureModeModel)
             }
             ACTION_CAPTURE_STOP -> {
+                isStoppedByUser = true
                 off()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
         }
 
-        // 返回START_STICKY，确保服务被杀死后会自动重启
-        return START_STICKY
+        // 返回START_NOT_STICKY，防止系统自动重启服务
+        return START_NOT_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // 应用被从最近任务中移除时，保持服务运行
-        val restartServiceIntent = Intent(applicationContext, Services::class.java)
-        restartServiceIntent.setPackage(packageName)
-        startService(restartServiceIntent)
+        // 只有在服务不是被用户主动停止的情况下才重启
+        if (!isStoppedByUser && isActive) {
+            val restartServiceIntent = Intent(applicationContext, Services::class.java)
+            restartServiceIntent.setPackage(packageName)
+            restartServiceIntent.action = ACTION_CAPTURE_START
+            startService(restartServiceIntent)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // 服务被销毁时尝试重启
-        val restartServiceIntent = Intent(applicationContext, Services::class.java)
-        restartServiceIntent.setPackage(packageName)
-        startService(restartServiceIntent)
+        // 只有在服务不是被用户主动停止的情况下才考虑重启
+        if (!isStoppedByUser && isActive) {
+            val restartServiceIntent = Intent(applicationContext, Services::class.java)
+            restartServiceIntent.setPackage(packageName)
+            restartServiceIntent.action = ACTION_CAPTURE_START
+            startService(restartServiceIntent)
+        }
     }
 
     // [MODIFIED] 修改屏幕旋转逻辑，确保悬浮窗在竖屏和横屏下都能保持显示
