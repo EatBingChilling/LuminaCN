@@ -27,8 +27,8 @@ android {
         applicationId = "com.project.lumina.client"
         minSdk = 28
         targetSdk = 36
-        versionCode = 201
-        versionName = "B21"
+        versionCode = 202
+        versionName = "B22"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

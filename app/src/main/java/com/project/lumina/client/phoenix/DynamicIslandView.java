@@ -2,14 +2,11 @@ package com.project.lumina.client.phoenix;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.SweepGradient;
@@ -40,7 +37,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 public class DynamicIslandView extends FrameLayout {
 
@@ -56,8 +52,8 @@ public class DynamicIslandView extends FrameLayout {
     private static class TaskItem {
         enum Type {SWITCH, PROGRESS}
 
-        String id; // 新增：任务的唯一标识符
         Type type;
+        String identifier; // 新增：唯一标识符，用于更新
         String text;
         boolean switchState;
         MaterialSwitch switchView;
@@ -70,9 +66,9 @@ public class DynamicIslandView extends FrameLayout {
         long duration;
         ValueAnimator progressAnimator;
 
-        TaskItem(String id, Type type, String text) {
-            this.id = id;
+        TaskItem(Type type, String identifier, String text) {
             this.type = type;
+            this.identifier = identifier;
             this.text = text;
             this.startTime = System.currentTimeMillis();
         }
@@ -92,7 +88,6 @@ public class DynamicIslandView extends FrameLayout {
     private float switchWidth;
     private float switchHeight;
     private float glowMargin;
-    private float iconContainerCornerRadius;
 
     // 当前尺寸（用于动画）
     private float currentWidth;
@@ -100,22 +95,26 @@ public class DynamicIslandView extends FrameLayout {
     private float currentRadius;
 
     // 画笔
-    private Paint backgroundPaint, frostPaint, glowPaint, progressBackgroundPaint, progressPaint, iconContainerPaint;
-    private TextPaint textPaint, separatorPaint, timePaint;
+    private Paint backgroundPaint;
+    private Paint frostPaint;
+    private Paint glowPaint;
+    private TextPaint textPaint;
+    private TextPaint separatorPaint;
+    private TextPaint timePaint;
+    private Paint progressBackgroundPaint;
+    private Paint progressPaint;
 
     // 数据
     private String persistentText = "Phoen1x";
     private final List<TaskItem> tasks = new ArrayList<>();
 
     // 动画
-    private ValueAnimator sizeAnimator, glowAnimator;
-    private float glowAlpha = 0f, glowRotation = 0f;
+    private ValueAnimator sizeAnimator;
+    private ValueAnimator glowAnimator;
+    private float glowAlpha = 0f;
+    private float glowRotation = 0f;
     private final Matrix glowMatrix = new Matrix();
     private Shader glowShader;
-
-    // FPS 计算
-    private long lastFrameTimeNanos = 0;
-    private float currentFps = 0f;
 
     private final Handler updateHandler = new Handler(Looper.getMainLooper());
     private final Runnable updateRunnable = new Runnable() {
@@ -154,7 +153,6 @@ public class DynamicIslandView extends FrameLayout {
         collapsedCornerRadius = collapsedHeight / 2;
         expandedCornerRadius = 28 * density;
         iconSize = 24 * density;
-        iconContainerCornerRadius = 8 * density;
         progressHeight = 4 * density;
         switchWidth = 52 * density;
         switchHeight = 32 * density;
@@ -193,12 +191,6 @@ public class DynamicIslandView extends FrameLayout {
         progressBackgroundPaint.setColor(ColorUtils.setAlphaComponent(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant), 50));
         progressPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         progressPaint.setColor(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant));
-
-        // 新增：图标发光容器画笔
-        iconContainerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int primaryColor = MaterialColors.getColor(this, R.attr.colorPrimary);
-        iconContainerPaint.setColor(ColorUtils.setAlphaComponent(primaryColor, 60));
-        iconContainerPaint.setMaskFilter(new BlurMaskFilter(4 * density, BlurMaskFilter.Blur.NORMAL));
     }
 
     @Override
@@ -209,44 +201,24 @@ public class DynamicIslandView extends FrameLayout {
 
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        // 调用 super.onLayout 以便子视图（如Switch）能正确布局
         super.onLayout(changed, left, top, right, bottom);
-        
         if (changed) {
             updateGlowShader();
         }
     }
 
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        // 在添加到窗口后设置居中位置
-        post(() -> {
-            ViewGroup.LayoutParams params = getLayoutParams();
-            if (params instanceof FrameLayout.LayoutParams) {
-                ((FrameLayout.LayoutParams) params).gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-                setLayoutParams(params);
-            }
-        });
-    }
-
     private void updateGlowShader() {
-        glowShader = new SweepGradient(getWidth() / 2f, getHeight() / 2f, new int[]{Color.CYAN, Color.MAGENTA, Color.YELLOW, Color.CYAN}, null);
+        glowShader = new SweepGradient(
+                getWidth() / 2f,
+                getHeight() / 2f,
+                new int[]{Color.CYAN, Color.MAGENTA, Color.YELLOW, Color.CYAN},
+                null
+        );
         glowPaint.setShader(glowShader);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        // FPS 计算
-        long now = System.nanoTime();
-        if (lastFrameTimeNanos != 0) {
-            long frameTime = now - lastFrameTimeNanos;
-            if (frameTime > 0) {
-                currentFps = 1_000_000_000.0f / frameTime;
-            }
-        }
-        lastFrameTimeNanos = now;
-
         float contentLeft = getPaddingLeft();
         float contentTop = getPaddingTop();
         float contentWidth = getWidth() - getPaddingLeft() - getPaddingRight();
@@ -256,7 +228,12 @@ public class DynamicIslandView extends FrameLayout {
             glowPaint.setAlpha((int) (glowAlpha * 255));
             glowMatrix.setRotate(glowRotation, getWidth() / 2f, getHeight() / 2f);
             glowShader.setLocalMatrix(glowMatrix);
-            RectF glowRect = new RectF(contentLeft - glowPaint.getStrokeWidth() / 2, contentTop - glowPaint.getStrokeWidth() / 2, contentLeft + contentWidth + glowPaint.getStrokeWidth() / 2, contentTop + contentHeight + glowPaint.getStrokeWidth() / 2);
+            RectF glowRect = new RectF(
+                    contentLeft - glowPaint.getStrokeWidth() / 2,
+                    contentTop - glowPaint.getStrokeWidth() / 2,
+                    contentLeft + contentWidth + glowPaint.getStrokeWidth() / 2,
+                    contentTop + contentHeight + glowPaint.getStrokeWidth() / 2
+            );
             canvas.drawRoundRect(glowRect, currentRadius, currentRadius, glowPaint);
         }
 
@@ -274,23 +251,19 @@ public class DynamicIslandView extends FrameLayout {
         }
 
         canvas.restore();
-
-        // 强制重绘以更新FPS
-        invalidate();
     }
 
     private void drawCollapsedText(Canvas canvas, float contentWidth, float contentHeight) {
         String staticText = "LuminaCN B22";
         String separator = " • ";
-        // 将时间改为显示FPS
-        String fpsText = String.format(Locale.US, "%.1f FPS", currentFps);
+        String timeText = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
 
         float staticWidth = textPaint.measureText(staticText);
         float separatorWidth = separatorPaint.measureText(separator);
-        float fpsWidth = timePaint.measureText(fpsText);
+        float timeWidth = timePaint.measureText(timeText);
         float persistentWidth = textPaint.measureText(persistentText);
 
-        float totalWidth = staticWidth + separatorWidth + fpsWidth + separatorWidth + persistentWidth;
+        float totalWidth = staticWidth + separatorWidth + timeWidth + separatorWidth + persistentWidth;
         float startX = (contentWidth - totalWidth) / 2;
         float y = contentHeight / 2 - (textPaint.descent() + textPaint.ascent()) / 2;
 
@@ -298,43 +271,55 @@ public class DynamicIslandView extends FrameLayout {
         startX += staticWidth;
         canvas.drawText(separator, startX, y, separatorPaint);
         startX += separatorWidth;
-        canvas.drawText(fpsText, startX, y, timePaint);
-        startX += fpsWidth;
+        canvas.drawText(timeText, startX, y, timePaint);
+        startX += timeWidth;
         canvas.drawText(separator, startX, y, separatorPaint);
         startX += separatorWidth;
         canvas.drawText(persistentText, startX, y, textPaint);
+
+        postInvalidateDelayed(1000);
     }
 
     private void drawTasks(Canvas canvas, float contentWidth) {
         float yOffset = this.padding;
+
         for (TaskItem task : tasks) {
             if (task.alpha <= 0) continue;
+
             int alpha = (int) (task.alpha * 255);
             textPaint.setAlpha(alpha);
             progressBackgroundPaint.setAlpha((int) (alpha * 0.2f));
             progressPaint.setAlpha(alpha);
-            iconContainerPaint.setAlpha((int) (alpha * 0.25f)); // 60/255 ≈ 0.25
-            if (task.switchView != null) task.switchView.setAlpha(task.alpha);
+
+            if (task.switchView != null) {
+                task.switchView.setAlpha(task.alpha);
+            }
+
             drawTask(canvas, task, yOffset, contentWidth);
+
             yOffset += itemHeight;
         }
+
         textPaint.setAlpha(255);
         progressBackgroundPaint.setAlpha(50);
         progressPaint.setAlpha(255);
-        iconContainerPaint.setAlpha(60);
     }
 
     private void drawTask(Canvas canvas, TaskItem task, float yOffset, float contentWidth) {
         int save = canvas.save();
         canvas.translate(0, yOffset);
+
         float contentLeft = this.padding;
         float availableWidth = contentWidth - this.padding * 2;
+
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         float textHeight = fm.descent - fm.ascent;
         float contentBlockHeight = textHeight + (4 * density) + progressHeight;
         float contentTopY_relative = (itemHeight - contentBlockHeight) / 2;
+
         float textY = contentTopY_relative - fm.ascent;
         float progressY = contentTopY_relative + textHeight + (4 * density);
+
         if (task.type == TaskItem.Type.SWITCH) {
             if (task.switchView != null) {
                 float switchY_relative = (itemHeight - task.switchView.getLayoutParams().height) / 2;
@@ -343,29 +328,24 @@ public class DynamicIslandView extends FrameLayout {
             contentLeft += switchWidth + this.padding / 2;
             availableWidth -= (switchWidth + this.padding / 2);
         } else if (task.icon != null) {
-            float iconContainerPadding = 4 * density;
-            float iconContainerSize = iconSize + iconContainerPadding * 2;
-            float iconContainerTop = (itemHeight - iconContainerSize) / 2;
-            RectF containerRect = new RectF(contentLeft, iconContainerTop, contentLeft + iconContainerSize, iconContainerTop + iconContainerSize);
-            // 1. 绘制发光容器
-            canvas.drawRoundRect(containerRect, iconContainerCornerRadius, iconContainerCornerRadius, iconContainerPaint);
-
-            // 2. 修复图标颜色并绘制
             float iconTop_relative = (itemHeight - iconSize) / 2;
-            task.icon.setBounds((int) (contentLeft + iconContainerPadding), (int) iconTop_relative, (int) (contentLeft + iconContainerPadding + iconSize), (int) (iconTop_relative + iconSize));
-            task.icon.setColorFilter(new PorterDuffColorFilter(textPaint.getColor(), PorterDuff.Mode.SRC_IN));
+            task.icon.setBounds(
+                    (int) contentLeft, (int) iconTop_relative,
+                    (int) (contentLeft + iconSize), (int) (iconTop_relative + iconSize)
+            );
             task.icon.draw(canvas);
-            task.icon.clearColorFilter(); // 清除，防止影响其他地方
-
-            contentLeft += iconContainerSize + this.padding / 2;
-            availableWidth -= (iconContainerSize + this.padding / 2);
+            contentLeft += iconSize + this.padding / 2;
+            availableWidth -= (iconSize + this.padding / 2);
         }
+
         canvas.drawText(task.text, contentLeft, textY, textPaint);
+
         float progressWidth = availableWidth - (contentLeft - this.padding);
         RectF bgRect = new RectF(contentLeft, progressY, contentLeft + progressWidth, progressY + progressHeight);
         canvas.drawRoundRect(bgRect, progressHeight, progressHeight, progressBackgroundPaint);
         RectF progressRect = new RectF(contentLeft, progressY, contentLeft + progressWidth * task.displayProgress, progressY + progressHeight);
         canvas.drawRoundRect(progressRect, progressHeight, progressHeight, progressPaint);
+
         canvas.restoreToCount(save);
     }
 
@@ -377,125 +357,82 @@ public class DynamicIslandView extends FrameLayout {
         }
     }
 
-    /**
-     * 为 TargetHUD 定制：添加或更新一个进度条任务。
-     * 如果具有相同 id 的任务已存在，则更新其内容并重置进度条；否则，添加新任务。
-     *
-     * @param id       任务的唯一标识符 (例如，目标名称)
-     * @param text     要显示的文本
-     * @param icon     要显示的图标
-     * @param duration 进度条持续时间 (毫秒)
-     */
-    public void addOrUpdateProgress(@NonNull String id, String text, @Nullable Drawable icon, long duration) {
-        // 查找现有任务
-        for (TaskItem existingTask : tasks) {
-            if (Objects.equals(existingTask.id, id) && existingTask.type == TaskItem.Type.PROGRESS) {
-                // 找到了，更新它
-                existingTask.text = text;
-                existingTask.icon = icon;
-                existingTask.duration = duration;
-                existingTask.startTime = System.currentTimeMillis();
+    public void addSwitch(String text, boolean state) {
+        TaskItem task = new TaskItem(TaskItem.Type.SWITCH, null, text + (state ? " 已开启" : " 已关闭")); // SWITCH 无 identifier
+        task.switchState = state;
+        task.duration = 4000;
 
-                // 重置动画
-                if (existingTask.progressAnimator != null) {
-                    existingTask.progressAnimator.cancel();
-                }
-                existingTask.progress = 1.0f;
-                existingTask.displayProgress = 1.0f; // 立即重置显示进度
-                existingTask.removing = false;
-                existingTask.alpha = 1.0f;
-                startProgressAnimation(existingTask);
-
-                // 如果视图已折叠，则重新展开
-                if (currentState == State.COLLAPSED) {
-                    currentState = State.EXPANDED;
-                    updateHandler.post(updateRunnable);
-                    animateGlow(true);
-                    updateExpandedSize();
-                }
-
-                invalidate();
-                return; // 更新完成，退出
-            }
-        }
-
-        // 没找到，添加新任务
-        TaskItem task = new TaskItem(id, TaskItem.Type.PROGRESS, text);
-        task.icon = icon;
-        task.duration = duration;
-        addTask(task);
-    }
-
-    // 旧的 addProgress 方法，用于总是添加新任务的场景
-    public void addProgress(String text, @Nullable Drawable icon, long duration) {
-        // 使用时间戳作为唯一ID，确保每次都添加
-        String uniqueId = "progress_" + System.currentTimeMillis();
-        TaskItem task = new TaskItem(uniqueId, TaskItem.Type.PROGRESS, text);
-        task.icon = icon;
-        task.duration = duration;
-        addTask(task);
-    }
-
-    /**
-     * 添加一个开关通知
-     * @param moduleName 模块名称
-     * @param moduleState 模块状态（开/关）
-     */
-    public void addSwitch(String moduleName, boolean moduleState) {
-        // 创建一个唯一ID
-        String uniqueId = "switch_" + moduleName + "_" + System.currentTimeMillis();
-        TaskItem task = new TaskItem(uniqueId, TaskItem.Type.SWITCH, moduleName);
-        task.switchState = moduleState;
-        
-        // 创建 MaterialSwitch
         MaterialSwitch switchView = new MaterialSwitch(getContext());
-        switchView.setChecked(moduleState);
-        switchView.setEnabled(false); // 设置为不可交互，只用于显示
-        
-        // 设置布局参数
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-            (int) switchWidth,
-            (int) switchHeight
-        );
-        params.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
-        params.leftMargin = (int) padding;
+        switchView.setChecked(!state);
+        switchView.setClickable(false);
+        switchView.setFocusable(false);
+
+        LayoutParams params = new LayoutParams((int) switchWidth, (int) switchHeight);
+        params.gravity = Gravity.TOP | Gravity.START;
+        params.leftMargin = (int) this.padding;
         switchView.setLayoutParams(params);
-        
-        // 添加 switch 到视图
+
         addView(switchView);
         task.switchView = switchView;
-        
-        // 添加任务
-        tasks.add(0, task);
-        
-        // 设置3秒后自动移除
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            task.removing = true;
-        }, 3000);
-        
-        if (currentState == State.COLLAPSED) {
-            currentState = State.EXPANDED;
-            updateHandler.post(updateRunnable);
-            animateGlow(true);
+
+        postDelayed(() -> {
+            if (switchView.getParent() != null) switchView.setChecked(state);
+        }, 300);
+
+        addTask(task);
+    }
+
+    public void addProgress(String identifier, String text, @Nullable Drawable icon, long duration) {
+        TaskItem task = new TaskItem(TaskItem.Type.PROGRESS, identifier, text);
+        task.icon = icon;
+        task.duration = duration;
+        addTask(task);
+    }
+
+    // 新增：更新 PROGRESS 任务的方法（不影响 SWITCH）
+    public void updateProgress(String identifier, String newText, Drawable newIcon, float newProgress, long newDuration) {
+        for (TaskItem task : tasks) {
+            if (task.type == TaskItem.Type.PROGRESS && identifier.equals(task.identifier)) {
+                // 更新字段（如果非 null）
+                if (newText != null) task.text = newText;
+                if (newIcon != null) task.icon = newIcon;
+                task.progress = Math.max(0f, Math.min(1f, newProgress)); // 限制在 0-1
+                task.displayProgress = task.progress;
+                task.duration = newDuration;
+                task.startTime = System.currentTimeMillis(); // 重置开始时间
+
+                // 取消并重启动画
+                if (task.progressAnimator != null) {
+                    task.progressAnimator.cancel();
+                }
+                task.progressAnimator = ValueAnimator.ofFloat(task.progress, 0f);
+                task.progressAnimator.setDuration(task.duration);
+                task.progressAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+                task.progressAnimator.addUpdateListener(animation -> {
+                    task.progress = (float) animation.getAnimatedValue();
+                    task.displayProgress += (task.progress - task.displayProgress) * 0.1f;
+                    invalidate();
+                });
+                task.progressAnimator.start();
+
+                // 如果正在移除，恢复
+                if (task.removing) {
+                    task.removing = false;
+                    task.alpha = 1.0f;
+                }
+
+                // 更新视图大小和重绘
+                updateExpandedSize();
+                invalidate();
+                return;
+            }
         }
-        
-        updateExpandedSize();
+        // 如果未找到，不做操作（可选：添加日志或异常）
     }
 
     private void addTask(TaskItem task) {
         tasks.add(0, task);
-        startProgressAnimation(task);
 
-        if (currentState == State.COLLAPSED) {
-            currentState = State.EXPANDED;
-            updateHandler.post(updateRunnable);
-            animateGlow(true);
-        }
-
-        updateExpandedSize();
-    }
-
-    private void startProgressAnimation(TaskItem task) {
         task.progressAnimator = ValueAnimator.ofFloat(1f, 0f);
         task.progressAnimator.setDuration(task.duration);
         task.progressAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
@@ -505,10 +442,19 @@ public class DynamicIslandView extends FrameLayout {
             invalidate();
         });
         task.progressAnimator.start();
+
+        if (currentState == State.COLLAPSED) {
+            currentState = State.EXPANDED;
+            updateHandler.post(updateRunnable);
+            animateGlow(true);
+        }
+
+        updateExpandedSize();
     }
 
     private void updateTasks() {
         boolean needsRedraw = false;
+
         if (currentState == State.EXPANDED) {
             glowRotation = (glowRotation + 1.5f) % 360;
             needsRedraw = true;
@@ -527,7 +473,7 @@ public class DynamicIslandView extends FrameLayout {
                 }
                 needsRedraw = true;
             } else {
-                if (task.progress <= 0.01f && !task.removing && task.type == TaskItem.Type.PROGRESS) {
+                if (task.progress <= 0.01f && !task.removing) {
                     task.removing = true;
                     needsRedraw = true;
                 }
@@ -551,12 +497,12 @@ public class DynamicIslandView extends FrameLayout {
     private void updateCollapsedWidth() {
         String staticText = "LuminaCN B22";
         String separator = " • ";
-        String fpsText = "00.0 FPS"; // 用于估算宽度
+        String timeText = "00:00";
         float staticWidth = textPaint.measureText(staticText);
         float separatorWidth = separatorPaint.measureText(separator);
-        float fpsWidth = timePaint.measureText(fpsText);
+        float timeWidth = timePaint.measureText(timeText);
         float persistentWidth = textPaint.measureText(persistentText);
-        float totalWidth = staticWidth + separatorWidth * 2 + fpsWidth + persistentWidth;
+        float totalWidth = staticWidth + separatorWidth * 2 + timeWidth + persistentWidth;
         collapsedWidth = totalWidth + this.padding * 2.5f;
     }
 
@@ -566,10 +512,17 @@ public class DynamicIslandView extends FrameLayout {
     }
 
     private void animateToSize(float targetContentWidth, float targetContentHeight, float targetRadius) {
-        if (sizeAnimator != null && sizeAnimator.isRunning()) sizeAnimator.cancel();
-        float startWidth = currentWidth, startHeight = currentHeight, startRadius = currentRadius;
+        if (sizeAnimator != null && sizeAnimator.isRunning()) {
+            sizeAnimator.cancel();
+        }
+
+        float startWidth = currentWidth;
+        float startHeight = currentHeight;
+        float startRadius = currentRadius;
+
         float finalTargetWidth = targetContentWidth + getPaddingLeft() + getPaddingRight();
         float finalTargetHeight = targetContentHeight + getPaddingTop() + getPaddingBottom();
+
         sizeAnimator = ValueAnimator.ofFloat(0f, 1f);
         sizeAnimator.setDuration(400);
         sizeAnimator.setInterpolator(new DecelerateInterpolator(1.5f));
@@ -579,18 +532,21 @@ public class DynamicIslandView extends FrameLayout {
             currentHeight = startHeight + (finalTargetHeight - startHeight) * fraction;
             currentRadius = startRadius + (targetRadius - startRadius) * fraction;
             requestLayout();
+            invalidate();
         });
         sizeAnimator.start();
     }
 
     private void animateGlow(boolean fadeIn) {
         if (glowAnimator != null && glowAnimator.isRunning()) glowAnimator.cancel();
-        float start = glowAlpha, end = fadeIn ? 1.0f : 0.0f;
+        float start = glowAlpha;
+        float end = fadeIn ? 1.0f : 0.0f;
         glowAnimator = ValueAnimator.ofFloat(start, end);
         glowAnimator.setDuration(500);
         glowAnimator.setInterpolator(new DecelerateInterpolator());
         glowAnimator.addUpdateListener(animation -> {
             glowAlpha = (float) animation.getAnimatedValue();
+            invalidate();
         });
         glowAnimator.start();
     }
