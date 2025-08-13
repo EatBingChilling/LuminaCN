@@ -5,9 +5,11 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.os.IBinder
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
+import com.project.lumina.client.R
 import com.project.lumina.client.phoenix.DynamicIslandView
 import kotlin.math.roundToInt
 
@@ -29,7 +31,7 @@ class DynamicIslandService : Service() {
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
         
-        // 【新增】用于显示进度条通知的 Action 和 Extra
+        // 用于显示进度条通知的 Action 和 Extra
         const val ACTION_SHOW_PROGRESS = "com.project.lumina.client.ACTION_SHOW_PROGRESS"
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_SUBTITLE = "extra_subtitle"
@@ -50,7 +52,13 @@ class DynamicIslandService : Service() {
     private fun showFloatingWindow() {
         if (dynamicIslandView != null) return
 
-        dynamicIslandView = DynamicIslandView(this)
+        // 【修改】
+        // 1. 创建一个 ContextThemeWrapper，将 Service 的基础上下文和您的 Material3 主题打包在一起。
+        //    我们直接引用您在 themes.xml 中定义的主题，例如 R.style.Theme_LuminaClient。
+        val themedContext = ContextThemeWrapper(this, R.style.Theme_LuminaClient)
+
+        // 2. 使用这个被“主题化”的上下文来创建 DynamicIslandView，以确保它能访问到所有主题属性。
+        dynamicIslandView = DynamicIslandView(themedContext)
         
         windowParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -96,25 +104,22 @@ class DynamicIslandService : Service() {
                         dynamicIslandView?.addSwitch(moduleName, moduleState)
                     }
                 }
-                // 【新增】处理来自 PacketNotificationOverlay 中继点的指令
                 ACTION_SHOW_PROGRESS -> {
                     val title = intent.getStringExtra(EXTRA_TITLE)
                     val duration = intent.getLongExtra(EXTRA_DURATION_MS, 1000L)
                     
-                    // 将资源 ID 转换为 Drawable 对象
                     val iconResId = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
                     val iconDrawable: Drawable? = if (iconResId != -1) {
                         try {
                             ContextCompat.getDrawable(this, iconResId)
                         } catch (e: Exception) {
-                            null // 资源不存在或加载失败
+                            null
                         }
                     } else {
                         null
                     }
                     
                     if (title != null) {
-                        // 调用灵动岛视图的 addProgress 方法
                         dynamicIslandView?.addProgress(title, iconDrawable, duration)
                     }
                 }
