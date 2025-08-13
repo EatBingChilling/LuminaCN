@@ -419,7 +419,6 @@ public class DynamicIslandView extends FrameLayout {
         addTask(task);
     }
 
-
     // 旧的 addProgress 方法，用于总是添加新任务的场景
     public void addProgress(String text, @Nullable Drawable icon, long duration) {
         // 使用时间戳作为唯一ID，确保每次都添加
@@ -428,6 +427,52 @@ public class DynamicIslandView extends FrameLayout {
         task.icon = icon;
         task.duration = duration;
         addTask(task);
+    }
+
+    /**
+     * 添加一个开关通知
+     * @param moduleName 模块名称
+     * @param moduleState 模块状态（开/关）
+     */
+    public void addSwitch(String moduleName, boolean moduleState) {
+        // 创建一个唯一ID
+        String uniqueId = "switch_" + moduleName + "_" + System.currentTimeMillis();
+        TaskItem task = new TaskItem(uniqueId, TaskItem.Type.SWITCH, moduleName);
+        task.switchState = moduleState;
+        
+        // 创建 MaterialSwitch
+        MaterialSwitch switchView = new MaterialSwitch(getContext());
+        switchView.setChecked(moduleState);
+        switchView.setEnabled(false); // 设置为不可交互，只用于显示
+        
+        // 设置布局参数
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+            (int) switchWidth,
+            (int) switchHeight
+        );
+        params.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
+        params.leftMargin = (int) padding;
+        switchView.setLayoutParams(params);
+        
+        // 添加 switch 到视图
+        addView(switchView);
+        task.switchView = switchView;
+        
+        // 添加任务
+        tasks.add(0, task);
+        
+        // 设置3秒后自动移除
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            task.removing = true;
+        }, 3000);
+        
+        if (currentState == State.COLLAPSED) {
+            currentState = State.EXPANDED;
+            updateHandler.post(updateRunnable);
+            animateGlow(true);
+        }
+        
+        updateExpandedSize();
     }
 
     private void addTask(TaskItem task) {
@@ -475,7 +520,7 @@ public class DynamicIslandView extends FrameLayout {
                 }
                 needsRedraw = true;
             } else {
-                if (task.progress <= 0.01f && !task.removing) {
+                if (task.progress <= 0.01f && !task.removing && task.type == TaskItem.Type.PROGRESS) {
                     task.removing = true;
                     needsRedraw = true;
                 }
