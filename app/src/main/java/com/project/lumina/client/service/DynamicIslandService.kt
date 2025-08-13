@@ -34,7 +34,7 @@ class DynamicIslandService : Service() {
         // 用于显示进度条通知的 Action 和 Extra
         const val ACTION_SHOW_PROGRESS = "com.project.lumina.client.ACTION_SHOW_PROGRESS"
         const val EXTRA_TITLE = "extra_title"
-        const val EXTRA_SUBTITLE = "extra_subtitle"
+        const val EXTRA_SUBTITLE = "extra_subtitle" // 定义但未使用，保留原样
         const val EXTRA_ICON_RES_ID = "extra_icon_res_id"
         const val EXTRA_DURATION_MS = "extra_duration_ms"
     }
@@ -120,7 +120,8 @@ class DynamicIslandService : Service() {
                     }
                     
                     if (title != null) {
-                        dynamicIslandView?.addProgress(title, iconDrawable, duration)
+                        // 修复：添加 identifier 参数为 null，以匹配 addProgress 方法的签名
+                        dynamicIslandView?.addProgress(null, title, iconDrawable, duration)
                     }
                 }
             }
