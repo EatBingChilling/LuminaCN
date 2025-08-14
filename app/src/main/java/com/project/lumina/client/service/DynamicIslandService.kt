@@ -9,8 +9,6 @@ import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
-import com.project.lumina.client.R
-import com.project.lumina.client.phoenix.DynamicIslandView
 import kotlin.math.roundToInt
 
 class DynamicIslandService : Service() {
@@ -20,28 +18,25 @@ class DynamicIslandService : Service() {
     private var windowParams: WindowManager.LayoutParams? = null
 
     companion object {
-        // 用于设置的 Action 和 Extra
-        const val ACTION_UPDATE_TEXT = "com.project.lumina.client.ACTION_UPDATE_TEXT"
-        const val ACTION_UPDATE_Y_OFFSET = "com.project.lumina.client.ACTION_UPDATE_Y_OFFSET"
+        const val ACTION_UPDATE_TEXT = "com.phoen1x.bar.ACTION_UPDATE_TEXT"
+        const val ACTION_UPDATE_Y_OFFSET = "com.phoen1x.bar.ACTION_UPDATE_Y_OFFSET"
         const val EXTRA_TEXT = "extra_text"
         const val EXTRA_Y_OFFSET_DP = "extra_y_offset_dp"
-        
-        // 用于显示模块开关通知的 Action 和 Extra
-        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.project.lumina.client.ACTION_SHOW_NOTIFICATION_SWITCH"
+
+        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.phoen1x.bar.ACTION_SHOW_NOTIFICATION_SWITCH"
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
-        
-        // 用于显示进度条通知的 Action 和 Extra
-        const val ACTION_SHOW_PROGRESS = "com.project.lumina.client.ACTION_SHOW_PROGRESS"
+
+        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.phoen1x.bar.ACTION_SHOW_OR_UPDATE_PROGRESS"
+        const val EXTRA_IDENTIFIER = "extra_identifier"
         const val EXTRA_TITLE = "extra_title"
-        const val EXTRA_SUBTITLE = "extra_subtitle" // 定义但未使用，保留原样
+        const val EXTRA_SUBTITLE = "extra_subtitle"
         const val EXTRA_ICON_RES_ID = "extra_icon_res_id"
         const val EXTRA_DURATION_MS = "extra_duration_ms"
+        const val EXTRA_PROGRESS_VALUE = "extra_progress_value"
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -52,92 +47,94 @@ class DynamicIslandService : Service() {
     private fun showFloatingWindow() {
         if (dynamicIslandView != null) return
 
-        // 【修改】
-        // 1. 创建一个 ContextThemeWrapper，将 Service 的基础上下文和您的 Material3 主题打包在一起。
-        //    我们直接引用您在 themes.xml 中定义的主题，例如 R.style.Theme_LuminaClient。
-        val themedContext = ContextThemeWrapper(this, R.style.Theme_LuminaClient)
-
-        // 2. 使用这个被“主题化”的上下文来创建 DynamicIslandView，以确保它能访问到所有主题属性。
+        // 使用 Material3 官方主题，无需再依赖项目里是否写了 AppTheme
+        val themedContext = ContextThemeWrapper(
+            this,
+            com.google.android.material.R.style.Theme_Material3_DynamicColors_DayNight
+        )
         dynamicIslandView = DynamicIslandView(themedContext)
-        
+
         windowParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             val sp = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
-            val yOffsetDp = sp.getFloat("dynamicIslandYOffset", 20f)
-            y = dpToPx(yOffsetDp)
+            y = dpToPx(sp.getFloat("dynamicIslandYOffset", 20f))
         }
-        
-        val sp = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
-        val username = sp.getString("dynamicIslandUsername", "User") ?: "User"
+
+        val username = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
+            .getString("dynamicIslandUsername", "User") ?: "Phoen1x"
         dynamicIslandView?.setPersistentText(username)
 
         windowManager.addView(dynamicIslandView, windowParams)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.action?.let { action ->
-            when (action) {
-                ACTION_UPDATE_TEXT -> {
-                    val text = intent.getStringExtra(EXTRA_TEXT)
-                    if (text != null) {
-                        dynamicIslandView?.setPersistentText(text)
-                    }
-                }
-                ACTION_UPDATE_Y_OFFSET -> {
-                    val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 20f)
-                    windowParams?.let { params ->
-                        params.y = dpToPx(yOffsetDp)
-                        windowManager.updateViewLayout(dynamicIslandView, params)
-                    }
-                }
-                ACTION_SHOW_NOTIFICATION_SWITCH -> {
-                    val moduleName = intent.getStringExtra(EXTRA_MODULE_NAME)
-                    val moduleState = intent.getBooleanExtra(EXTRA_MODULE_STATE, false)
-                    
-                    if (moduleName != null) {
-                        dynamicIslandView?.addSwitch(moduleName, moduleState)
-                    }
-                }
-                ACTION_SHOW_PROGRESS -> {
-                    val title = intent.getStringExtra(EXTRA_TITLE)
-                    val duration = intent.getLongExtra(EXTRA_DURATION_MS, 1000L)
-                    
-                    val iconResId = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
-                    val iconDrawable: Drawable? = if (iconResId != -1) {
-                        try {
-                            ContextCompat.getDrawable(this, iconResId)
-                        } catch (e: Exception) {
-                            null
-                        }
-                    } else {
-                        null
-                    }
-                    
-                    if (title != null) {
-                        // 修复：添加 identifier 参数为 null，以匹配 addProgress 方法的签名
-                        dynamicIslandView?.addProgress(null, title, iconDrawable, duration)
-                    }
+        intent ?: return START_STICKY
+        when (intent.action) {
+            ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let {
+                dynamicIslandView?.setPersistentText(it)
+            }
+
+            ACTION_UPDATE_Y_OFFSET -> {
+                val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 20f)
+                windowParams?.let {
+                    it.y = dpToPx(yOffsetDp)
+                    windowManager.updateViewLayout(dynamicIslandView, it)
                 }
             }
+
+            ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name ->
+                dynamicIslandView?.addSwitch(name, intent.getBooleanExtra(EXTRA_MODULE_STATE, false))
+            }
+
+            ACTION_SHOW_OR_UPDATE_PROGRESS -> handleShowOrUpdateProgress(intent)
         }
         return START_STICKY
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
-        if (dynamicIslandView != null) {
-            windowManager.removeView(dynamicIslandView)
-            dynamicIslandView = null
-        }
+        dynamicIslandView?.let { windowManager.removeView(it) }
+        dynamicIslandView = null
     }
 
-    private fun dpToPx(dp: Float): Int {
-        return (dp * resources.displayMetrics.density).roundToInt()
+    /* ---------- 私有工具 ---------- */
+
+    private fun dpToPx(dp: Float): Int =
+        (dp * resources.displayMetrics.density).roundToInt()
+
+    /* ---------- Progress 处理 ---------- */
+
+    private fun handleShowOrUpdateProgress(intent: Intent) {
+        val identifier = intent.getStringExtra(EXTRA_IDENTIFIER) ?: return
+        val title = intent.getStringExtra(EXTRA_TITLE) ?: return
+
+        val subtitle = intent.getStringExtra(EXTRA_SUBTITLE)
+
+        // 1. progress
+        val progress = intent.takeIf { it.hasExtra(EXTRA_PROGRESS_VALUE) }
+            ?.getFloatExtra(EXTRA_PROGRESS_VALUE, 0f)
+
+        // 2. duration：仅在 progress 为 null 且存在 EXTRA_DURATION_MS 时取
+        val duration = if (progress == null && intent.hasExtra(EXTRA_DURATION_MS)) {
+            intent.getLongExtra(EXTRA_DURATION_MS, 5000L)
+        } else {
+            null
+        }
+
+        // 3. icon
+        val iconDrawable = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
+            .takeIf { it != -1 }
+            ?.let { runCatching { ContextCompat.getDrawable(this, it) }.getOrNull() }
+
+        dynamicIslandView?.addOrUpdateProgress(
+            identifier, title, subtitle, iconDrawable, progress, duration
+        )
     }
 }
