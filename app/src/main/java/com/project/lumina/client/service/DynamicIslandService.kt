@@ -21,16 +21,16 @@ class DynamicIslandService : Service() {
     private var windowParams: WindowManager.LayoutParams? = null
 
     companion object {
-        const val ACTION_UPDATE_TEXT = "com.project.lumina.client.ACTION_UPDATE_TEXT"
-        const val ACTION_UPDATE_Y_OFFSET = "com.project.lumina.client.ACTION_UPDATE_Y_OFFSET"
+        const val ACTION_UPDATE_TEXT = "com.phoen1x.bar.ACTION_UPDATE_TEXT"
+        const val ACTION_UPDATE_Y_OFFSET = "com.phoen1x.bar.ACTION_UPDATE_Y_OFFSET"
         const val EXTRA_TEXT = "extra_text"
         const val EXTRA_Y_OFFSET_DP = "extra_y_offset_dp"
 
-        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.project.lumina.client.ACTION_SHOW_NOTIFICATION_SWITCH"
+        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.phoen1x.bar.ACTION_SHOW_NOTIFICATION_SWITCH"
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
 
-        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.project.lumina.client.ACTION_SHOW_OR_UPDATE_PROGRESS"
+        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.phoen1x.bar.ACTION_SHOW_OR_UPDATE_PROGRESS"
         const val EXTRA_IDENTIFIER = "extra_identifier"
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_SUBTITLE = "extra_subtitle"
@@ -48,34 +48,31 @@ class DynamicIslandService : Service() {
     }
 
     private fun showFloatingWindow() {
-        if (dynamicIslandView != null) return
+    if (dynamicIslandView != null) return
 
-        // 使用 Material3 官方主题，无需再依赖项目里是否写了 AppTheme
-        val themedContext = ContextThemeWrapper(
-            this,
-            com.google.android.material.R.style.Theme_Material3_DynamicColors_DayNight
-        )
-        dynamicIslandView = DynamicIslandView(themedContext)
+    val themedContext = ContextThemeWrapper(
+        this,
+        com.google.android.material.R.style.Theme_Material3_DynamicColors_DayNight
+    )
+    dynamicIslandView = DynamicIslandView(themedContext)
 
-        windowParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            val sp = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
-            y = dpToPx(sp.getFloat("dynamicIslandYOffset", 20f))
-        }
-
-        val username = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
-            .getString("dynamicIslandUsername", "User") ?: "Phoen1x"
-        dynamicIslandView?.setPersistentText(username)
-
-        windowManager.addView(dynamicIslandView, windowParams)
+    windowParams = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        PixelFormat.TRANSLUCENT
+    ).apply {
+        gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        y = 0 // 直接覆盖状态栏
     }
+
+    windowManager.addView(dynamicIslandView, windowParams)
+}
+
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent ?: return START_STICKY

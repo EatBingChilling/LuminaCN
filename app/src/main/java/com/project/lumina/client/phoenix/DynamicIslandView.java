@@ -231,23 +231,26 @@ public class DynamicIslandView extends FrameLayout {
         setWillNotDraw(false);
         density = getResources().getDisplayMetrics().density;
 
-        glowMargin = 10 * density;
+        // --- MODIFIED VALUES START ---
+        glowMargin = 8 * density;
         setPadding((int) glowMargin, (int) glowMargin, (int) glowMargin, (int) glowMargin);
         setClipToPadding(false);
         setClipChildren(false);
 
-        collapsedHeight = 38 * density;
-        itemHeight = 68 * density;
-        expandedWidth = 320 * density;
-        this.padding = 16 * density;
+        collapsedHeight = 32 * density;
+        itemHeight = 54 * density;
+        expandedWidth = 280 * density;
+        this.padding = 12 * density;
         collapsedCornerRadius = collapsedHeight / 2;
-        expandedCornerRadius = 28 * density;
-        iconContainerSize = 40 * density;
-        iconSize = 24 * density;
-        iconContainerCornerRadius = 12 * density;
-        progressHeight = 4 * density;
+        expandedCornerRadius = 22 * density;
+        iconContainerSize = 34 * density;
+        iconSize = 20 * density;
+        iconContainerCornerRadius = 10 * density;
+        progressHeight = 3 * density;
+        // Switch size can be left as is, but a small reduction is possible
         switchWidth = 52 * density;
         switchHeight = 32 * density;
+        // --- MODIFIED VALUES END ---
 
         for (int i = 0; i < timeFormat.toPattern().length(); i++) {
             timeDigitAnimators.add(new DigitAnimator());
@@ -283,26 +286,28 @@ public class DynamicIslandView extends FrameLayout {
 
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowPaint.setStyle(Paint.Style.STROKE);
-        glowPaint.setStrokeWidth(4 * density);
-        glowPaint.setMaskFilter(new BlurMaskFilter(6 * density, BlurMaskFilter.Blur.NORMAL));
+        // --- MODIFIED VALUES START ---
+        glowPaint.setStrokeWidth(3 * density);
+        glowPaint.setMaskFilter(new BlurMaskFilter(5 * density, BlurMaskFilter.Blur.NORMAL));
 
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         textPaint.setColor(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant));
-        textPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 15, getResources().getDisplayMetrics()));
+        textPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
         textPaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
         subtitlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         subtitlePaint.setColor(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant));
         subtitlePaint.setAlpha(200);
-        subtitlePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
+        subtitlePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12, getResources().getDisplayMetrics()));
 
         separatorPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         separatorPaint.setColor(ColorUtils.setAlphaComponent(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant), 120));
-        separatorPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
+        separatorPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
 
         timePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         timePaint.setColor(baseTimeAlpha);
-        timePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
+        timePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
+        // --- MODIFIED VALUES END ---
         timePaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
 
@@ -398,42 +403,29 @@ public class DynamicIslandView extends FrameLayout {
             String charStr = String.valueOf(da.currentChar);
             float charWidth = timePaint.measureText(charStr);
 
-            // Create a clipping "window" for each digit, one character high.
             canvas.save();
             canvas.clipRect(currentX, baseY + fm.ascent, currentX + charWidth, baseY + fm.descent);
 
             if (da.isAnimating) {
-                // *** THE ROOT CAUSE FIX ***
-                // Instead of calculating coordinates, we translate the entire canvas.
-                // This "film strip" model prevents any visual interference.
                 float progress = da.animationProgress;
                 float verticalShift = progress * charHeight;
 
-                // Create another save point for the translation
                 canvas.save();
-                // Translate the canvas DOWNWARDS.
                 canvas.translate(0, verticalShift);
 
-                // 1. Draw the OLD character at the starting position (baseY).
-                // As the canvas moves down, this character slides down and out of the clip window.
                 timePaint.setAlpha((int) ((1 - progress) * originalAlpha));
                 canvas.drawText(String.valueOf(da.previousChar), currentX, baseY, timePaint);
 
-                // 2. Draw the NEW character one slot ABOVE the old one.
-                // As the canvas moves down, this character slides into the clip window from above.
                 timePaint.setAlpha((int) (progress * originalAlpha));
                 canvas.drawText(charStr, currentX, baseY - charHeight, timePaint);
 
-                // Restore from the translation
                 canvas.restore();
 
             } else {
-                // Draw static character.
                 timePaint.setAlpha(originalAlpha);
                 canvas.drawText(charStr, currentX, baseY, timePaint);
             }
 
-            // Restore from the clipping
             canvas.restore();
             currentX += charWidth;
         }
@@ -495,7 +487,7 @@ public class DynamicIslandView extends FrameLayout {
         boolean hasSubtitle = task.subtitle != null && !task.subtitle.isEmpty();
         float subtitleHeight = hasSubtitle ? (subtitleFm.descent - subtitleFm.ascent) : 0;
         float textSpacing = 2 * density;
-        float progressSpacing = 6 * density;
+        float progressSpacing = 4 * density; // Reduced from 6
         boolean hasProgress = (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH);
         float totalBlockHeight = titleHeight + (hasSubtitle ? textSpacing + subtitleHeight : 0) + (hasProgress ? progressSpacing + progressHeight : 0);
         float blockYStart = (itemHeight - totalBlockHeight) / 2;
