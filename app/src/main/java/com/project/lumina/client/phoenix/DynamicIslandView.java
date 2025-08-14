@@ -485,7 +485,8 @@ public class DynamicIslandView extends FrameLayout {
         Paint.FontMetrics subtitleFm = subtitlePaint.getFontMetrics();
         float titleHeight = titleFm.descent - titleFm.ascent;
         boolean hasSubtitle = task.subtitle != null && !task.subtitle.isEmpty();
-        float subtitleHeight = hasSubtitle ? (subtitleFm.descent - ascent) : 0;
+        // 【最终修复】修正这里的拼写错误
+        float subtitleHeight = hasSubtitle ? (subtitleFm.descent - subtitleFm.ascent) : 0;
         float textSpacing = 2 * density;
         float progressSpacing = 4 * density;
         boolean hasProgress = (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH);
@@ -545,7 +546,6 @@ public class DynamicIslandView extends FrameLayout {
         }
         invalidate();
     }
-    // ... (The rest of the code is identical to the previous correct version)
     public void setPersistentText(String text) {
         this.persistentText = text;
         if (currentState == State.COLLAPSED) {
@@ -722,7 +722,6 @@ public class DynamicIslandView extends FrameLayout {
                 boolean shouldBeRemoved = false;
                 if (task.isTimeBased) {
                     if (task.progress <= 0.01f) {
-                        // 【最终修复】让 SWITCH 和 PROGRESS 走统一逻辑，都进入等待状态
                         if (!task.isAwaitingData) {
                             task.isAwaitingData = true;
                             task.lastUpdateTime = currentTime;
