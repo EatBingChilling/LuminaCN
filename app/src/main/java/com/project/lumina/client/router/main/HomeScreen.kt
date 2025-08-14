@@ -161,7 +161,10 @@ fun HomeScreen(
     val isCompactScreen = screenWidth < 600.dp
 
     val leftColumnWidth = if (isCompactScreen) 0.4f else 0.5f
-    val localIp = remember { ConnectionInfoOverlay.getLocalIpAddress(context) }
+
+    // 【已修复】删除此行，不再需要在此处预先获取IP地址。
+    // val localIp = remember { ConnectionInfoOverlay.getLocalIpAddress(context) }
+
     val showNotification: (String, NotificationType) -> Unit = { message, type ->
         SimpleOverlayNotification.show(
             message = message,
@@ -821,7 +824,8 @@ fun HomeScreen(
                                                     if (Services.isActive) {
                                                         val disableConnectionInfoOverlay = sharedPreferences.getBoolean("disableConnectionInfoOverlay", false)
                                                         if (!disableConnectionInfoOverlay) {
-                                                            ConnectionInfoOverlay.show(localIp)
+                                                            // 【已修复】修改此处的调用
+                                                            ConnectionInfoOverlay.show(5000L)
                                                         }
                                                     }
                                                     isLaunchingMinecraft = false
@@ -872,6 +876,8 @@ fun HomeScreen(
                                                             else -> {
                                                                 if (selectedGame == "com.mojang.minecraftpe") {
                                                                     try {
+                                                                        // 【已修复】此处的getLocalIpAddress()调用已在ConnectionInfoOverlay内部处理
+                                                                        val localIp = ConnectionInfoOverlay.getLocalIpAddress(context)
                                                                         ServerInit.addMinecraftServer(
                                                                             context,
                                                                             localIp

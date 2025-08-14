@@ -39,13 +39,16 @@ fun MainScreen() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        
+
         NewHomePageContent()
-        
-        
+
+        // 【已修复】下面这个Box和其中的Content()调用已被删除。
+        // 灵动岛的UI由后台服务管理，不再需要在这里手动渲染。
+        /*
         Box(modifier = Modifier.zIndex(10f)) {
             SimpleOverlayNotification.Content()
         }
+        */
     }
 }
 
