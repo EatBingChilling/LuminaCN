@@ -18,6 +18,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextPaint;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.animation.DecelerateInterpolator;
@@ -89,6 +90,8 @@ public class DynamicIslandView extends FrameLayout {
     private float collapsedWidth;
     private float collapsedHeight;
     private float expandedWidth;
+    private float maxScreenWidth;
+    private float maxScreenHeight;
     private float itemHeight;
     private float padding;
     private float collapsedCornerRadius;
@@ -231,6 +234,11 @@ public class DynamicIslandView extends FrameLayout {
         setWillNotDraw(false);
         density = getResources().getDisplayMetrics().density;
 
+        // 获取屏幕尺寸并计算70%限制
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        maxScreenWidth = displayMetrics.widthPixels * 0.7f;
+        maxScreenHeight = displayMetrics.heightPixels * 0.7f;
+
         glowMargin = 8 * density;
         setPadding((int) glowMargin, (int) glowMargin, (int) glowMargin, (int) glowMargin);
         setClipToPadding(false);
@@ -238,7 +246,6 @@ public class DynamicIslandView extends FrameLayout {
 
         collapsedHeight = 32 * density;
         itemHeight = 56 * density;
-        expandedWidth = 300 * density;
         this.padding = 12 * density;
         collapsedCornerRadius = collapsedHeight / 2;
         expandedCornerRadius = 24 * density;
@@ -294,7 +301,8 @@ public class DynamicIslandView extends FrameLayout {
         subtitlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         subtitlePaint.setColor(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant));
         subtitlePaint.setAlpha(200);
-        subtitlePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12, getResources().getDisplayMetrics()));
+        // 缩小副标题字体大小
+        subtitlePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10, getResources().getDisplayMetrics()));
 
         separatorPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         separatorPaint.setColor(ColorUtils.setAlphaComponent(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant), 120));
@@ -304,7 +312,6 @@ public class DynamicIslandView extends FrameLayout {
         timePaint.setColor(baseTimeAlpha);
         timePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
         timePaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-
 
         progressBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         progressBackgroundPaint.setColor(ColorUtils.setAlphaComponent(MaterialColors.getColor(this, R.attr.colorPrimary), 60));
@@ -432,15 +439,20 @@ public class DynamicIslandView extends FrameLayout {
         canvas.drawText(persistentText, currentX, baseY, textPaint);
     }
 
-
     private void drawTasks(Canvas canvas, float contentWidth) {
         float yOffset = this.padding / 2;
-        for (TaskItem task : tasks) {
+        for (int i = 0; i < tasks.size(); i++) {
+            TaskItem task = tasks.get(i);
             if (task.alpha <= 0) continue;
 
+            // 简化Material Switch位置 - 直接在itemHeight中居中
             if (task.type == TaskItem.Type.SWITCH && task.switchView != null) {
-                float switchY = (itemHeight - task.switchView.getHeight()) / 2;
-                task.switchView.setTranslationY(yOffset + switchY + getPaddingTop());
+                float switchX = this.padding;
+                // 简单直接：让Switch在itemHeight中垂直居中
+                float switchY = yOffset + (itemHeight - task.switchView.getHeight()) / 2;
+                
+                task.switchView.setTranslationX(switchX);
+                task.switchView.setTranslationY(switchY + getPaddingTop());
             }
 
             int alpha = (int) (task.alpha * 255);
@@ -485,7 +497,6 @@ public class DynamicIslandView extends FrameLayout {
         Paint.FontMetrics subtitleFm = subtitlePaint.getFontMetrics();
         float titleHeight = titleFm.descent - titleFm.ascent;
         boolean hasSubtitle = task.subtitle != null && !task.subtitle.isEmpty();
-        // 【最终修复】修正这里的拼写错误
         float subtitleHeight = hasSubtitle ? (subtitleFm.descent - subtitleFm.ascent) : 0;
         float textSpacing = 2 * density;
         float progressSpacing = 4 * density;
@@ -536,8 +547,8 @@ public class DynamicIslandView extends FrameLayout {
             switchView.setChecked(state);
             switchView.setClickable(false);
             switchView.setFocusable(false);
+            // 简化LayoutParams，位置由drawTasks中的translation控制
             LayoutParams params = new LayoutParams((int) switchWidth, (int) switchHeight);
-            params.leftMargin = (int) (getPaddingLeft() + this.padding);
             switchView.setLayoutParams(params);
             addView(switchView);
             task.switchView = switchView;
@@ -546,6 +557,7 @@ public class DynamicIslandView extends FrameLayout {
         }
         invalidate();
     }
+
     public void setPersistentText(String text) {
         this.persistentText = text;
         if (currentState == State.COLLAPSED) {
@@ -763,8 +775,43 @@ public class DynamicIslandView extends FrameLayout {
         collapsedWidth = totalWidth + this.padding * 2.5f;
     }
 
+    // 修改：计算包裹内容的展开尺寸，限制在屏幕70%内
     private void updateExpandedSize() {
+        if (tasks.isEmpty()) return;
+
+        float maxContentWidth = 0f;
+        
+        // 计算每个任务需要的最大宽度
+        for (TaskItem task : tasks) {
+            float taskWidth = this.padding; // 左边距
+            
+            // 添加开关或图标的宽度
+            if (task.type == TaskItem.Type.SWITCH) {
+                taskWidth += switchWidth + this.padding / 2;
+            } else if (task.icon != null) {
+                taskWidth += iconContainerSize + this.padding / 2;
+            }
+            
+            // 计算文本宽度
+            float textWidth = textPaint.measureText(task.text);
+            if (task.subtitle != null && !task.subtitle.isEmpty()) {
+                float subtitleWidth = subtitlePaint.measureText(task.subtitle);
+                textWidth = Math.max(textWidth, subtitleWidth);
+            }
+            
+            taskWidth += textWidth + this.padding; // 文本宽度 + 右边距
+            maxContentWidth = Math.max(maxContentWidth, taskWidth);
+        }
+        
+        // 限制在屏幕宽度的70%内，但至少要有最小宽度
+        float minWidth = 200 * density; // 最小宽度
+        expandedWidth = Math.max(minWidth, Math.min(maxContentWidth, maxScreenWidth - getPaddingLeft() - getPaddingRight()));
+        
+        // 计算高度
         float targetHeight = tasks.size() * itemHeight + this.padding;
+        float maxContentHeight = maxScreenHeight - getPaddingTop() - getPaddingBottom();
+        targetHeight = Math.min(targetHeight, maxContentHeight);
+        
         animateToSize(expandedWidth, targetHeight, expandedCornerRadius);
     }
 
