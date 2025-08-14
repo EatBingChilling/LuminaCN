@@ -231,26 +231,23 @@ public class DynamicIslandView extends FrameLayout {
         setWillNotDraw(false);
         density = getResources().getDisplayMetrics().density;
 
-        // --- MODIFIED VALUES START ---
         glowMargin = 8 * density;
         setPadding((int) glowMargin, (int) glowMargin, (int) glowMargin, (int) glowMargin);
         setClipToPadding(false);
         setClipChildren(false);
 
         collapsedHeight = 32 * density;
-        itemHeight = 54 * density;
-        expandedWidth = 280 * density;
+        itemHeight = 56 * density;
+        expandedWidth = 300 * density;
         this.padding = 12 * density;
         collapsedCornerRadius = collapsedHeight / 2;
-        expandedCornerRadius = 22 * density;
-        iconContainerSize = 34 * density;
-        iconSize = 20 * density;
-        iconContainerCornerRadius = 10 * density;
-        progressHeight = 3 * density;
-        // Switch size can be left as is, but a small reduction is possible
+        expandedCornerRadius = 24 * density;
+        iconContainerSize = 36 * density;
+        iconSize = 22 * density;
+        iconContainerCornerRadius = 12 * density;
+        progressHeight = 3.5f * density;
         switchWidth = 52 * density;
         switchHeight = 32 * density;
-        // --- MODIFIED VALUES END ---
 
         for (int i = 0; i < timeFormat.toPattern().length(); i++) {
             timeDigitAnimators.add(new DigitAnimator());
@@ -286,7 +283,6 @@ public class DynamicIslandView extends FrameLayout {
 
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowPaint.setStyle(Paint.Style.STROKE);
-        // --- MODIFIED VALUES START ---
         glowPaint.setStrokeWidth(3 * density);
         glowPaint.setMaskFilter(new BlurMaskFilter(5 * density, BlurMaskFilter.Blur.NORMAL));
 
@@ -307,7 +303,6 @@ public class DynamicIslandView extends FrameLayout {
         timePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         timePaint.setColor(baseTimeAlpha);
         timePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
-        // --- MODIFIED VALUES END ---
         timePaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
 
@@ -442,6 +437,12 @@ public class DynamicIslandView extends FrameLayout {
         float yOffset = this.padding / 2;
         for (TaskItem task : tasks) {
             if (task.alpha <= 0) continue;
+
+            if (task.type == TaskItem.Type.SWITCH && task.switchView != null) {
+                float switchY = (itemHeight - task.switchView.getHeight()) / 2;
+                task.switchView.setTranslationY(yOffset + switchY + getPaddingTop());
+            }
+
             int alpha = (int) (task.alpha * 255);
             textPaint.setAlpha(alpha);
             subtitlePaint.setAlpha((int) (alpha * 0.8f));
@@ -465,9 +466,8 @@ public class DynamicIslandView extends FrameLayout {
         int save = canvas.save();
         canvas.translate(0, yOffset);
         float contentLeft = this.padding;
+
         if (task.type == TaskItem.Type.SWITCH && task.switchView != null) {
-            float switchY = (itemHeight - task.switchView.getLayoutParams().height) / 2;
-            task.switchView.setTranslationY(yOffset + switchY);
             contentLeft += switchWidth + this.padding / 2;
         } else if (task.icon != null) {
             float containerTop = (itemHeight - iconContainerSize) / 2;
@@ -485,11 +485,11 @@ public class DynamicIslandView extends FrameLayout {
         Paint.FontMetrics subtitleFm = subtitlePaint.getFontMetrics();
         float titleHeight = titleFm.descent - titleFm.ascent;
         boolean hasSubtitle = task.subtitle != null && !task.subtitle.isEmpty();
-        float subtitleHeight = hasSubtitle ? (subtitleFm.descent - subtitleFm.ascent) : 0;
+        float subtitleHeight = hasSubtitle ? (subtitleFm.descent - ascent) : 0;
         float textSpacing = 2 * density;
-        float progressSpacing = 4 * density; // Reduced from 6
+        float progressSpacing = 4 * density;
         boolean hasProgress = (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH);
-        float totalBlockHeight = titleHeight + (hasSubtitle ? textSpacing + subtitleHeight : 0) + (hasProgress ? progressSpacing + progressHeight : 0);
+        float totalBlockHeight = titleHeight + (hasSubtitle ? subtitleHeight + textSpacing : 0) + (hasProgress ? progressSpacing + progressHeight : 0);
         float blockYStart = (itemHeight - totalBlockHeight) / 2;
         float titleY = blockYStart - titleFm.ascent;
         canvas.drawText(task.text, contentLeft, titleY, textPaint);
@@ -508,14 +508,6 @@ public class DynamicIslandView extends FrameLayout {
     }
 
     // region Public API
-    public void setPersistentText(String text) {
-        this.persistentText = text;
-        if (currentState == State.COLLAPSED) {
-            updateCollapsedWidth();
-            animateToSize(collapsedWidth, collapsedHeight, collapsedCornerRadius);
-        }
-    }
-
     public void addSwitch(String moduleName, boolean state) {
         String subtitle = state ? "已开启" : "已关闭";
         Optional<TaskItem> existingTask = tasks.stream().filter(t -> t.identifier != null && t.identifier.equals(moduleName)).findFirst();
@@ -543,8 +535,8 @@ public class DynamicIslandView extends FrameLayout {
             switchView.setChecked(state);
             switchView.setClickable(false);
             switchView.setFocusable(false);
-            LayoutParams params = new LayoutParams((int) switchWidth, (int) switchHeight, Gravity.TOP | Gravity.START);
-            params.leftMargin = (int) this.padding;
+            LayoutParams params = new LayoutParams((int) switchWidth, (int) switchHeight);
+            params.leftMargin = (int) (getPaddingLeft() + this.padding);
             switchView.setLayoutParams(params);
             addView(switchView);
             task.switchView = switchView;
@@ -552,6 +544,14 @@ public class DynamicIslandView extends FrameLayout {
             addTask(task);
         }
         invalidate();
+    }
+    // ... (The rest of the code is identical to the previous correct version)
+    public void setPersistentText(String text) {
+        this.persistentText = text;
+        if (currentState == State.COLLAPSED) {
+            updateCollapsedWidth();
+            animateToSize(collapsedWidth, collapsedHeight, collapsedCornerRadius);
+        }
     }
 
     public void addOrUpdateProgress(String identifier, String text, @Nullable String subtitle, @Nullable Drawable icon, @Nullable Float progress, @Nullable Long duration) {
@@ -722,11 +722,10 @@ public class DynamicIslandView extends FrameLayout {
                 boolean shouldBeRemoved = false;
                 if (task.isTimeBased) {
                     if (task.progress <= 0.01f) {
-                        if (task.type == TaskItem.Type.PROGRESS && !task.isAwaitingData) {
+                        // 【最终修复】让 SWITCH 和 PROGRESS 走统一逻辑，都进入等待状态
+                        if (!task.isAwaitingData) {
                             task.isAwaitingData = true;
                             task.lastUpdateTime = currentTime;
-                        } else if (task.type == TaskItem.Type.SWITCH) {
-                            shouldBeRemoved = true;
                         }
                     }
                     if (task.isAwaitingData && (currentTime - task.lastUpdateTime > TIME_PROGRESS_GRACE_PERIOD_MS)) {
