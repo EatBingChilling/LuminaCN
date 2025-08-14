@@ -11,6 +11,9 @@ import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
 
+import com.project.lumina.client.phoenix.DynamicIslandView
+
+
 class DynamicIslandService : Service() {
 
     private lateinit var windowManager: WindowManager
@@ -18,16 +21,16 @@ class DynamicIslandService : Service() {
     private var windowParams: WindowManager.LayoutParams? = null
 
     companion object {
-        const val ACTION_UPDATE_TEXT = "com.phoen1x.bar.ACTION_UPDATE_TEXT"
-        const val ACTION_UPDATE_Y_OFFSET = "com.phoen1x.bar.ACTION_UPDATE_Y_OFFSET"
+        const val ACTION_UPDATE_TEXT = "com.project.lumina.client.ACTION_UPDATE_TEXT"
+        const val ACTION_UPDATE_Y_OFFSET = "com.project.lumina.client.ACTION_UPDATE_Y_OFFSET"
         const val EXTRA_TEXT = "extra_text"
         const val EXTRA_Y_OFFSET_DP = "extra_y_offset_dp"
 
-        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.phoen1x.bar.ACTION_SHOW_NOTIFICATION_SWITCH"
+        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.project.lumina.client.ACTION_SHOW_NOTIFICATION_SWITCH"
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
 
-        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.phoen1x.bar.ACTION_SHOW_OR_UPDATE_PROGRESS"
+        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.project.lumina.client.ACTION_SHOW_OR_UPDATE_PROGRESS"
         const val EXTRA_IDENTIFIER = "extra_identifier"
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_SUBTITLE = "extra_subtitle"
