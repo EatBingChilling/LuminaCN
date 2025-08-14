@@ -1,4 +1,3 @@
-
 package com.project.lumina.client.phoenix;
 
 import android.animation.Animator;
@@ -232,21 +231,21 @@ public class DynamicIslandView extends FrameLayout {
         setWillNotDraw(false);
         density = getResources().getDisplayMetrics().density;
 
-        glowMargin = 10 * density;
+        glowMargin = 8 * density;
         setPadding((int) glowMargin, (int) glowMargin, (int) glowMargin, (int) glowMargin);
         setClipToPadding(false);
         setClipChildren(false);
 
-        collapsedHeight = 38 * density;
-        itemHeight = 68 * density;
-        expandedWidth = 320 * density;
-        this.padding = 16 * density;
+        collapsedHeight = 32 * density;
+        itemHeight = 56 * density;
+        expandedWidth = 300 * density;
+        this.padding = 12 * density;
         collapsedCornerRadius = collapsedHeight / 2;
-        expandedCornerRadius = 28 * density;
-        iconContainerSize = 40 * density;
-        iconSize = 24 * density;
+        expandedCornerRadius = 24 * density;
+        iconContainerSize = 36 * density;
+        iconSize = 22 * density;
         iconContainerCornerRadius = 12 * density;
-        progressHeight = 4 * density;
+        progressHeight = 3.5f * density;
         switchWidth = 52 * density;
         switchHeight = 32 * density;
 
@@ -284,26 +283,26 @@ public class DynamicIslandView extends FrameLayout {
 
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowPaint.setStyle(Paint.Style.STROKE);
-        glowPaint.setStrokeWidth(4 * density);
-        glowPaint.setMaskFilter(new BlurMaskFilter(6 * density, BlurMaskFilter.Blur.NORMAL));
+        glowPaint.setStrokeWidth(3 * density);
+        glowPaint.setMaskFilter(new BlurMaskFilter(5 * density, BlurMaskFilter.Blur.NORMAL));
 
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         textPaint.setColor(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant));
-        textPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 15, getResources().getDisplayMetrics()));
+        textPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
         textPaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
         subtitlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         subtitlePaint.setColor(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant));
         subtitlePaint.setAlpha(200);
-        subtitlePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
+        subtitlePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12, getResources().getDisplayMetrics()));
 
         separatorPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         separatorPaint.setColor(ColorUtils.setAlphaComponent(MaterialColors.getColor(this, R.attr.colorOnSurfaceVariant), 120));
-        separatorPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
+        separatorPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
 
         timePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         timePaint.setColor(baseTimeAlpha);
-        timePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
+        timePaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13, getResources().getDisplayMetrics()));
         timePaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
 
@@ -399,42 +398,29 @@ public class DynamicIslandView extends FrameLayout {
             String charStr = String.valueOf(da.currentChar);
             float charWidth = timePaint.measureText(charStr);
 
-            // Create a clipping "window" for each digit, one character high.
             canvas.save();
             canvas.clipRect(currentX, baseY + fm.ascent, currentX + charWidth, baseY + fm.descent);
 
             if (da.isAnimating) {
-                // *** THE ROOT CAUSE FIX ***
-                // Instead of calculating coordinates, we translate the entire canvas.
-                // This "film strip" model prevents any visual interference.
                 float progress = da.animationProgress;
                 float verticalShift = progress * charHeight;
 
-                // Create another save point for the translation
                 canvas.save();
-                // Translate the canvas DOWNWARDS.
                 canvas.translate(0, verticalShift);
 
-                // 1. Draw the OLD character at the starting position (baseY).
-                // As the canvas moves down, this character slides down and out of the clip window.
                 timePaint.setAlpha((int) ((1 - progress) * originalAlpha));
                 canvas.drawText(String.valueOf(da.previousChar), currentX, baseY, timePaint);
 
-                // 2. Draw the NEW character one slot ABOVE the old one.
-                // As the canvas moves down, this character slides into the clip window from above.
                 timePaint.setAlpha((int) (progress * originalAlpha));
                 canvas.drawText(charStr, currentX, baseY - charHeight, timePaint);
 
-                // Restore from the translation
                 canvas.restore();
 
             } else {
-                // Draw static character.
                 timePaint.setAlpha(originalAlpha);
                 canvas.drawText(charStr, currentX, baseY, timePaint);
             }
 
-            // Restore from the clipping
             canvas.restore();
             currentX += charWidth;
         }
@@ -451,6 +437,12 @@ public class DynamicIslandView extends FrameLayout {
         float yOffset = this.padding / 2;
         for (TaskItem task : tasks) {
             if (task.alpha <= 0) continue;
+
+            if (task.type == TaskItem.Type.SWITCH && task.switchView != null) {
+                float switchY = (itemHeight - task.switchView.getHeight()) / 2;
+                task.switchView.setTranslationY(yOffset + switchY + getPaddingTop());
+            }
+
             int alpha = (int) (task.alpha * 255);
             textPaint.setAlpha(alpha);
             subtitlePaint.setAlpha((int) (alpha * 0.8f));
@@ -474,9 +466,8 @@ public class DynamicIslandView extends FrameLayout {
         int save = canvas.save();
         canvas.translate(0, yOffset);
         float contentLeft = this.padding;
+
         if (task.type == TaskItem.Type.SWITCH && task.switchView != null) {
-            float switchY = (itemHeight - task.switchView.getLayoutParams().height) / 2;
-            task.switchView.setTranslationY(yOffset + switchY);
             contentLeft += switchWidth + this.padding / 2;
         } else if (task.icon != null) {
             float containerTop = (itemHeight - iconContainerSize) / 2;
@@ -494,11 +485,12 @@ public class DynamicIslandView extends FrameLayout {
         Paint.FontMetrics subtitleFm = subtitlePaint.getFontMetrics();
         float titleHeight = titleFm.descent - titleFm.ascent;
         boolean hasSubtitle = task.subtitle != null && !task.subtitle.isEmpty();
+        // 【最终修复】修正这里的拼写错误
         float subtitleHeight = hasSubtitle ? (subtitleFm.descent - subtitleFm.ascent) : 0;
         float textSpacing = 2 * density;
-        float progressSpacing = 6 * density;
+        float progressSpacing = 4 * density;
         boolean hasProgress = (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH);
-        float totalBlockHeight = titleHeight + (hasSubtitle ? textSpacing + subtitleHeight : 0) + (hasProgress ? progressSpacing + progressHeight : 0);
+        float totalBlockHeight = titleHeight + (hasSubtitle ? subtitleHeight + textSpacing : 0) + (hasProgress ? progressSpacing + progressHeight : 0);
         float blockYStart = (itemHeight - totalBlockHeight) / 2;
         float titleY = blockYStart - titleFm.ascent;
         canvas.drawText(task.text, contentLeft, titleY, textPaint);
@@ -517,14 +509,6 @@ public class DynamicIslandView extends FrameLayout {
     }
 
     // region Public API
-    public void setPersistentText(String text) {
-        this.persistentText = text;
-        if (currentState == State.COLLAPSED) {
-            updateCollapsedWidth();
-            animateToSize(collapsedWidth, collapsedHeight, collapsedCornerRadius);
-        }
-    }
-
     public void addSwitch(String moduleName, boolean state) {
         String subtitle = state ? "已开启" : "已关闭";
         Optional<TaskItem> existingTask = tasks.stream().filter(t -> t.identifier != null && t.identifier.equals(moduleName)).findFirst();
@@ -552,8 +536,8 @@ public class DynamicIslandView extends FrameLayout {
             switchView.setChecked(state);
             switchView.setClickable(false);
             switchView.setFocusable(false);
-            LayoutParams params = new LayoutParams((int) switchWidth, (int) switchHeight, Gravity.TOP | Gravity.START);
-            params.leftMargin = (int) this.padding;
+            LayoutParams params = new LayoutParams((int) switchWidth, (int) switchHeight);
+            params.leftMargin = (int) (getPaddingLeft() + this.padding);
             switchView.setLayoutParams(params);
             addView(switchView);
             task.switchView = switchView;
@@ -561,6 +545,13 @@ public class DynamicIslandView extends FrameLayout {
             addTask(task);
         }
         invalidate();
+    }
+    public void setPersistentText(String text) {
+        this.persistentText = text;
+        if (currentState == State.COLLAPSED) {
+            updateCollapsedWidth();
+            animateToSize(collapsedWidth, collapsedHeight, collapsedCornerRadius);
+        }
     }
 
     public void addOrUpdateProgress(String identifier, String text, @Nullable String subtitle, @Nullable Drawable icon, @Nullable Float progress, @Nullable Long duration) {
@@ -731,11 +722,9 @@ public class DynamicIslandView extends FrameLayout {
                 boolean shouldBeRemoved = false;
                 if (task.isTimeBased) {
                     if (task.progress <= 0.01f) {
-                        if (task.type == TaskItem.Type.PROGRESS && !task.isAwaitingData) {
+                        if (!task.isAwaitingData) {
                             task.isAwaitingData = true;
                             task.lastUpdateTime = currentTime;
-                        } else if (task.type == TaskItem.Type.SWITCH) {
-                            shouldBeRemoved = true;
                         }
                     }
                     if (task.isAwaitingData && (currentTime - task.lastUpdateTime > TIME_PROGRESS_GRACE_PERIOD_MS)) {
