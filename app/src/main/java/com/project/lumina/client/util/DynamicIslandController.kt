@@ -21,4 +21,12 @@ class DynamicIslandController(private val context: Context) {
         }
         context.startService(intent)
     }
+
+    fun updateScale(scale: Float) {
+        val intent = Intent(context, DynamicIslandService::class.java).apply {
+            action = DynamicIslandService.ACTION_UPDATE_SCALE
+            putExtra(DynamicIslandService.EXTRA_SCALE, scale)
+        }
+        context.startService(intent)
+    }
 }

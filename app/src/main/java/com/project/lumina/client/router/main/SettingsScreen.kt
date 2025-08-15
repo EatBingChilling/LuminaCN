@@ -76,6 +76,8 @@ fun SettingsScreen() {
     // 灵动岛状态
     var dynamicIslandUsername    by remember { mutableStateOf(sp.getString("dynamicIslandUsername", "User") ?: "User") }
     var dynamicIslandYOffset     by remember { mutableStateOf(sp.getFloat("dynamicIslandYOffset", 20f)) }
+    // [新增] 灵动岛缩放状态，默认值为 1.0f
+    var dynamicIslandScale       by remember { mutableStateOf(sp.getFloat("dynamicIslandScale", 0.7f)) }
 
 
     var showPermission           by remember { mutableStateOf(false) }
@@ -110,6 +112,11 @@ fun SettingsScreen() {
 
     LaunchedEffect(dynamicIslandYOffset) {
         dynamicIslandController.updateYOffset(dynamicIslandYOffset)
+    }
+
+    // [新增] 监听缩放值变化，并调用控制器更新
+    LaunchedEffect(dynamicIslandScale) {
+        dynamicIslandController.updateScale(dynamicIslandScale)
     }
 
     LaunchedEffect(Unit) {
@@ -270,6 +277,35 @@ fun SettingsScreen() {
                         steps = 199,
                         onValueChangeFinished = {
                             saveFloat("dynamicIslandYOffset", dynamicIslandYOffset)
+                        }
+                    )
+                }
+
+                // [新增] 缩放控制 Slider
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "缩放调整",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "x${"%.1f".format(dynamicIslandScale)}", // 格式化为一位小数
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Slider(
+                        value = dynamicIslandScale,
+                        onValueChange = { dynamicIslandScale = it },
+                        valueRange = 0.5f..2.0f, // 允许从 50% 缩放到 200%
+                        steps = 14, // (2.0-0.5)/0.1 = 15 段, 即 14 个步进点
+                        onValueChangeFinished = {
+                            saveFloat("dynamicIslandScale", dynamicIslandScale)
                         }
                     )
                 }

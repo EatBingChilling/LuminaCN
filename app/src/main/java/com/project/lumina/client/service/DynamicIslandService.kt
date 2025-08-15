@@ -3,34 +3,64 @@ package com.project.lumina.client.service
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.graphics.drawable.Drawable
+import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
-import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat
-import com.project.lumina.client.phoenix.DynamicIslandView
+import androidx.lifecycle.*
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlin.math.roundToInt
+import com.project.lumina.client.phoenix.DynamicIslandView
+
+class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val store = ViewModelStore()
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+    fun performRestore(savedState: Bundle?) { savedStateRegistryController.performRestore(savedState) }
+    fun handleLifecycleEvent(event: Lifecycle.Event) = lifecycleRegistry.handleLifecycleEvent(event)
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+    override val viewModelStore: ViewModelStore get() = store
+    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+}
 
 class DynamicIslandService : Service() {
-
     private lateinit var windowManager: WindowManager
-    private var dynamicIslandView: DynamicIslandView? = null
-    private var windowParams: WindowManager.LayoutParams? = null
+    private lateinit var composeView: ComposeView
+    private var dynamicIslandState: DynamicIslandState? = null
+    private lateinit var windowParams: WindowManager.LayoutParams
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val lifecycleOwner = ServiceLifecycleOwner()
+    
+    private var _scale = mutableStateOf(0.7f)
+    private val scale by _scale
 
     companion object {
-        // 保留所有 Action 和 Extra 常量
         const val ACTION_UPDATE_TEXT = "com.project.lumina.client.ACTION_UPDATE_TEXT"
         const val ACTION_UPDATE_Y_OFFSET = "com.project.lumina.client.ACTION_UPDATE_Y_OFFSET"
+        const val ACTION_UPDATE_SCALE = "com.project.lumina.client.ACTION_UPDATE_SCALE"
         const val EXTRA_TEXT = "extra_text"
         const val EXTRA_Y_OFFSET_DP = "extra_y_offset_dp"
-
+        const val EXTRA_SCALE = "extra_scale"
         const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.project.lumina.client.ACTION_SHOW_NOTIFICATION_SWITCH"
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
-        
-        const val ACTION_HIDE = "com.project.lumina.client.ACTION_HIDE"
-
         const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.project.lumina.client.ACTION_SHOW_OR_UPDATE_PROGRESS"
         const val EXTRA_IDENTIFIER = "extra_identifier"
         const val EXTRA_TITLE = "extra_title"
@@ -44,93 +74,40 @@ class DynamicIslandService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        lifecycleOwner.performRestore(null)
+        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        showFloatingWindow()
-    }
-
-    private fun showFloatingWindow() {
-        if (dynamicIslandView != null) return
-
-        val themedContext = ContextThemeWrapper(
-            this,
-            com.google.android.material.R.style.Theme_Material3_DynamicColors_DayNight
-        )
-        dynamicIslandView = DynamicIslandView(themedContext)
-
-        windowParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = 0
+        composeView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(lifecycleOwner); setViewTreeViewModelStoreOwner(lifecycleOwner); setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+            setContent {
+                val isDarkTheme = isSystemInDarkTheme()
+                val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { if (isDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) } else { if (isDarkTheme) darkColorScheme() else lightColorScheme() }
+                MaterialTheme(colorScheme = colorScheme) {
+                    val state = rememberDynamicIslandState()
+                    LaunchedEffect(state) { this@DynamicIslandService.dynamicIslandState = state }
+                    
+                    DynamicIslandView(state = state, scale = scale)
+                }
+            }
         }
-
-        windowManager.addView(dynamicIslandView, windowParams)
+        windowParams = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; y = 0 }
+        windowManager.addView(composeView, windowParams)
+        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent ?: return START_STICKY
-        
-        // 【最终修复】恢复完整的 when 语句，确保所有 Action 都能被处理
         when (intent.action) {
-            ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let {
-                dynamicIslandView?.setPersistentText(it)
-            }
-
-            ACTION_UPDATE_Y_OFFSET -> {
-                val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 0f)
-                windowParams?.let {
-                    it.y = dpToPx(yOffsetDp)
-                    windowManager.updateViewLayout(dynamicIslandView, it)
-                }
-            }
-
-            // 【关键修复】将这个 case 完整地恢复回来，服务现在会正确响应来自 OverlayNotification 的命令了
-            ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name ->
-                dynamicIslandView?.addSwitch(name, intent.getBooleanExtra(EXTRA_MODULE_STATE, false))
-            }
-
+            ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let { text -> dynamicIslandState?.persistentText = text }
+            ACTION_UPDATE_Y_OFFSET -> { val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 0f); windowParams.y = dpToPx(yOffsetDp); windowManager.updateViewLayout(composeView, windowParams) }
+            ACTION_UPDATE_SCALE -> { val newScale = intent.getFloatExtra(EXTRA_SCALE, 0.7f); _scale.value = newScale }
+            ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name -> val state = intent.getBooleanExtra(EXTRA_MODULE_STATE, false); dynamicIslandState?.addSwitch(name, state) }
             ACTION_SHOW_OR_UPDATE_PROGRESS -> handleShowOrUpdateProgress(intent)
-            
-            ACTION_HIDE -> {
-                dynamicIslandView?.hide()
-            }
         }
         return START_STICKY
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        dynamicIslandView?.let { windowManager.removeView(it) }
-        dynamicIslandView = null
-    }
-
-    private fun dpToPx(dp: Float): Int =
-        (dp * resources.displayMetrics.density).roundToInt()
-
-    private fun handleShowOrUpdateProgress(intent: Intent) {
-        val identifier = intent.getStringExtra(EXTRA_IDENTIFIER) ?: return
-        val title = intent.getStringExtra(EXTRA_TITLE) ?: return
-        val subtitle = intent.getStringExtra(EXTRA_SUBTITLE)
-        val progress = intent.takeIf { it.hasExtra(EXTRA_PROGRESS_VALUE) }
-            ?.getFloatExtra(EXTRA_PROGRESS_VALUE, 0f)
-        val duration = if (progress == null && intent.hasExtra(EXTRA_DURATION_MS)) {
-            intent.getLongExtra(EXTRA_DURATION_MS, 5000L)
-        } else {
-            null
-        }
-        val iconDrawable = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
-            .takeIf { it != -1 }
-            ?.let { runCatching { ContextCompat.getDrawable(this, it) }.getOrNull() }
-
-        dynamicIslandView?.addOrUpdateProgress(
-            identifier, title, subtitle, iconDrawable, progress, duration
-        )
-    }
+    override fun onDestroy() { super.onDestroy(); lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY); windowManager.removeView(composeView); serviceScope.cancel() }
+    private fun dpToPx(dp: Float): Int = (dp * resources.displayMetrics.density).roundToInt()
+    private fun handleShowOrUpdateProgress(intent: Intent) { val identifier = intent.getStringExtra(EXTRA_IDENTIFIER) ?: return; val title = intent.getStringExtra(EXTRA_TITLE) ?: return; val subtitle = intent.getStringExtra(EXTRA_SUBTITLE); val progress = intent.takeIf { it.hasExtra(EXTRA_PROGRESS_VALUE) }?.getFloatExtra(EXTRA_PROGRESS_VALUE, 0f); val duration = if (progress == null && intent.hasExtra(EXTRA_DURATION_MS)) { intent.getLongExtra(EXTRA_DURATION_MS, 5000L) } else { null }; val iconDrawable = intent.getIntExtra(EXTRA_ICON_RES_ID, -1).takeIf { it != -1 }?.let { resId -> runCatching { ContextCompat.getDrawable(this, resId) }.getOrNull() }; dynamicIslandState?.addOrUpdateProgress(identifier, title, subtitle, iconDrawable, progress, duration) }
 }
