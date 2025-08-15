@@ -180,6 +180,8 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     
+    implementation("com.google.accompanist:accompanist-drawablepainter:0.30.1")
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

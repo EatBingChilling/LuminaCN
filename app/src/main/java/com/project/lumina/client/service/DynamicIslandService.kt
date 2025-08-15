@@ -28,6 +28,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlin.math.roundToInt
 import com.project.lumina.client.phoenix.DynamicIslandView
+import com.project.lumina.client.phoenix.DynamicIslandState
+import com.project.lumina.client.phoenix.rememberDynamicIslandState
+
 
 class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
