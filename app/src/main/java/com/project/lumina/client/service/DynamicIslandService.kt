@@ -1,4 +1,4 @@
-package com.project.lumina.client.service
+package com.phoen1x.bar
 
 import android.app.Service
 import android.content.Intent
@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -15,6 +16,8 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.*
@@ -27,10 +30,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlin.math.roundToInt
-import com.project.lumina.client.phoenix.DynamicIslandView
-import com.project.lumina.client.phoenix.DynamicIslandState
-import com.project.lumina.client.phoenix.rememberDynamicIslandState
-
 
 class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -54,17 +53,20 @@ class DynamicIslandService : Service() {
     private var _scale = mutableStateOf(0.7f)
     private val scale by _scale
 
+    //用于控制首次显示的透明度，实现预热
+    private var isWarmedUp = mutableStateOf(false)
+
     companion object {
-        const val ACTION_UPDATE_TEXT = "com.project.lumina.client.ACTION_UPDATE_TEXT"
-        const val ACTION_UPDATE_Y_OFFSET = "com.project.lumina.client.ACTION_UPDATE_Y_OFFSET"
-        const val ACTION_UPDATE_SCALE = "com.project.lumina.client.ACTION_UPDATE_SCALE"
+        const val ACTION_UPDATE_TEXT = "com.phoen1x.bar.ACTION_UPDATE_TEXT"
+        const val ACTION_UPDATE_Y_OFFSET = "com.phoen1x.bar.ACTION_UPDATE_Y_OFFSET"
+        const val ACTION_UPDATE_SCALE = "com.phoen1x.bar.ACTION_UPDATE_SCALE"
         const val EXTRA_TEXT = "extra_text"
         const val EXTRA_Y_OFFSET_DP = "extra_y_offset_dp"
         const val EXTRA_SCALE = "extra_scale"
-        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.project.lumina.client.ACTION_SHOW_NOTIFICATION_SWITCH"
+        const val ACTION_SHOW_NOTIFICATION_SWITCH = "com.phoen1x.bar.ACTION_SHOW_NOTIFICATION_SWITCH"
         const val EXTRA_MODULE_NAME = "extra_module_name"
         const val EXTRA_MODULE_STATE = "extra_module_state"
-        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.project.lumina.client.ACTION_SHOW_OR_UPDATE_PROGRESS"
+        const val ACTION_SHOW_OR_UPDATE_PROGRESS = "com.phoen1x.bar.ACTION_SHOW_OR_UPDATE_PROGRESS"
         const val EXTRA_IDENTIFIER = "extra_identifier"
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_SUBTITLE = "extra_subtitle"
@@ -85,11 +87,19 @@ class DynamicIslandService : Service() {
             setContent {
                 val isDarkTheme = isSystemInDarkTheme()
                 val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { if (isDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) } else { if (isDarkTheme) darkColorScheme() else lightColorScheme() }
+                
+                //动画化透明度，用于预热
+                val alpha by animateFloatAsState(targetValue = if (isWarmedUp.value) 1.0f else 0.0f)
+
                 MaterialTheme(colorScheme = colorScheme) {
                     val state = rememberDynamicIslandState()
                     LaunchedEffect(state) { this@DynamicIslandService.dynamicIslandState = state }
                     
-                    DynamicIslandView(state = state, scale = scale)
+                    DynamicIslandView(
+                        state = state, 
+                        scale = scale,
+                        modifier = Modifier.alpha(alpha) //应用透明度
+                    )
                 }
             }
         }
@@ -99,6 +109,11 @@ class DynamicIslandService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        //接收到任何指令后，将isWarmedUp设为true，让灵动岛可见
+        if (!isWarmedUp.value) {
+            isWarmedUp.value = true
+        }
+
         intent ?: return START_STICKY
         when (intent.action) {
             ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let { text -> dynamicIslandState?.persistentText = text }

@@ -1,4 +1,4 @@
-package com.project.lumina.client.phoenix
+package com.phoen1x.bar
 
 import android.animation.TimeInterpolator
 import android.graphics.BlurMaskFilter
@@ -28,22 +28,17 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import kotlinx.coroutines.*
-import kotlin.math.max
 
-// ====================================================================================
-// == State Holder and Logic (无需修改)
-// ====================================================================================
 private const val VALUE_PROGRESS_TIMEOUT_MS = 3000L
 private const val TIME_PROGRESS_GRACE_PERIOD_MS = 1000L
 data class TaskItem(val type: Type, val identifier: String, var text: MutableState<String>, var subtitle: MutableState<String?>, var switchState: MutableState<Boolean> = mutableStateOf(false), val icon: Drawable? = null, var isTimeBased: Boolean = false, var lastUpdateTime: Long = System.currentTimeMillis(), var isAwaitingData: Boolean = false, var removing: MutableState<Boolean> = mutableStateOf(false), var duration: Long = 0, var progressJob: Job? = null, val displayProgress: Animatable<Float, AnimationVector1D> = Animatable(1.0f)) { enum class Type { SWITCH, PROGRESS } }
@@ -52,7 +47,7 @@ fun TimeInterpolator.toEasing(): Easing = Easing { x -> getInterpolation(x) }
 class DynamicIslandState(private val scope: CoroutineScope) {
     var persistentText by mutableStateOf("Phoen1x")
     val tasks = mutableStateListOf<TaskItem>()
-    val isExpanded by derivedStateOf { tasks.isNotEmpty() }
+    val isExpanded by derivedStateOf { tasks.any { !it.removing.value } }
     init { scope.launch { while (isActive) { updateTasks(); delay(250) } } }
     fun addSwitch(moduleName: String, state: Boolean) { val subtitle = if (state) "已开启" else "已关闭"; val duration = 2000L; val existingTask = tasks.find { it.identifier == moduleName }; if (existingTask != null) { existingTask.apply { text.value = moduleName; this.subtitle.value = subtitle; switchState.value = state; lastUpdateTime = System.currentTimeMillis(); this.duration = duration; if (removing.value) removing.value = false }; startTimeBasedAnimation(existingTask) } else { val task = TaskItem(type = TaskItem.Type.SWITCH, identifier = moduleName, text = mutableStateOf(moduleName), subtitle = mutableStateOf(subtitle), switchState = mutableStateOf(state), duration = duration, isTimeBased = true); startTimeBasedAnimation(task); tasks.add(0, task) } }
     fun addOrUpdateProgress(identifier: String, text: String, subtitle: String?, icon: Drawable?, progress: Float?, duration: Long?) { tasks.find { it.identifier == identifier }?.let { updateProgressInternal(it, text, subtitle, progress, duration) } ?: addProgressInternal(identifier, text, subtitle, icon, progress, duration) }
@@ -60,8 +55,8 @@ class DynamicIslandState(private val scope: CoroutineScope) {
     private fun updateTasks() { if (tasks.isEmpty()) return; val currentTime = System.currentTimeMillis(); tasks.forEach { task -> if (!task.removing.value) { val shouldBeRemoved = when { task.isTimeBased -> { if (task.displayProgress.value <= 0.01f && !task.isAwaitingData) { task.isAwaitingData = true; task.lastUpdateTime = currentTime }; task.isAwaitingData && (currentTime - task.lastUpdateTime > TIME_PROGRESS_GRACE_PERIOD_MS) }; task.type == TaskItem.Type.PROGRESS -> currentTime - task.lastUpdateTime > VALUE_PROGRESS_TIMEOUT_MS; else -> false }; if (shouldBeRemoved) task.removing.value = true } }; tasks.removeAll { it.removing.value && !it.displayProgress.isRunning } }
     private fun addProgressInternal(identifier: String, text: String, subtitle: String?, icon: Drawable?, progressValue: Float?, duration: Long?) { val task = TaskItem(type = TaskItem.Type.PROGRESS, identifier = identifier, text = mutableStateOf(text), subtitle = mutableStateOf(subtitle), icon = icon?.mutate()); if (progressValue != null) { task.isTimeBased = false; scope.launch { task.displayProgress.snapTo(0f) }; animateProgressTo(task, progressValue) } else { task.isTimeBased = true; task.duration = duration ?: 5000L; startTimeBasedAnimation(task) }; tasks.add(0, task) }
     private fun updateProgressInternal(task: TaskItem, text: String, subtitle: String?, progressValue: Float?, duration: Long?) { task.text.value = text; task.subtitle.value = subtitle; task.lastUpdateTime = System.currentTimeMillis(); if (task.isAwaitingData || task.removing.value) { task.isAwaitingData = false; task.removing.value = false }; if (progressValue != null) { task.isTimeBased = false; animateProgressTo(task, progressValue) } else { task.isTimeBased = true; task.duration = duration ?: 5000L; startTimeBasedAnimation(task) } }
-    private fun animateProgressTo(task: TaskItem, newProgressValue: Float) { task.progressJob?.cancel(); task.progressJob = scope.launch { task.displayProgress.animateTo(newProgressValue.coerceIn(0f, 1f), tween(500, easing = OvershootInterpolator(0.8f).toEasing())) } }
-    private fun startTimeBasedAnimation(task: TaskItem) { task.progressJob?.cancel(); task.progressJob = scope.launch { if (task.displayProgress.value < 1.0f) { task.displayProgress.animateTo(1.0f, tween(300, easing = DecelerateInterpolator().toEasing())) }; task.displayProgress.animateTo(0f, tween(task.duration.toInt(), easing = LinearEasing)) } }
+    private fun animateProgressTo(task: TaskItem, newProgressValue: Float) { task.progressJob?.cancel(); task.progressJob = scope.launch { task.displayProgress.animateTo(newProgressValue.coerceIn(0f, 1f), tween(800, easing = FastOutSlowInEasing)) } }
+    private fun startTimeBasedAnimation(task: TaskItem) { task.progressJob?.cancel(); task.progressJob = scope.launch { if (task.displayProgress.value < 1.0f) { task.displayProgress.animateTo(1.0f, tween(500, easing = DecelerateInterpolator().toEasing())) }; task.displayProgress.animateTo(0f, tween(task.duration.toInt(), easing = LinearEasing)) } }
 }
 
 @Composable
@@ -70,9 +65,6 @@ fun rememberDynamicIslandState(): DynamicIslandState {
     return remember { DynamicIslandState(scope) }
 }
 
-// ====================================================================================
-// == UI Composables
-// ====================================================================================
 @OptIn(ExperimentalTextApi::class, ExperimentalAnimationApi::class)
 @Composable
 fun DynamicIslandView(
@@ -80,104 +72,78 @@ fun DynamicIslandView(
     modifier: Modifier = Modifier,
     scale: Float = 1.0f
 ) {
-    val density = LocalDensity.current
-    val textMeasurer = rememberTextMeasurer()
-    val collapsedHeight = 32.dp * scale
+    val collapsedHeight = 34.dp * scale
     val collapsedCornerRadius = collapsedHeight / 2
-    val expandedCornerRadius = 24.dp * scale
-    val itemHeight = 56.dp * scale
+    val expandedCornerRadius = 28.dp * scale
+    val itemHeight = 60.dp * scale
     val viewPadding = 12.dp * scale
 
-    // 实时计算常驻文本所需宽度 - 增加更多缓冲空间
-    val collapsedWidth by remember(state.persistentText, density, scale) {
+    val collapsedWidth by remember { derivedStateOf { 250.dp * scale } }
+    val expandedWidth by remember { derivedStateOf { 280.dp * scale } }
+    val expandedHeight by remember(state.tasks.size, scale) {
         derivedStateOf {
-            val textStyle = TextStyle(fontSize = 13.sp * scale, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium)
-            
-            // 分别测量各部分文本宽度，使用更保守的估算
-            val lumiWidth = textMeasurer.measure(AnnotatedString("LuminaCN B23"), style = textStyle).size.width
-            val fpsWidth = textMeasurer.measure(AnnotatedString("120 FPS"), style = textStyle.copy(fontFamily = FontFamily.Monospace)).size.width // 使用3位数FPS预估😭😭😭我错了
-            val persistentWidth = textMeasurer.measure(AnnotatedString(state.persistentText), style = textStyle).size.width
-            val separatorWidth = textMeasurer.measure(AnnotatedString(" • "), style = textStyle).size.width * 2
-            
-            val totalContentWidth = lumiWidth + fpsWidth + persistentWidth + separatorWidth
-            val extraBuffer = 64.dp * scale // 增加额外缓冲空间
-            
-            with(density) { 
-                (totalContentWidth / this.density).dp + extraBuffer
-            }
+            (state.tasks.filterNot { it.removing.value }.size * itemHeight.value + viewPadding.value * 2).dp.coerceAtMost(400.dp * scale)
         }
     }
 
-    // 实时计算展开内容所需宽度 - 增加更多缓冲空间
-    val expandedWidth by remember(state.tasks, density, scale) {
-        derivedStateOf {
-            if (state.tasks.isEmpty()) {
-                250.dp * scale // 增加最小宽度
-            } else {
-                val requiredWidthInPixels = state.tasks.maxOfOrNull { task ->
-                    // Switch实际占用更多空间，增加缓冲
-                    val iconWidthPx = with(density) { 
-                        (if (task.type == TaskItem.Type.SWITCH) 72.dp else 48.dp).toPx() * scale // 增加空间
-                    }
-                    val spacingPx = with(density) { 16.dp.toPx() * scale } // 增加间距
-                    val sidePaddingPx = with(density) { 32.dp.toPx() * scale } // 增加边距
-                    
-                    val mainTextWidth = textMeasurer.measure(
-                        AnnotatedString(task.text.value), 
-                        style = TextStyle(fontSize = 14.sp * scale, fontWeight = FontWeight.Bold)
-                    ).size.width.toFloat()
-                    
-                    val subtitleWidth = task.subtitle.value?.let { subtitle ->
-                        textMeasurer.measure(
-                            AnnotatedString(subtitle), 
-                            style = TextStyle(fontSize = 10.sp * scale)
-                        ).size.width.toFloat()
-                    } ?: 0f
-                    
-                    val maxTextWidth = max(mainTextWidth, subtitleWidth)
-                    val extraBuffer = with(density) { 32.dp.toPx() * scale } // 额外缓冲
-                    
-                    sidePaddingPx + iconWidthPx + spacingPx + maxTextWidth + extraBuffer
-                } ?: with(density) { (250.dp * scale).toPx() }
-                
-                with(density) { 
-                    (requiredWidthInPixels / this.density).dp.coerceAtLeast(250.dp * scale)
-                }
-            }
-        }
-    }
-
-    val expandedHeight by remember(state.tasks.size, scale) { 
-        derivedStateOf { 
-            (state.tasks.size * itemHeight.value + viewPadding.value).dp.coerceAtMost(400.dp * scale) 
-        } 
-    }
-
-    // 目标尺寸和动画
     val targetWidth = if (state.isExpanded) expandedWidth else collapsedWidth
     val targetHeight = if (state.isExpanded) expandedHeight else collapsedHeight
-    val targetCorner = if (state.isExpanded) expandedCornerRadius else collapsedCornerRadius
+    val targetCorner = if (state.isExpanded) expandedCornerRadius else (targetHeight / 2)
 
-    val springSpec = spring<Dp>(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium)
+    val springSpec = spring<Dp>(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium)
     val animatedWidth by animateDpAsState(targetValue = targetWidth, animationSpec = springSpec, label = "width")
     val animatedHeight by animateDpAsState(targetValue = targetHeight, animationSpec = springSpec, label = "height")
     val animatedCorner by animateDpAsState(targetValue = targetCorner, animationSpec = springSpec, label = "corner")
 
-    val glowAlpha by animateFloatAsState(targetValue = if (state.isExpanded) 1.0f else 0.0f, animationSpec = tween(500), label = "glowAlpha")
-    val infiniteTransition = rememberInfiniteTransition(label = "glowTransition")
-    val glowRotation by infiniteTransition.animateFloat(initialValue = 0f, targetValue = 360f, animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Restart), label = "glowRotation")
+    val glowPulse = remember { Animatable(0f) }
+    LaunchedEffect(state.tasks.size) {
+        if (state.tasks.any { !it.removing.value }) {
+            glowPulse.snapTo(1f)
+            glowPulse.animateTo(0f, animationSpec = tween(1000, easing = LinearEasing))
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "sheen")
+    val sheenTranslate by infiniteTransition.animateFloat(
+        initialValue = -1.0f,
+        targetValue = 2.0f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing, delayMillis = 500), RepeatMode.Restart), label = "sheenTranslate"
+    )
 
     Box(
         modifier = modifier
+         
             .size(width = animatedWidth, height = animatedHeight)
             .clip(RoundedCornerShape(animatedCorner))
-            .glow(alpha = glowAlpha, rotation = glowRotation, cornerRadius = with(LocalDensity.current) { animatedCorner.toPx() }, scale = scale)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)),
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    )
+                )
+            )
+            .drawWithContent {
+                drawContent()
+                val gradientWidth = size.width * 0.5f
+                val gradientStart = size.width * sheenTranslate
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.08f), Color.Transparent),
+                        start = Offset(gradientStart - gradientWidth, 0f),
+                        end = Offset(gradientStart, size.height)
+                    )
+                )
+            }
+            .glow(pulse = glowPulse.value, cornerRadius = with(LocalDensity.current) { animatedCorner.toPx() }, scale = scale),
         contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
-            targetState = state.isExpanded, 
-            transitionSpec = { fadeIn(tween(200, 100)) with fadeOut(tween(100)) }, 
+            targetState = state.isExpanded,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(400, 100)) + scaleIn(initialScale = 0.9f, animationSpec = tween(400, 100))) with
+                        (fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.9f))
+            },
             label = "content"
         ) { isExpanded ->
             if (isExpanded) {
@@ -192,88 +158,129 @@ fun DynamicIslandView(
 @Composable
 private fun ExpandedContent(state: DynamicIslandState, scale: Float) {
     Column(modifier = Modifier.fillMaxSize().padding(vertical = 6.dp * scale)) {
-        state.tasks.forEach { task ->
+        state.tasks.forEachIndexed { index, task ->
+            val isVisible = !task.removing.value
             AnimatedVisibility(
-                visible = !task.removing.value, 
-                enter = fadeIn() + expandVertically(), 
-                exit = fadeOut() + shrinkVertically()
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = index * 120)) +
+                        expandVertically(animationSpec = tween(durationMillis = 500, delayMillis = index * 120, easing = FastOutSlowInEasing)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 300)) +
+                        slideOutVertically(targetOffsetY = { -it / 2 }) +
+                        shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
             ) {
-                TaskItemRow(task = task, scale = scale)
+                TaskItemRow(task = task, scale = scale, isVisible = isVisible)
             }
         }
     }
 }
 
 @Composable
-private fun TaskItemRow(task: TaskItem, scale: Float) {
+private fun TaskItemRow(task: TaskItem, scale: Float, isVisible: Boolean) {
     val progress by task.displayProgress.asState()
+
+    val contentOffsetY by animateDpAsState(
+        targetValue = if (isVisible) 0.dp else 10.dp,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "contentOffsetY"
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, delayMillis = 150),
+        label = "contentAlpha"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp * scale)
-            .padding(horizontal = 16.dp * scale), // 增加内边距
+            .height(60.dp * scale)
+            .padding(horizontal = 20.dp * scale)
+            .graphicsLayer {
+                translationY = contentOffsetY.toPx()
+                alpha = contentAlpha
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        when {
-            task.type == TaskItem.Type.SWITCH -> { 
-                Switch(
-                    checked = task.switchState.value,
-                    onCheckedChange = null,
-                    modifier = Modifier.scale(scale)
-                )
-            }
-            task.icon != null -> { 
-                Box(
-                    modifier = Modifier
-                        .size(36.dp * scale)
-                        .clip(RoundedCornerShape(12.dp * scale))
-                        .background(MaterialTheme.colorScheme.primaryContainer), 
-                    contentAlignment = Alignment.Center
-                ) { 
-                    Image(
-                        painter = rememberDrawablePainter(drawable = task.icon), 
-                        contentDescription = task.text.value, 
-                        modifier = Modifier.size(22.dp * scale), 
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer)
-                    ) 
-                } 
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp * scale)) // 增加间距
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text(
-                text = task.text.value, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant, 
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp * scale, fontWeight = FontWeight.Bold), 
-                maxLines = 1
-            )
-            task.subtitle.value?.let { 
-                Text(
-                    text = it, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), 
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp * scale), 
-                    maxLines = 1
-                ) 
-            }
-            if (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH) {
-                Spacer(modifier = Modifier.height(4.dp * scale))
-                Box(
-                    modifier = Modifier
-                        .height(3.5.dp * scale)
-                        .fillMaxWidth()
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                ) { 
+        val iconScale by animateFloatAsState(
+            targetValue = if (isVisible) 1f else 0.5f,
+            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow),
+            label = "iconScale"
+        )
+
+        Box(
+            modifier = Modifier.size(40.dp * scale).graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                task.type == TaskItem.Type.SWITCH -> {
+                    Switch(checked = task.switchState.value, onCheckedChange = null, modifier = Modifier.scale(scale * 0.8f))
+                }
+                task.icon != null -> {
                     Box(
                         modifier = Modifier
-                            .height(3.5.dp * scale)
-                            .fillMaxWidth(fraction = progress)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                    ) 
+                            .size(40.dp * scale)
+                            .clip(RoundedCornerShape(14.dp * scale))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = rememberDrawablePainter(drawable = task.icon),
+                            contentDescription = task.text.value,
+                            modifier = Modifier.size(24.dp * scale),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer)
+                        )
+                    }
                 }
             }
         }
+        Spacer(modifier = Modifier.width(16.dp * scale))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            Text(text = task.text.value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp * scale, fontWeight = FontWeight.Bold), maxLines = 1)
+            task.subtitle.value?.let {
+                Text(text = it, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp * scale), maxLines = 1)
+            }
+            if (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH) {
+                Spacer(modifier = Modifier.height(5.dp * scale))
+                ProgressBarWithSheen(progress = progress, scale = scale)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressBarWithSheen(progress: Float, scale: Float) {
+    val infiniteTransition = rememberInfiniteTransition(label = "progressSheen")
+    val sheenTranslate by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart), label = "progressSheen"
+    )
+
+    Box(
+        modifier = Modifier
+            .height(4.dp * scale)
+            .fillMaxWidth()
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+    ) {
+        Box(
+            modifier = Modifier
+                .height(4.dp * scale)
+                .fillMaxWidth(fraction = progress)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .drawWithContent {
+                    drawContent()
+                    val gradientWidth = size.width * 0.3f
+                    val gradientStart = size.width * (sheenTranslate - 1f)
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.3f), Color.Transparent),
+                            start = Offset(gradientStart, 0f),
+                            end = Offset(gradientStart + gradientWidth, 0f)
+                        )
+                    )
+                }
+        )
     }
 }
 
@@ -281,8 +288,7 @@ private fun TaskItemRow(task: TaskItem, scale: Float) {
 @Composable
 private fun CollapsedContent(persistentText: String, scale: Float) {
     var currentFps by remember { mutableStateOf(0) }
-    
-    // 使用AnimatedContent为FPS变化添加动画
+
     LaunchedEffect(Unit) {
         var frameCount = 0
         var lastTime: Long = System.nanoTime()
@@ -290,93 +296,103 @@ private fun CollapsedContent(persistentText: String, scale: Float) {
             override fun doFrame(frameTimeNanos: Long) {
                 frameCount++
                 val elapsedTimeNanos = frameTimeNanos - lastTime
-                if (elapsedTimeNanos >= 1_000_000_000) { 
+                if (elapsedTimeNanos >= 1_000_000_000) {
                     currentFps = frameCount
                     frameCount = 0
-                    lastTime = frameTimeNanos 
+                    lastTime = frameTimeNanos
                 }
                 Choreographer.getInstance().postFrameCallback(this)
             }
         }
         Choreographer.getInstance().postFrameCallback(callback)
     }
-    
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 20.dp * scale) // 增加内边距
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp * scale)
     ) {
-        val textStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale)
-        
+        val textStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale, fontWeight = FontWeight.Medium)
+
         Text(
-            text = "LuminaCN B22", 
-            style = textStyle, 
+            text = "LuminaCN B23",
+            style = textStyle,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Separator(scale)
-        
-        // 为FPS添加AnimatedContent以实现切换动画
+
         AnimatedContent(
             targetState = currentFps,
             transitionSpec = {
-                // 使用滑动+淡入淡出效果
+                val easing = FastOutSlowInEasing
                 slideInVertically(
-                    initialOffsetY = { it / 3 },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(500, easing = easing),
+                    initialOffsetY = { it / 2 }
                 ) + fadeIn(
-                    animationSpec = tween(300)
+                    animationSpec = tween(500, easing = easing)
                 ) with slideOutVertically(
-                    targetOffsetY = { -it / 3 },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(500, easing = easing),
+                    targetOffsetY = { -it / 2 }
                 ) + fadeOut(
-                    animationSpec = tween(300)
+                    animationSpec = tween(500, easing = easing)
                 )
             },
             label = "fps_animation"
         ) { fps ->
             Text(
-                text = "$fps FPS", 
-                style = textStyle.copy(fontFamily = FontFamily.Monospace), 
+                text = "$fps FPS",
+                style = textStyle.copy(fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        
+
         Separator(scale)
+        
         Text(
-            text = persistentText, 
-            style = textStyle, 
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = persistentText,
+            style = textStyle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f, fill = false),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
 
 @Composable
-private fun Separator(scale: Float) { 
+private fun Separator(scale: Float) {
     Text(
-        text = " • ", 
-        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale), 
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), 
-        modifier = Modifier.padding(horizontal = 3.dp * scale) // 增加分隔符间距
-    ) 
+        text = " • ",
+        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        modifier = Modifier.padding(horizontal = 4.dp * scale)
+    )
 }
 
-private fun Modifier.glow(alpha: Float, rotation: Float, cornerRadius: Float, scale: Float) = this.drawWithContent {
+private fun Modifier.glow(pulse: Float, cornerRadius: Float, scale: Float) = this.drawWithContent {
     drawContent()
-    if (alpha > 0f) {
+    val pulseAlpha = (pulse * 255).toInt()
+    if (pulseAlpha > 0) {
         val frameworkPaint = android.graphics.Paint().apply {
             style = android.graphics.Paint.Style.STROKE
-            strokeWidth = (3.dp * scale).toPx()
-            maskFilter = BlurMaskFilter((5.dp * scale).toPx(), BlurMaskFilter.Blur.NORMAL)
+            strokeWidth = (2.dp * scale).toPx() + (pulse * (4.dp * scale).toPx())
+            maskFilter = BlurMaskFilter((6.dp * scale).toPx() + (pulse * (8.dp * scale).toPx()), BlurMaskFilter.Blur.NORMAL)
         }
         drawIntoCanvas { canvas ->
             val drawSize = this.size
             val rect = Rect(Offset.Zero, drawSize)
             val path = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(rect, CornerRadius(cornerRadius))) }
-            val shader = android.graphics.SweepGradient(drawSize.width / 2f, drawSize.height / 2f, intArrayOf(Color.Cyan.toArgb(), Color.Magenta.toArgb(), Color.Yellow.toArgb(), Color.Cyan.toArgb()), null)
-            val matrix = android.graphics.Matrix()
-            matrix.setRotate(rotation, drawSize.width / 2f, drawSize.height / 2f)
-            shader.setLocalMatrix(matrix)
+            val colors = listOf(
+                Color(0xFF80DEEA),
+                Color(0xFFF48FB1),
+                Color(0xFFFFF59D),
+                Color(0xFF80DEEA)
+            ).map { it.toArgb() }.toIntArray()
+
+            val shader = android.graphics.LinearGradient(0f, 0f, drawSize.width, drawSize.height, colors, null, android.graphics.Shader.TileMode.CLAMP)
             frameworkPaint.shader = shader
-            frameworkPaint.alpha = (alpha * 255).toInt()
+            frameworkPaint.alpha = pulseAlpha
             canvas.nativeCanvas.drawPath(path.asAndroidPath(), frameworkPaint)
         }
     }

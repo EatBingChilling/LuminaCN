@@ -368,7 +368,7 @@ fun HomeCategoryUi() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "开发者: Phoen1x_, 十一\n技术支持: 一剪沐橙\n\n请根据教程后进入 127.0.0.1:19132 再使用功能，否则无效！\n不按照教程进行社区提问的，一律移出\n\n灵动岛仍处于测试阶段，欢迎给出宝贵意见。",
+                        text = "开发者: Phoen1x_, 十一\n技术支持: 一剪沐橙\n灵动岛美化: QP (鲨鱼)\n\n请根据教程后进入 127.0.0.1:19132 再使用功能，否则无效！\n不按照教程进行社区提问的，一律移出",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
