@@ -8,6 +8,7 @@ import android.os.Looper
 import android.os.Process
 import android.util.Log
 import com.project.lumina.client.activity.CrashHandlerActivity
+import com.project.lumina.client.constructors.KeyBindingManager // <--- 1. 导入 KeyBindingManager
 import com.project.lumina.client.ui.theme.ThemeManager
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -31,11 +32,18 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
         super.onCreate()
         instance = this
 
+        // ====================== 【关键修改】 ======================
+        // 在应用启动的最早期，初始化所有全局单例
+        // =========================================================
+        KeyBindingManager.init(this) // <--- 2. 添加这一行初始化代码
+        // =========================================================
+
         Thread.setDefaultUncaughtExceptionHandler(this)
         themeManager = ThemeManager(this)
     }
 
     override fun uncaughtException(t: Thread, e: Throwable) {
+        // ... (您原有的崩溃处理逻辑保持不变) ...
         Log.e(TAG, "未捕获的异常在线程 ${t.name}", e)
         
         // 检查是否为非致命错误
@@ -90,6 +98,7 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
      * 判断是否为非致命错误
      */
     private fun isNonFatalError(e: Throwable): Boolean {
+        // ... (您原有的崩溃处理逻辑保持不变) ...
         return when (e) {
             // 网络相关错误
             is java.net.SocketTimeoutException,
@@ -132,6 +141,7 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
      * 处理非致命错误
      */
     private fun handleNonFatalError(t: Thread, e: Throwable) {
+        // ... (您原有的崩溃处理逻辑保持不变) ...
         val errorKey = "${e.javaClass.simpleName}:${e.message?.take(50) ?: "unknown"}"
         val retryCount = retryCountMap.computeIfAbsent(errorKey) { AtomicInteger(0) }
         
@@ -163,6 +173,7 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
      * 执行恢复操作
      */
     private fun performRecoveryAction(e: Throwable) {
+        // ... (您原有的崩溃处理逻辑保持不变) ...
         when (e) {
             is java.net.SocketTimeoutException,
             is java.net.ConnectException,
@@ -192,6 +203,7 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
      * 显示崩溃对话框
      */
     private fun showCrashDialog(t: Thread, e: Throwable) {
+        // ... (您原有的崩溃处理逻辑保持不变) ...
         val stackTrace = e.stackTraceToString()
         val deviceInfo = buildString {
             val declaredFields = Build::class.java.declaredFields
