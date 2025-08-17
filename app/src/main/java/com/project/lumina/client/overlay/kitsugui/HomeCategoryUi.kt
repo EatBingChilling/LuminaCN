@@ -357,7 +357,7 @@ fun HomeCategoryUi() {
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "您正在使用 LuminaCN B22.1（灵动岛修复/增强）",
+                        text = "您正在使用 LuminaCN B23",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )

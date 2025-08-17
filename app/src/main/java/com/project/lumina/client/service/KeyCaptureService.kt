@@ -7,11 +7,12 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.project.lumina.client.R
+import com.project.lumina.client.constructors.Element
 
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.constructors.KeyBindingManager
@@ -23,6 +24,23 @@ class KeyCaptureService : AccessibilityService() {
         const val EXTRA_KEY_EVENT = "com.project.lumina.client.EXTRA_KEY_EVENT"
         private const val NOTIFICATION_CHANNEL_ID = "key_capture_service_channel"
         private const val NOTIFICATION_ID = 1002
+
+        /**
+         * 请求为一个模块绑定实体按键。
+         * 调用此方法后，下一次按下的实体键将被绑定到该模块。
+         * @param element 要绑定的模块。
+         */
+        fun requestBind(element: Element, context: Context) {
+            BindRequest.element = element
+            Toast.makeText(context, "请按下要绑定的实体按键...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * 用于暂存按键绑定请求的静态对象。
+     */
+    object BindRequest {
+        var element: Element? = null
     }
 
     override fun onServiceConnected() {
@@ -33,6 +51,20 @@ class KeyCaptureService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
+        // 优先处理按键绑定请求
+        BindRequest.element?.let { elementToBind ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                // 执行绑定
+                KeyBindingManager.setBinding(elementToBind.name, event.keyCode)
+                Toast.makeText(this, "${elementToBind.name} 已绑定", Toast.LENGTH_SHORT).show()
+
+                // 清空请求并消费事件
+                BindRequest.element = null
+                return true
+            }
+        }
+
+        // 如果没有绑定请求，则执行原有的按键触发逻辑
         if (event.action == KeyEvent.ACTION_DOWN) {
             KeyBindingManager.getElementByKeyCode(event.keyCode)?.let { elementName ->
                 GameManager.elements.find { it.name == elementName }?.let { element ->
@@ -41,6 +73,7 @@ class KeyCaptureService : AccessibilityService() {
             }
         }
 
+        // 广播事件（保留原有功能）
         val intent = Intent(ACTION_KEY_EVENT).apply {
             putExtra(EXTRA_KEY_EVENT, event)
         }
@@ -58,9 +91,7 @@ class KeyCaptureService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 服务被销毁时尝试重启
-        val intent = Intent(this, KeyCaptureService::class.java)
-        startService(intent)
+        // 服务被销毁时，PersistentService 会负责拉起，这里无需再自启
     }
 
     private fun createNotificationChannel() {

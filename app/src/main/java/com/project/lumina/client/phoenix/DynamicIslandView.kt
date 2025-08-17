@@ -94,8 +94,8 @@ fun DynamicIslandView(
             val textStyle = TextStyle(fontSize = 13.sp * scale, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium)
             
             // 分别测量各部分文本宽度，使用更保守的估算
-            val lumiWidth = textMeasurer.measure(AnnotatedString("LuminaCN B22.1"), style = textStyle).size.width
-            val fpsWidth = textMeasurer.measure(AnnotatedString("9999 FPS"), style = textStyle.copy(fontFamily = FontFamily.Monospace)).size.width // 使用4位数FPS预估
+            val lumiWidth = textMeasurer.measure(AnnotatedString("LuminaCN B23"), style = textStyle).size.width
+            val fpsWidth = textMeasurer.measure(AnnotatedString("120 FPS"), style = textStyle.copy(fontFamily = FontFamily.Monospace)).size.width // 使用3位数FPS预估😭😭😭我错了
             val persistentWidth = textMeasurer.measure(AnnotatedString(state.persistentText), style = textStyle).size.width
             val separatorWidth = textMeasurer.measure(AnnotatedString(" • "), style = textStyle).size.width * 2
             

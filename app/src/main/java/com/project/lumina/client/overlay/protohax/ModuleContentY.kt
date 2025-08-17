@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -59,8 +60,10 @@ import com.project.lumina.client.constructors.Element
 import com.project.lumina.client.constructors.FloatValue
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.constructors.IntValue
+import com.project.lumina.client.constructors.KeyBindingManager
 import com.project.lumina.client.constructors.ListValue
 import com.project.lumina.client.overlay.manager.OverlayManager
+import com.project.lumina.client.service.KeyCaptureService
 import com.project.lumina.client.util.translatedSelf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -195,6 +198,8 @@ private fun ModuleCard(element: Element) {
                     }
                 }
                 ShortcutContent(element)
+                // 新增实体按键绑定UI
+                KeyBindContent(element)
             }
         }
     }
@@ -440,5 +445,46 @@ private fun ShortcutContent(element: Element) {
         )
     }
 }
+
+// +++++++++ 新增 +++++++++
+@Composable
+private fun KeyBindContent(element: Element) {
+    val context = LocalContext.current
+    var isBound by remember { mutableStateOf(KeyBindingManager.getBinding(element.name) != null) }
+
+    Row(
+        Modifier
+            .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
+            .clickable {
+                if (isBound) {
+                    // 如果已绑定，则移除绑定
+                    KeyBindingManager.removeBinding(element.name)
+                    isBound = false
+                } else {
+                    // 如果未绑定，则请求绑定
+                    KeyCaptureService.requestBind(element, context)
+                }
+            }
+    ) {
+        Text(
+            "实体按键绑定", // 您可以替换为 string resource
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.surface
+        )
+        Spacer(Modifier.weight(1f))
+        Checkbox(
+            checked = isBound,
+            onCheckedChange = null, // 点击事件由 Row 处理
+            modifier = Modifier
+                .padding(0.dp),
+            colors = CheckboxDefaults.colors(
+                uncheckedColor = MaterialTheme.colorScheme.surface,
+                checkedColor = MaterialTheme.colorScheme.surface,
+                checkmarkColor = MaterialTheme.colorScheme.primary
+            )
+        )
+    }
+}
+// +++++++++++++++++++++++
 
 private fun IntRange.toFloatRange() = first.toFloat()..last.toFloat()
