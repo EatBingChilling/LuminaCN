@@ -7,7 +7,7 @@
 package com.project.lumina.client.activity
 
 import android.Manifest
-import android.view.accessibility.AccessibilityServiceInfo
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -83,8 +83,8 @@ class NewMainActivity : ComponentActivity() {
     /* ======== 新增：判断是否已启用我们的无障碍服务 ======== */
     private fun isAccessibilityEnabled(): Boolean {
         val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-        // 正确使用导入的 AccessibilityServiceInfo.FEEDBACK_ALL
-        val enabled = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL)
+        // 使用 FEEDBACK_GENERIC 替代 FEEDBACK_ALL
+        val enabled = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
         return enabled.any { it.id.contains(packageName) }
     }
 

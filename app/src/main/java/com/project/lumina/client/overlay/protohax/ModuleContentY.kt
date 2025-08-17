@@ -93,7 +93,8 @@ fun ModuleContentY(moduleCategory: CheatCategory) {
     }
 
     Crossfade(
-        targetState = modules
+        targetState = modules,
+        label = "module_content_crossfade"
     ) {
         if (it != null) {
             LazyColumn(
@@ -123,7 +124,8 @@ private fun ModuleCard(element: Element) {
     val values = element.values
     val hasSettings = values.isNotEmpty()
     val background by animateColorAsState(
-        targetValue = if (element.isExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background
+        targetValue = if (element.isExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background,
+        label = "module_card_background"
     )
 
     Card(
@@ -201,7 +203,6 @@ private fun ModuleCard(element: Element) {
     }
 }
 
-// ... (其他 Composable 函数保持不变)
 @Composable
 private fun ChoiceValueContent(value: ListValue) {
     Column(
@@ -271,7 +272,7 @@ private fun FloatValueContent(value: FloatValue) {
         Slider(
             value = animateFloatAsState(
                 targetValue = value.value,
-                label = "",
+                label = "float_value_slider",
                 animationSpec = spring(
                     stiffness = Spring.StiffnessLow
                 )
@@ -336,7 +337,7 @@ private fun IntValueContent(value: IntValue) {
         Slider(
             value = animateFloatAsState(
                 targetValue = value.value.toFloat(),
-                label = "",
+                label = "int_value_slider",
                 animationSpec = spring(
                     stiffness = Spring.StiffnessLow
                 )
