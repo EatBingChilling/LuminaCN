@@ -7,7 +7,7 @@
 package com.project.lumina.client.activity
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityServiceInfo
+import android.view.accessibility.AccessibilityServiceInfo
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
