@@ -1,4 +1,4 @@
-package com.phoen1x.bar
+package com.project.lumina.client.phoenix
 
 import android.animation.TimeInterpolator
 import android.graphics.BlurMaskFilter
