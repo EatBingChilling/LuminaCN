@@ -48,15 +48,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class NewMainActivity : ComponentActivity() {
+
     companion object {
         private var currentInstance: NewMainActivity? = null
-        
+
         fun launchConfigImport() {
             if (currentInstance == null) {
                 Log.e("NewMainActivity", "Error: NewMainActivity instance is null when trying to import config")
                 return
             }
-            
+
             currentInstance?.let { activity ->
                 try {
                     Log.d("NewMainActivity", "Launching config import from activity: ${activity.javaClass.simpleName}")
@@ -64,7 +65,6 @@ class NewMainActivity : ComponentActivity() {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "*/*"
                     }
-                    
                     activity.importConfigLauncher.launch(intent)
                     Log.d("NewMainActivity", "Import launcher launched successfully")
                 } catch (e: Exception) {
@@ -72,8 +72,33 @@ class NewMainActivity : ComponentActivity() {
                 }
             }
         }
+
+        /* ======== 新增：无障碍 Service 全类名 ======== */
+ /* 把这一行改成你声明的 Service 的完整类名即可 */
+private const val ACCESSIBILITY_SERVICE_CLS =
+    "com.project.lumina.client.service.KeyCaptureService"
+
     }
-    
+
+    /* ======== 新增：判断是否已启用我们的无障碍服务 ======== */
+    private fun isAccessibilityEnabled(): Boolean {
+        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+        val enabled = am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL)
+        return enabled.any { it.id.contains(packageName) }
+    }
+
+    /* ======== 新增：确保无障碍权限 ======== */
+    private fun ensureAccessibilityPermission() {
+        if (!isAccessibilityEnabled()) {
+            Toast.makeText(this, "请开启 LuminaCN 的无障碍权限", Toast.LENGTH_LONG).show()
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        }
+    }
+
+    /* ======== 原有代码保持不变 ======== */
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -87,7 +112,7 @@ class NewMainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -98,7 +123,7 @@ class NewMainActivity : ComponentActivity() {
             Log.w("NewMainActivity", "Storage permissions not granted")
         }
     }
-    
+
     val importConfigLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -110,21 +135,21 @@ class NewMainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun requestStoragePermissions() {
         val permissionsToRequest = arrayOf(
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE
         )
-        
+
         val permissionsNotGranted = permissionsToRequest.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }.toTypedArray()
-        
+
         if (permissionsNotGranted.isNotEmpty()) {
             requestPermissionLauncher.launch(permissionsNotGranted)
         }
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 try {
@@ -174,12 +199,13 @@ class NewMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 【修改】初始化所有中继点
+        /* ======== 新增：检查并引导开启无障碍 ======== */
+        ensureAccessibilityPermission()
+
         OverlayNotification.init(applicationContext)
         PacketNotificationOverlay.init(applicationContext)
         TargetHudOverlay.init(applicationContext)
 
-        // 首次启动检查：未引导则跳转 HelpActivity
         val prefs = getSharedPreferences("lumina_prefs", MODE_PRIVATE)
         if (!prefs.getBoolean("guide_done", false)) {
             startActivity(Intent(this, HelpActivity::class.java))
@@ -188,14 +214,11 @@ class NewMainActivity : ComponentActivity() {
         }
 
         currentInstance = this
-        
         ArrayListManager.initializeSounds(this)
-        
-        // 设置日志工厂
+
         InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
         Log.i("MainApplication", "Forced Netty to use JUL logger instead of Log4j2.")
-        
-        // 电池优化请求
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             val packageName = packageName
@@ -206,24 +229,15 @@ class NewMainActivity : ComponentActivity() {
                 startActivity(intent)
             }
         }
-        
-        // EdgeToEdge 设置
+
         enableEdgeToEdge()
-        
-        // Hash验证
         val verifier = HashCat.getInstance()
         val isValid = verifier.LintHashInit(this)
-        
-        // 设置窗口适配系统栏（保持edge-to-edge，但不隐藏系统栏）
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        
-        // 请求存储权限
         requestStoragePermissions()
-        
-        // 检查悬浮窗权限并启动灵动岛服务
         checkOverlayPermissionAndStartService()
-        
-        // 设置内容
+
         setContent {
             CompositionLocalProvider(
                 LocalOverscrollConfiguration provides null
@@ -233,44 +247,17 @@ class NewMainActivity : ComponentActivity() {
                 }
             }
         }
-        
-        // 初始化游戏管理器
-        // lifecycleScope.launch {
-        //     withContext(Dispatchers.IO) {
-        //         try {
-        //             GameManager.initialize(this@NewMainActivity)
-        //             Log.d("NewMainActivity", "GameManager initialized successfully")
-        //         } catch (e: Exception) {
-        //             Log.e("NewMainActivity", "Failed to initialize GameManager", e)
-        //         }
-        //     }
-        // }
-        
-        // 初始化账户管理器
-        // lifecycleScope.launch {
-        //     withContext(Dispatchers.IO) {
-        //         try {
-        //             AccountManager.initialize(this@NewMainActivity)
-        //             Log.d("NewMainActivity", "AccountManager initialized successfully")
-        //         } catch (e: Exception) {
-        //             Log.e("NewMainActivity", "Failed to initialize AccountManager", e)
-        //         }
-        //     }
-        // }
-        
-        // 初始化领域管理器
-        // lifecycleScope.launch {
-        //     withContext(Dispatchers.IO) {
-        //         try {
-        //             RealmManager.initialize(this@NewMainActivity)
-        //             Log.d("NewMainActivity", "RealmManager initialized successfully")
-        //         } catch (e: Exception) {
-        //             Log.e("NewMainActivity", "Failed to initialize RealmManager", e)
-        //         }
-        //     }
-        // }
     }
-    
+
+    /* ======== 新增：每次回到前台再检查一次 ======== */
+    override fun onResume() {
+        super.onResume()
+        if (!isAccessibilityEnabled()) {
+            Toast.makeText(this, "LuminaCN 需要无障碍权限才能正常工作", Toast.LENGTH_LONG).show()
+            ensureAccessibilityPermission()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         ArrayListManager.releaseSounds()

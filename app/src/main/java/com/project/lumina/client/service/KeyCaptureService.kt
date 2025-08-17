@@ -1,19 +1,17 @@
 package com.project.lumina.client.service
 
 import android.accessibilityservice.AccessibilityService
-import android.content.Intent
-import android.view.KeyEvent
-import android.view.accessibility.AccessibilityEvent
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
-import android.widget.Toast
+import android.view.KeyEvent
+import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.project.lumina.client.R
 import com.project.lumina.client.constructors.Element
-
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.constructors.KeyBindingManager
 
@@ -27,44 +25,53 @@ class KeyCaptureService : AccessibilityService() {
 
         /**
          * 请求为一个模块绑定实体按键。
-         * 调用此方法后，下一次按下的实体键将被绑定到该模块。
+         * @param context 调用方的 Context，用于发送 Intent。
          * @param element 要绑定的模块。
          */
-        fun requestBind(element: Element, context: Context) {
+        fun requestBind(context: Context, element: Element) {
             BindRequest.element = element
-            Toast.makeText(context, "请按下要绑定的实体按键...", Toast.LENGTH_SHORT).show()
+            // 【修改 1】直接构建并发送 Intent 来调用灵动岛服务
+            val intent = Intent(context, DynamicIslandService::class.java).apply {
+                action = DynamicIslandService.ACTION_SHOW_OR_UPDATE_PROGRESS
+                putExtra(DynamicIslandService.EXTRA_IDENTIFIER, "key_bind_request")
+                putExtra(DynamicIslandService.EXTRA_TITLE, "请按下要绑定的实体按键...")
+                putExtra(DynamicIslandService.EXTRA_ICON_RES_ID, R.drawable.ic_key_variant_black_24dp)
+                putExtra(DynamicIslandService.EXTRA_DURATION_MS, 4000L) // 延长等待时间
+            }
+            context.startService(intent)
         }
     }
 
-    /**
-     * 用于暂存按键绑定请求的静态对象。
-     */
     object BindRequest {
         var element: Element? = null
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        // 创建前台服务通知，防止被系统杀死
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        // 优先处理按键绑定请求
         BindRequest.element?.let { elementToBind ->
             if (event.action == KeyEvent.ACTION_DOWN) {
-                // 执行绑定
                 KeyBindingManager.setBinding(elementToBind.name, event.keyCode)
-                Toast.makeText(this, "${elementToBind.name} 已绑定", Toast.LENGTH_SHORT).show()
+                // 【修改 2】绑定成功后，直接从此服务发送 Intent
+                val intent = Intent(this, DynamicIslandService::class.java).apply {
+                    action = DynamicIslandService.ACTION_SHOW_OR_UPDATE_PROGRESS
+                    // 使用时间戳作为唯一ID，确保每次都是新通知
+                    putExtra(DynamicIslandService.EXTRA_IDENTIFIER, System.currentTimeMillis().toString())
+                    putExtra(DynamicIslandService.EXTRA_TITLE, "${elementToBind.name} 已绑定")
+                    putExtra(DynamicIslandService.EXTRA_ICON_RES_ID, R.drawable.ic_check_circle_24)
+                    putExtra(DynamicIslandService.EXTRA_DURATION_MS, 3000L)
+                }
+                startService(intent)
 
-                // 清空请求并消费事件
                 BindRequest.element = null
                 return true
             }
         }
 
-        // 如果没有绑定请求，则执行原有的按键触发逻辑
         if (event.action == KeyEvent.ACTION_DOWN) {
             KeyBindingManager.getElementByKeyCode(event.keyCode)?.let { elementName ->
                 GameManager.elements.find { it.name == elementName }?.let { element ->
@@ -73,7 +80,6 @@ class KeyCaptureService : AccessibilityService() {
             }
         }
 
-        // 广播事件（保留原有功能）
         val intent = Intent(ACTION_KEY_EVENT).apply {
             putExtra(EXTRA_KEY_EVENT, event)
         }
@@ -81,17 +87,12 @@ class KeyCaptureService : AccessibilityService() {
         return super.onKeyEvent(event)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Not needed for key capture
-    }
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 
-    override fun onInterrupt() {
-        // Not needed
-    }
+    override fun onInterrupt() {}
 
     override fun onDestroy() {
         super.onDestroy()
-        // 服务被销毁时，PersistentService 会负责拉起，这里无需再自启
     }
 
     private fun createNotificationChannel() {

@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -155,16 +156,12 @@ private fun ModuleCard(element: Element) {
                 modifier = Modifier
                     .padding(10.dp)
             ) {
-                // START OF CHANGE
-                // 1. 优先读取 Element.displayNameResId 对应的 strings.xml 文案
-                // 2. 如 displayNameResId==null，则回退到 element.name
                 val displayName = element.displayNameResId?.let { resId ->
                     stringResource(id = resId)
                 } ?: element.name
 
                 Text(
                     text = displayName,
-                    // END OF CHANGE
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier,
                     color = if (element.isExpanded) contentColorFor(MaterialTheme.colorScheme.primary) else contentColorFor(
@@ -198,12 +195,13 @@ private fun ModuleCard(element: Element) {
                     }
                 }
                 ShortcutContent(element)
-                // 新增实体按键绑定UI
                 KeyBindContent(element)
             }
         }
     }
 }
+
+// ... 其他 Composable 函数 (ChoiceValueContent, FloatValueContent, etc.) 保持不变 ...
 
 @Composable
 private fun ChoiceValueContent(value: ListValue) {
@@ -446,37 +444,35 @@ private fun ShortcutContent(element: Element) {
     }
 }
 
-// +++++++++ 新增 +++++++++
 @Composable
 private fun KeyBindContent(element: Element) {
+    // 【修改 1】获取当前 Composable 的 Context
     val context = LocalContext.current
-    var isBound by remember { mutableStateOf(KeyBindingManager.getBinding(element.name) != null) }
+    val bindings by KeyBindingManager.bindings.collectAsState()
+    val isBound = bindings.containsKey(element.name)
 
     Row(
         Modifier
             .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
             .clickable {
                 if (isBound) {
-                    // 如果已绑定，则移除绑定
                     KeyBindingManager.removeBinding(element.name)
-                    isBound = false
                 } else {
-                    // 如果未绑定，则请求绑定
-                    KeyCaptureService.requestBind(element, context)
+                    // 【修改 2】将 context 传递给 requestBind 方法
+                    KeyCaptureService.requestBind(context, element)
                 }
             }
     ) {
         Text(
-            "实体按键绑定", // 您可以替换为 string resource
+            "实体按键绑定",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.surface
         )
         Spacer(Modifier.weight(1f))
         Checkbox(
             checked = isBound,
-            onCheckedChange = null, // 点击事件由 Row 处理
-            modifier = Modifier
-                .padding(0.dp),
+            onCheckedChange = null,
+            modifier = Modifier.padding(0.dp),
             colors = CheckboxDefaults.colors(
                 uncheckedColor = MaterialTheme.colorScheme.surface,
                 checkedColor = MaterialTheme.colorScheme.surface,
@@ -485,6 +481,5 @@ private fun KeyBindContent(element: Element) {
         )
     }
 }
-// +++++++++++++++++++++++
 
 private fun IntRange.toFloatRange() = first.toFloat()..last.toFloat()
