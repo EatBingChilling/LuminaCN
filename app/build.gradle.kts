@@ -179,7 +179,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.icons.extended)
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
-    
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation("com.google.accompanist:accompanist-drawablepainter:0.30.1")
     
     testImplementation(libs.junit)
