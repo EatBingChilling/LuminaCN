@@ -40,8 +40,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+// ==================== 【关键修复】 ====================
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+// =======================================================
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -200,8 +202,6 @@ private fun ModuleCard(element: Element) {
         }
     }
 }
-
-// ... 其他 Composable 函数 (ChoiceValueContent, FloatValueContent, etc.) 保持不变 ...
 
 @Composable
 private fun ChoiceValueContent(value: ListValue) {
@@ -446,7 +446,6 @@ private fun ShortcutContent(element: Element) {
 
 @Composable
 private fun KeyBindContent(element: Element) {
-    // 【修改 1】获取当前 Composable 的 Context
     val context = LocalContext.current
     val bindings by KeyBindingManager.bindings.collectAsState()
     val isBound = bindings.containsKey(element.name)
@@ -458,7 +457,6 @@ private fun KeyBindContent(element: Element) {
                 if (isBound) {
                     KeyBindingManager.removeBinding(element.name)
                 } else {
-                    // 【修改 2】将 context 传递给 requestBind 方法
                     KeyCaptureService.requestBind(context, element)
                 }
             }

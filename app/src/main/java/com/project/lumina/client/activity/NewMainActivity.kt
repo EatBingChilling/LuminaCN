@@ -7,6 +7,7 @@
 package com.project.lumina.client.activity
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo // <--- 在这里添加导入
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -28,7 +29,6 @@ import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
 import com.project.lumina.client.constructors.AccountManager
 import com.project.lumina.client.constructors.ArrayListManager
 import com.project.lumina.client.constructors.GameManager
@@ -74,16 +74,17 @@ class NewMainActivity : ComponentActivity() {
         }
 
         /* ======== 新增：无障碍 Service 全类名 ======== */
- /* 把这一行改成你声明的 Service 的完整类名即可 */
-private const val ACCESSIBILITY_SERVICE_CLS =
-    "com.project.lumina.client.service.KeyCaptureService"
+        /* 把这一行改成你声明的 Service 的完整类名即可 */
+        private const val ACCESSIBILITY_SERVICE_CLS =
+            "com.project.lumina.client.service.KeyCaptureService"
 
     }
 
     /* ======== 新增：判断是否已启用我们的无障碍服务 ======== */
     private fun isAccessibilityEnabled(): Boolean {
         val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-        val enabled = am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL)
+        // <--- 这里是修复点：使用导入的 AccessibilityServiceInfo.FEEDBACK_ALL
+        val enabled = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL)
         return enabled.any { it.id.contains(packageName) }
     }
 
