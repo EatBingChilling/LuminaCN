@@ -13,6 +13,7 @@ import org.cloudburstmc.math.matrix.Matrix4f
 import org.cloudburstmc.math.vector.Vector2f
 import org.cloudburstmc.math.vector.Vector3f
 import kotlin.math.*
+import com.project.lumina.client.util.AssetManager
 
 class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : Element(
     name = "ESP",
