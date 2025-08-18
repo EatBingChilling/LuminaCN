@@ -1,9 +1,3 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * You are free to use, modify, and redistribute this code under the terms
- * of the GNU General Public License v3. See the LICENSE file for details.
- */
-
 package com.project.lumina.client.activity
 
 import android.Manifest
@@ -19,7 +13,6 @@ import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,6 +23,7 @@ import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.project.lumina.client.application.AppContext
 import com.project.lumina.client.constructors.ArrayListManager
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.game.module.api.config.ConfigManagerElement
@@ -37,18 +31,12 @@ import com.project.lumina.client.navigation.Navigation
 import com.project.lumina.client.overlay.mods.OverlayNotification
 import com.project.lumina.client.overlay.mods.PacketNotificationOverlay
 import com.project.lumina.client.overlay.mods.TargetHudOverlay
-import com.project.lumina.client.service.DynamicIslandService
-import com.project.lumina.client.service.ESPService
-import com.project.lumina.client.ui.ESPOverlayView
 import com.project.lumina.client.ui.theme.LuminaClientTheme
 import com.project.lumina.client.util.HashCat
 import io.netty.util.internal.logging.InternalLoggerFactory
 import io.netty.util.internal.logging.JdkLoggerFactory
 
-
 class NewMainActivity : ComponentActivity() {
-
-    private lateinit var espOverlayView: ESPOverlayView
 
     companion object {
         private var currentInstance: NewMainActivity? = null
@@ -99,8 +87,7 @@ class NewMainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (Settings.canDrawOverlays(this)) {
                 Log.i("NewMainActivity", "Overlay permission has been granted by user.")
-                startDynamicIslandService()
-                startEspService()
+                (applicationContext as AppContext).checkOverlayPermissionAndStartServices()
             } else {
                 Log.w("NewMainActivity", "Overlay permission was not granted by user.")
                 Toast.makeText(this, "悬浮窗权限未授予，部分功能无法显示", Toast.LENGTH_LONG).show()
@@ -159,7 +146,7 @@ class NewMainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkOverlayPermissionAndStartService() {
+    private fun requestOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.canDrawOverlays(this)) {
                 Log.i("NewMainActivity", "Overlay permission not found. Requesting...")
@@ -168,37 +155,7 @@ class NewMainActivity : ComponentActivity() {
                     Uri.parse("package:$packageName")
                 )
                 overlayPermissionLauncher.launch(intent)
-            } else {
-                Log.d("NewMainActivity", "Overlay permission already granted. Starting services.")
-                startDynamicIslandService()
-                startEspService()
             }
-        } else {
-            Log.d("NewMainActivity", "Device is pre-Marshmallow. Starting services directly.")
-            startDynamicIslandService()
-            startEspService()
-        }
-    }
-
-    private fun startDynamicIslandService() {
-        Log.d("NewMainActivity", "Attempting to start DynamicIslandService.")
-        val intent = Intent(this, DynamicIslandService::class.java)
-        try {
-            startService(intent)
-            Log.i("NewMainActivity", "DynamicIslandService started successfully.")
-        } catch (e: Exception) {
-            Log.e("NewMainActivity", "Failed to start DynamicIslandService.", e)
-        }
-    }
-
-    private fun startEspService() {
-        Log.d("NewMainActivity", "Attempting to start ESPService.")
-        val intent = Intent(this, ESPService::class.java)
-        try {
-            startService(intent)
-            Log.i("NewMainActivity", "ESPService started successfully.")
-        } catch (e: Exception) {
-            Log.e("NewMainActivity", "Failed to start ESPService.", e)
         }
     }
 
@@ -211,7 +168,6 @@ class NewMainActivity : ComponentActivity() {
 
         OverlayNotification.init(applicationContext)
         PacketNotificationOverlay.init(applicationContext)
-        // FIX: Typo corrected from applicationçContext to applicationContext
         TargetHudOverlay.init(applicationContext)
 
         val prefs = getSharedPreferences("lumina_prefs", MODE_PRIVATE)
@@ -239,12 +195,11 @@ class NewMainActivity : ComponentActivity() {
         }
 
         enableEdgeToEdge()
-        val verifier = HashCat.getInstance()
-        val isValid = verifier.LintHashInit(this)
+        HashCat.getInstance().LintHashInit(this)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestStoragePermissions()
-        checkOverlayPermissionAndStartService()
+        requestOverlayPermission()
 
         setContent {
             CompositionLocalProvider(
@@ -267,9 +222,6 @@ class NewMainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        stopService(Intent(this, ESPService::class.java))
-        Log.i("NewMainActivity", "ESPService stopped.")
-
         ArrayListManager.releaseSounds()
         if (currentInstance == this) {
             currentInstance = null

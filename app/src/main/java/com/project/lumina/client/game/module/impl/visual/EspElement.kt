@@ -9,17 +9,16 @@ import com.project.lumina.client.game.InterceptablePacket
 import com.project.lumina.client.game.entity.Entity
 import com.project.lumina.client.game.entity.Player
 import com.project.lumina.client.ui.ESPOverlayView
-import com.project.lumina.client.util.AssetManager
 import org.cloudburstmc.math.matrix.Matrix4f
 import org.cloudburstmc.math.vector.Vector2f
 import org.cloudburstmc.math.vector.Vector3f
 import kotlin.math.*
 
-class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : Element(
+class EspElement : Element(
     name = "ESP",
     category = CheatCategory.Visual,
-    iconResId,
-    displayNameResId = AssetManager.getString("module_esp_display_name")
+    iconResId = 0,
+    displayNameResId = 0
 ) {
     // --- Settings ---
     private val fov by floatValue("FOV", 90f, 40f..120f)
