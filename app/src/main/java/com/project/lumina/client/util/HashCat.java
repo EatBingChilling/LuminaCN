@@ -1,31 +1,23 @@
 package com.project.lumina.client.util;
 
-import android.app.Activity;
 import android.content.Context;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.os.Process;
-import android.util.Log;
-import android.widget.Toast;
 
-import java.security.MessageDigest;
-import java.util.Locale;
-
+/**
+ * HashCat的空壳实现版本。
+ * 该版本移除了对 native 库的依赖和所有的签名校验逻辑。
+ * 所有方法都返回一个默认的、表示“成功”或“无害”的值。
+ */
 public class HashCat {
-    private static final String TAG = "McDeHasher";
     private static HashCat instance;
 
-    
-    public native String getSignaturesSha1(Context context);
-    public native boolean checkSha1(Context context);
-    public native String getToken(Context context, String userId);
+    // 不再加载 native-lib 库
+    // static {
+    //     System.loadLibrary("native-lib");
+    // }
 
-    
-    static {
-        System.loadLibrary("native-lib");
-    }
-
-    
+    /**
+     * 获取单例实例。
+     */
     public static synchronized HashCat getInstance() {
         if (instance == null) {
             instance = new HashCat();
@@ -33,69 +25,66 @@ public class HashCat {
         return instance;
     }
 
+    /**
+     * 私有构造函数，防止外部实例化。
+     */
     private HashCat() {
-        
+        // 构造函数为空
     }
 
+    /**
+     * 原生方法的空壳实现。直接返回一个空字符串。
+     *
+     * @param context Context对象
+     * @return 返回一个空字符串
+     */
+    public String getSignaturesSha1(Context context) {
+        return "";
+    }
 
-    public boolean LintHashInit(Context context) {
-        boolean isValid = checkSha1(context);
-
-        if (!isValid) {
-            String sha1 = getSha1Value(context);
-            String errorMessage = "";
-            if (context instanceof Activity) {
-                ((Activity) context).runOnUiThread(() -> {
-                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show();
-                });
-
-                
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                Log.e(TAG, errorMessage);
-                
-                if (context instanceof Activity) {
-                    ((Activity) context).finishAffinity();
-                }
-                Process.killProcess(Process.myPid());
-                System.exit(0);
-            }
-            return false;
-        }
-
+    /**
+     * 原生方法的空壳实现。直接返回 true，表示校验通过。
+     *
+     * @param context Context对象
+     * @return 始终返回 true
+     */
+    public boolean checkSha1(Context context) {
         return true;
     }
 
-
-    public String getSha1Value(Context context) {
-        try {
-            PackageInfo info = context.getPackageManager().getPackageInfo(
-                    context.getPackageName(), PackageManager.GET_SIGNATURES);
-            byte[] cert = info.signatures[0].toByteArray();
-            MessageDigest md = MessageDigest.getInstance("SHA1");
-            byte[] publicKey = md.digest(cert);
-            StringBuilder hexString = new StringBuilder();
-
-            for (byte b : publicKey) {
-                String appendString = Integer.toHexString(0xFF & b).toUpperCase(Locale.US);
-                if (appendString.length() == 1) {
-                    hexString.append("0");
-                }
-                hexString.append(appendString);
-            }
-
-            return hexString.toString();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+    /**
+     * 原生方法的空壳实现。直接返回一个空字符串。
+     *
+     * @param context Context对象
+     * @param userId  用户ID
+     * @return 返回一个空字符串
+     */
+    public String getToken(Context context, String userId) {
+        return "";
     }
 
+    /**
+     * 初始化校验逻辑的空壳实现。
+     * 此方法现在不执行任何检查，并始终返回 true，以确保应用正常继续运行。
+     *
+     * @param context Context对象
+     * @return 始终返回 true
+     */
+    public boolean LintHashInit(Context context) {
+        // 直接返回true，跳过所有检查和应用终止逻辑。
+        return true;
+    }
 
+    /**
+     * 获取用户Token的空壳实现。
+     *
+     * @param context Context对象
+     * @param userId  用户ID
+     * @return 来自空壳getToken方法的空字符串
+     */
     public String getTokenForUser(Context context, String userId) {
         return getToken(context, userId);
     }
+    
+    // getSha1Value 方法已被移除，因为它不再被任何地方调用。
 }

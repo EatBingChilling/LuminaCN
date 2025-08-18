@@ -38,12 +38,8 @@ class OverlayShortcutButton(
 
     private val _layoutParams by lazy {
         super.layoutParams.apply {
-            // --- 修改点在这里 ---
-            // 添加 FLAG_SPLIT_TOUCH 以允许在其他窗口被触摸时，此窗口也能接收触摸事件
             flags = flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_SPLIT_TOUCH
-            
-            layoutInDisplayCutoutMode =
-                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             windowAnimations = android.R.style.Animation_Toast
             x = element.shortcutX
             y = element.shortcutY
@@ -78,14 +74,9 @@ class OverlayShortcutButton(
             }
         }
 
+        // 这个 Box 现在只负责提供外边距，让整个组件不会紧贴屏幕边缘
         Box(
-            modifier = Modifier
-                .padding(5.dp)
-                .border(
-                    width = borderWidth,
-                    color = Color.White,
-                    shape = buttonShape
-                )
+            modifier = Modifier.padding(5.dp)
         ) {
             ElevatedCard(
                 onClick = { element.isEnabled = !element.isEnabled },
@@ -95,6 +86,13 @@ class OverlayShortcutButton(
                 ),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
                 modifier = Modifier
+                    // --- 核心修改点 ---
+                    // 将 border 修饰符直接应用到 ElevatedCard 上
+                    .border(
+                        width = borderWidth,
+                        color = Color.White,
+                        shape = buttonShape
+                    )
                     .onSizeChanged { newSize ->
                         buttonSize = newSize
                     }
