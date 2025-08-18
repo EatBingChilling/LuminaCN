@@ -92,17 +92,17 @@ public class DynamicIslandState(
     private val context: Context
 ) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    
+
     // ✨ 持久化的状态
     public var yPosition by mutableStateOf(prefs.getFloat(KEY_Y_POSITION, 100f))
         private set
-    
+
     public var scale by mutableStateOf(prefs.getFloat(KEY_SCALE, 1.0f))
         private set
-        
+
     public var persistentText by mutableStateOf(prefs.getString(KEY_PERSISTENT_TEXT, "Phoen1x") ?: "Phoen1x")
         private set
-    
+
     public val tasks = mutableStateListOf<TaskItem>()
     public val isExpanded by derivedStateOf { tasks.any { !it.removing } }
 
@@ -120,12 +120,12 @@ public class DynamicIslandState(
         yPosition = newY
         prefs.edit().putFloat(KEY_Y_POSITION, newY).apply()
     }
-    
+
     public fun updateScale(newScale: Float) {
         scale = newScale.coerceIn(0.5f, 2.0f) // 限制缩放范围
         prefs.edit().putFloat(KEY_SCALE, scale).apply()
     }
-    
+
     public fun updatePersistentText(newText: String) {
         persistentText = newText
         prefs.edit().putString(KEY_PERSISTENT_TEXT, newText).apply()
@@ -243,7 +243,7 @@ public class DynamicIslandState(
             isAwaitingData = false,
             removing = false
         )
-        
+
         if (progressValue != null) {
             updatedTask = updatedTask.copy(isTimeBased = false)
             animateProgressTo(updatedTask, progressValue)
@@ -303,7 +303,7 @@ public fun DynamicIslandView(
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val actualScale = if (useStoredScale) state.scale else 1.0f
-    
+
     val collapsedHeight = COLLAPSED_HEIGHT * actualScale
     val collapsedCornerRadius = collapsedHeight / 2
     val expandedCornerRadius = EXPANDED_CORNER_RADIUS * actualScale
@@ -646,7 +646,7 @@ private fun Modifier.glow(pulse: Float, cornerRadius: Float, scale: Float) = thi
         strokeWidth = (2.dp * scale).toPx() + (pulse * (4.dp * scale).toPx())
         maskFilter = BlurMaskFilter((6.dp * scale).toPx() + (pulse * (8.dp * scale).toPx()), BlurMaskFilter.Blur.NORMAL)
     }
-    
+
     drawIntoCanvas { canvas ->
         val drawSize = this.size
         val rect = Rect(Offset.Zero, drawSize)

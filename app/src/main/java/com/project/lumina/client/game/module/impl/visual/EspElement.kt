@@ -14,11 +14,11 @@ import org.cloudburstmc.math.vector.Vector2f
 import org.cloudburstmc.math.vector.Vector3f
 import kotlin.math.*
 
-class EspElement : Element(
+class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : Element(
     name = "ESP",
     category = CheatCategory.Visual,
-    iconResId = 0,
-    displayNameResId = 0
+    iconResId,
+    displayNameResId = AssetManager.getString("module_esp_display_name")
 ) {
     // --- Settings ---
     private val fov by floatValue("FOV", 90f, 40f..120f)
