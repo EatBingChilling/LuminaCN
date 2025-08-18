@@ -19,6 +19,7 @@ import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,7 +38,8 @@ import com.project.lumina.client.overlay.mods.OverlayNotification
 import com.project.lumina.client.overlay.mods.PacketNotificationOverlay
 import com.project.lumina.client.overlay.mods.TargetHudOverlay
 import com.project.lumina.client.service.DynamicIslandService
-import com.project.lumina.client.service.ESPService // ======== 新增：ESP Service ======== 导入我们的新服务
+import com.project.lumina.client.service.ESPService
+import com.project.lumina.client.ui.ESPOverlayView
 import com.project.lumina.client.ui.theme.LuminaClientTheme
 import com.project.lumina.client.util.HashCat
 import io.netty.util.internal.logging.InternalLoggerFactory
@@ -46,8 +48,7 @@ import io.netty.util.internal.logging.JdkLoggerFactory
 
 class NewMainActivity : ComponentActivity() {
 
-    // ======== 移除：ESP Overlay ======== 不再需要 View 的引用
-    // private lateinit var espOverlayView: ESPOverlayView
+    private lateinit var espOverlayView: ESPOverlayView
 
     companion object {
         private var currentInstance: NewMainActivity? = null
@@ -72,7 +73,7 @@ class NewMainActivity : ComponentActivity() {
                 }
             }
         }
-        
+
         private const val ACCESSIBILITY_SERVICE_CLS = "com.project.lumina.client.service.KeyCaptureService"
     }
 
@@ -99,7 +100,7 @@ class NewMainActivity : ComponentActivity() {
             if (Settings.canDrawOverlays(this)) {
                 Log.i("NewMainActivity", "Overlay permission has been granted by user.")
                 startDynamicIslandService()
-                startEspService() // ======== 新增：ESP Service ======== 权限授予后也启动 ESP 服务
+                startEspService()
             } else {
                 Log.w("NewMainActivity", "Overlay permission was not granted by user.")
                 Toast.makeText(this, "悬浮窗权限未授予，部分功能无法显示", Toast.LENGTH_LONG).show()
@@ -170,12 +171,12 @@ class NewMainActivity : ComponentActivity() {
             } else {
                 Log.d("NewMainActivity", "Overlay permission already granted. Starting services.")
                 startDynamicIslandService()
-                startEspService() // ======== 新增：ESP Service ======== 权限已有时，启动 ESP 服务
+                startEspService()
             }
         } else {
             Log.d("NewMainActivity", "Device is pre-Marshmallow. Starting services directly.")
             startDynamicIslandService()
-            startEspService() // ======== 新增：ESP Service ======== 旧版本安卓直接启动
+            startEspService()
         }
     }
 
@@ -190,8 +191,6 @@ class NewMainActivity : ComponentActivity() {
         }
     }
 
-    // ======== 新增：ESP Service ========
-    // 启动 ESP 服务的函数
     private fun startEspService() {
         Log.d("NewMainActivity", "Attempting to start ESPService.")
         val intent = Intent(this, ESPService::class.java)
@@ -212,7 +211,8 @@ class NewMainActivity : ComponentActivity() {
 
         OverlayNotification.init(applicationContext)
         PacketNotificationOverlay.init(applicationContext)
-        TargetHudOverlay.init(applicationçContext)
+        // FIX: Typo corrected from applicationçContext to applicationContext
+        TargetHudOverlay.init(applicationContext)
 
         val prefs = getSharedPreferences("lumina_prefs", MODE_PRIVATE)
         if (!prefs.getBoolean("guide_done", false)) {
@@ -244,7 +244,7 @@ class NewMainActivity : ComponentActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestStoragePermissions()
-        checkOverlayPermissionAndStartService() // <-- 这里会负责启动我们的服务
+        checkOverlayPermissionAndStartService()
 
         setContent {
             CompositionLocalProvider(
@@ -255,9 +255,6 @@ class NewMainActivity : ComponentActivity() {
                 }
             }
         }
-
-        // ======== 移除：ESP Overlay ========
-        // addEspOverlay() 函数及其调用已被移除
     }
     
     override fun onResume() {
@@ -270,8 +267,6 @@ class NewMainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // ======== 新增：ESP Service ========
-        // 在 Activity 销毁时停止 ESP 服务，以清理悬浮窗
         stopService(Intent(this, ESPService::class.java))
         Log.i("NewMainActivity", "ESPService stopped.")
 

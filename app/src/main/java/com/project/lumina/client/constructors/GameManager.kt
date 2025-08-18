@@ -70,6 +70,14 @@ import com.project.lumina.client.game.module.impl.misc.PlayerTracerElement
 import com.project.lumina.client.game.module.impl.misc.ReplayElement
 import com.project.lumina.client.game.module.impl.misc.TimeShiftElement
 import com.project.lumina.client.game.module.impl.misc.WeatherControllerElement
+
+import com.project.lumina.client.game.module.impl.combat.LockHeedElement
+import com.project.lumina.client.game.module.impl.combat.KillauraCDElement
+import com.project.lumina.client.game.module.impl.combat.RotationAuraElement
+
+
+
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -90,6 +98,9 @@ object GameManager {
 
     init {
         with(_elements) {
+            add(KillauraCDElement())
+            add(LockHeedElement())
+            add(RotationAuraElement())
             add(FlyElement())
             add(ZoomElement())
             add(AirJumpElement())
