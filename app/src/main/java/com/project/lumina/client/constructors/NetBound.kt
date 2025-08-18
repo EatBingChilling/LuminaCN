@@ -157,7 +157,7 @@ class NetBound(val luminaRelaySession: LuminaRelaySession) : ComposedPacketHandl
 
         if (!welcomeTipShown && packet is StartGamePacket) {
     welcomeTipShown = true
-    displayClientMessage("§lLuminaCN §7代理服务§a已连接", TextPacket.Type.TIP)
+    displayClientMessage("§lLuminaCN", TextPacket.Type.TIP)
 }
 
         return false

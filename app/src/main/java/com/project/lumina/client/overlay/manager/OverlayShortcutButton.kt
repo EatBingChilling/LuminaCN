@@ -74,9 +74,15 @@ class OverlayShortcutButton(
             }
         }
 
-        // 这个 Box 现在只负责提供外边距，让整个组件不会紧贴屏幕边缘
+        // 外层 Box 提供边距并承载边框
         Box(
-            modifier = Modifier.padding(5.dp)
+            modifier = Modifier
+                .padding(5.dp)
+                .border(
+                    width = borderWidth,
+                    color = Color.White,
+                    shape = buttonShape
+                )
         ) {
             ElevatedCard(
                 onClick = { element.isEnabled = !element.isEnabled },
@@ -84,15 +90,8 @@ class OverlayShortcutButton(
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = Color.Black.copy(alpha = 0.8f)
                 ),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp), // 去掉阴影
                 modifier = Modifier
-                    // --- 核心修改点 ---
-                    // 将 border 修饰符直接应用到 ElevatedCard 上
-                    .border(
-                        width = borderWidth,
-                        color = Color.White,
-                        shape = buttonShape
-                    )
                     .onSizeChanged { newSize ->
                         buttonSize = newSize
                     }

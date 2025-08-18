@@ -60,6 +60,7 @@ import com.project.lumina.client.game.module.impl.visual.NameTagElement
 import com.project.lumina.client.game.module.impl.visual.NoHurtCameraElement
 import com.project.lumina.client.game.module.impl.visual.TextSpoofElement
 import com.project.lumina.client.game.module.impl.visual.ZoomElement
+import com.project.lumina.client.game.module.impl.visual.EspElement
 import com.project.lumina.client.game.module.impl.world.AutoNavigatorElement
 import com.project.lumina.client.game.module.impl.world.MinimapElement
 import com.project.lumina.client.game.module.impl.misc.PingSpoofElement
@@ -127,6 +128,7 @@ object GameManager {
             add(FullStopElement())
             add(JitterFlyElement())
             add(PhaseElement())
+            add(EspElement())
             add(ReachElement())
             //add(MaceAuraElement())
             //add(CrystalAuraElement())
