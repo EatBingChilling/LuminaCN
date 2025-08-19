@@ -13,7 +13,7 @@ plugins {
 }
 
 android {
-    namespace = "com.project.lumina.client"
+    namespace = "com.phoenix.luminacn"
     compileSdk = 36
 
     // 配置原生库路径
@@ -24,7 +24,7 @@ android {
     }
     
     defaultConfig {
-        applicationId = "com.project.lumina.client"
+        applicationId = "com.phoenix.luminacn"
         minSdk = 28
         targetSdk = 36
         versionCode = 230

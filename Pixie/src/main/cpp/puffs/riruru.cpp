@@ -100,7 +100,7 @@ static bool parseUpdateField(const std::string &jsonString) {
 
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_project_lumina_client_util_UpdateCheck_resolveEndpoint(JNIEnv *env, jobject) {
+Java_com_phoenix_luminacn_util_UpdateCheck_resolveEndpoint(JNIEnv *env, jobject) {
     try {
         const char* k1[] = { "aH", "R0", "cH", "M6" };
         const char* k2[] = { "Ly", "9u", "eX", "hl" };
@@ -134,7 +134,7 @@ Java_com_project_lumina_client_util_UpdateCheck_resolveEndpoint(JNIEnv *env, job
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_project_lumina_client_util_UpdateCheck_retrieveFallback(JNIEnv *env, jobject /* this */) {
+Java_com_phoenix_luminacn_util_UpdateCheck_retrieveFallback(JNIEnv *env, jobject /* this */) {
     try {
         std::string message = OBFUSCATE("Outdated NORT");
         return env->NewStringUTF(message.c_str());
@@ -144,7 +144,7 @@ Java_com_project_lumina_client_util_UpdateCheck_retrieveFallback(JNIEnv *env, jo
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_project_lumina_client_util_UpdateCheck_verifySignature(JNIEnv *env, jobject /* this */, jstring jsonString) {
+Java_com_phoenix_luminacn_util_UpdateCheck_verifySignature(JNIEnv *env, jobject /* this */, jstring jsonString) {
     try {
         const char *jsonStr = env->GetStringUTFChars(jsonString, nullptr);
         if (jsonStr == nullptr) {
