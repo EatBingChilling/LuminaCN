@@ -184,10 +184,10 @@
     <string name="import_button">导入</string>
     <string name="select_json_file">选择 JSON 文件</string>
     <string name="or_enter_filename_from_downloads">或者输入下载文件夹中的文件名：</string>
-    <string name="restart_app">重启应用</string>
-    <string name="copy_crash_log">复制日志</string>
+    <string name="restart_app">点我好吗求你了</string>
+    <string name="copy_crash_log">别点我😭😭😭</string>
     <string name="crash_copied">崩溃日志已复制到剪贴板</string>
-    <string name="crash_description">发生了意外错误。以下详细信息可帮助您识别问题：</string>
+    <string name="crash_description">点重启！！！点重启！！！不要给我日志！！！！能重启解决的一律重启！！！！不解决大众遇不到就你有问题的报错！！！！</string>
     <string name="device_info">设备信息</string>
     <string name="thread_info">线程信息</string>
     <string name="stack_trace">栈追溯（我需要这个）</string>
@@ -263,5 +263,6 @@
     
     <string name="module_antibot_display_name">防假人</string>
         <string name="module_killauracd_display_name">杀戮光环3（测试）</string>
+        <string name="module_autototem_display_name">自动图腾</string>
     
 </resources>

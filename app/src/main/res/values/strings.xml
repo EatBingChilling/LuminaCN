@@ -265,11 +265,12 @@
     <string name="module_antibot_display_name">AntiBot</string>
     <string name="module_killauracd_display_name">KillauraCD</string>
     <string name="accessibility_service_label">LuminaCN 按键监听服务</string>
-    <string name="crash_title">哦豁，出错了</string>
+    <string name="crash_title">爆炸了</string>
     <string name="crash_subtitle">LuminaCN 遇到了一个意料之外的问题。</string>
     <string name="crash_stack_trace_label">技术细节</string>
     <string name="crash_restart">重启应用</string>
     <string name="crash_copy_log">复制日志</string>
+    <string name="module_autototem_display_name">AutoTotem</string>
 
     
 </resources>

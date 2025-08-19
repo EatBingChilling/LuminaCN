@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -57,7 +58,7 @@ class OverlayShortcutButton(
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
         val borderWidth by animateDpAsState(
-            targetValue = if (element.isEnabled) 2.dp else 0.dp,
+            targetValue = if (element.isEnabled) 2.dp else 0.5.dp,
             animationSpec = tween(durationMillis = 300),
             label = "border_width_animation"
         )
@@ -74,15 +75,10 @@ class OverlayShortcutButton(
             }
         }
 
-        // 外层 Box 提供边距并承载边框
+        // 为了防止按钮紧贴屏幕边缘，我们在最外层保留一个padding。
+        // 这个padding现在是按钮与悬浮窗边界的间距，而不是边框与背景的间距。
         Box(
-            modifier = Modifier
-                .padding(5.dp)
-                .border(
-                    width = borderWidth,
-                    color = Color.White,
-                    shape = buttonShape
-                )
+            modifier = Modifier.padding(5.dp)
         ) {
             ElevatedCard(
                 onClick = { element.isEnabled = !element.isEnabled },
@@ -90,8 +86,14 @@ class OverlayShortcutButton(
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = Color.Black.copy(alpha = 0.8f)
                 ),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp), // 去掉阴影
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
                 modifier = Modifier
+                    // 将 border 修饰符直接应用到 Card 上
+                    .border(
+                        width = borderWidth,
+                        color = Color.White,
+                        shape = buttonShape
+                    )
                     .onSizeChanged { newSize ->
                         buttonSize = newSize
                     }
@@ -110,8 +112,12 @@ class OverlayShortcutButton(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp)
                 ) {
+                    val displayName = element.displayNameResId?.let { resId ->
+                        stringResource(id = resId)
+                    } ?: element.name
+
                     Text(
-                        text = element.name,
+                        text = displayName,
                         color = Color.White,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,

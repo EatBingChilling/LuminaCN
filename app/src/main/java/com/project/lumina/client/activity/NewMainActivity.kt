@@ -1,7 +1,6 @@
 package com.project.lumina.client.activity
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -60,24 +59,6 @@ class NewMainActivity : ComponentActivity() {
                     Log.e("NewMainActivity", "Error launching import: ${e.message}", e)
                 }
             }
-        }
-
-        private const val ACCESSIBILITY_SERVICE_CLS = "com.project.lumina.client.service.KeyCaptureService"
-    }
-
-    private fun isAccessibilityEnabled(): Boolean {
-        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-        val enabled = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
-        return enabled.any { it.id.contains(packageName) }
-    }
-
-    private fun ensureAccessibilityPermission() {
-        if (!isAccessibilityEnabled()) {
-            Toast.makeText(this, "请开启 LuminaCN 的无障碍权限", Toast.LENGTH_LONG).show()
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
         }
     }
 
@@ -164,7 +145,8 @@ class NewMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        ensureAccessibilityPermission()
+        // MODIFIED: Removed mandatory accessibility check from onCreate
+        // ensureAccessibilityPermission() <-- REMOVED
 
         OverlayNotification.init(applicationContext)
         PacketNotificationOverlay.init(applicationContext)
@@ -212,6 +194,8 @@ class NewMainActivity : ComponentActivity() {
         }
     }
     
+    // MODIFIED: Removed onResume override which forced accessibility check
+    /*
     override fun onResume() {
         super.onResume()
         if (!isAccessibilityEnabled()) {
@@ -219,6 +203,7 @@ class NewMainActivity : ComponentActivity() {
             ensureAccessibilityPermission()
         }
     }
+    */
 
     override fun onDestroy() {
         super.onDestroy()

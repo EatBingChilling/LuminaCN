@@ -9,11 +9,11 @@ import com.project.lumina.client.game.InterceptablePacket
 import com.project.lumina.client.game.entity.Entity
 import com.project.lumina.client.game.entity.Player
 import com.project.lumina.client.ui.ESPOverlayView
+import com.project.lumina.client.util.AssetManager
 import org.cloudburstmc.math.matrix.Matrix4f
 import org.cloudburstmc.math.vector.Vector2f
 import org.cloudburstmc.math.vector.Vector3f
 import kotlin.math.*
-import com.project.lumina.client.util.AssetManager
 
 class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : Element(
     name = "ESP",
@@ -47,7 +47,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     fun onRender2D(canvas: Canvas) {
         if (!isEnabled || session.localPlayer == null) return
 
-        val player = session.localPlayer
+        val player = session.localPlayer!!
         val entities = session.level.entityMap.values.filter { shouldRenderEntity(it) }
 
         if (entities.isEmpty()) return
@@ -55,10 +55,13 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         val screenWidth = canvas.width
         val screenHeight = canvas.height
 
+        // [!!] 修复点: 移除了 Y 轴旋转中多余的 "- 180f"。
+        // 原始代码: .mul(rotateY(-player.vec3Rotation.y - 180f))
+        // 这会导致整个世界被旋转180度，造成视角反转。
         val viewMatrix = rotateX(-player.vec3Rotation.x)
-            .mul(rotateY(-player.vec3Rotation.y - 180f))
+            .mul(rotateY(-player.vec3Rotation.y)) // <-- 已修正
             .mul(Matrix4f.createTranslation(player.vec3Position.add(0f, 1.62f, 0f).mul(-1f)))
-        
+
         val projectionMatrix = Matrix4f.createPerspective(fov, screenWidth.toFloat() / screenHeight, 0.1f, 100f)
         val viewProjMatrix = projectionMatrix.mul(viewMatrix)
 
@@ -73,7 +76,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
             drawEntityESP(entity, viewProjMatrix, screenWidth, screenHeight, canvas, paint)
         }
     }
-    
+
     private fun drawEntityESP(entity: Entity, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int, canvas: Canvas, paint: Paint) {
         val boxVertices = getEntityBoxVertices(entity)
         val screenPositions = boxVertices.mapNotNull { worldToScreen(it, viewProjMatrix, screenWidth, screenHeight) }
@@ -91,7 +94,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
             maxX = max(maxX, it.x)
             maxY = max(maxY, it.y)
         }
-        
+
         if (maxX < 0 || minX > screenWidth || maxY < 0 || minY > screenHeight) return
 
         when {
@@ -157,11 +160,16 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
             if (showNames && entity is Player) append(entity.username)
             if (showDistance) {
                 if (isNotEmpty()) append(" ")
-                append("[${String.format("%.1f", entity.distance(session.localPlayer))}m]")
+                session.localPlayer?.let {
+                    append("[${String.format("%.1f", entity.distance(it))}m]")
+                }
             }
         }
+        if (info.isEmpty()) return
+
         val textX = (minX + maxX) / 2
         val textY = minY - 10
+        // Simple shadow effect for better readability
         textPaint.color = Color.BLACK
         canvas.drawText(info, textX + 2, textY + 2, textPaint)
         textPaint.color = paint.color
@@ -194,37 +202,52 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
 
     private fun getEntityBoxVertices(entity: Entity): Array<Vector3f> {
         val pos = entity.vec3Position
-        val height = 1.8f
+        val height = 1.8f // Standard entity height
         val width = 0.6f
         val halfWidth = width / 2f
 
-        val yPos = if (entity is Player) pos.y - 1.62f else pos.y
+        // Assuming entity.vec3Position is always the foot position of the entity.
+        // The previous code had a potentially incorrect adjustment for players.
+        // This simplified version is more robust.
+        val yPos = pos.y
 
         return arrayOf(
-            Vector3f.from(pos.x - halfWidth, yPos, pos.z - halfWidth),
-            Vector3f.from(pos.x - halfWidth, yPos + height, pos.z - halfWidth),
-            Vector3f.from(pos.x + halfWidth, yPos + height, pos.z - halfWidth),
-            Vector3f.from(pos.x + halfWidth, yPos, pos.z - halfWidth),
-            Vector3f.from(pos.x - halfWidth, yPos, pos.z + halfWidth),
-            Vector3f.from(pos.x - halfWidth, yPos + height, pos.z + halfWidth),
-            Vector3f.from(pos.x + halfWidth, yPos + height, pos.z + halfWidth),
-            Vector3f.from(pos.x + halfWidth, yPos, pos.z + halfWidth)
+            Vector3f.from(pos.x - halfWidth, yPos, pos.z - halfWidth),          // 0: Bottom-front-left
+            Vector3f.from(pos.x - halfWidth, yPos + height, pos.z - halfWidth), // 1: Top-front-left
+            Vector3f.from(pos.x + halfWidth, yPos + height, pos.z - halfWidth), // 2: Top-front-right
+            Vector3f.from(pos.x + halfWidth, yPos, pos.z - halfWidth),          // 3: Bottom-front-right
+            Vector3f.from(pos.x - halfWidth, yPos, pos.z + halfWidth),          // 4: Bottom-back-left
+            Vector3f.from(pos.x - halfWidth, yPos + height, pos.z + halfWidth), // 5: Top-back-left
+            Vector3f.from(pos.x + halfWidth, yPos + height, pos.z + halfWidth), // 6: Top-back-right
+            Vector3f.from(pos.x + halfWidth, yPos, pos.z + halfWidth)           // 7: Bottom-back-right
         )
     }
 
     private fun worldToScreen(pos: Vector3f, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int): Vector2f? {
         val clipSpacePos = viewProjMatrix.transform(pos.x, pos.y, pos.z, 1.0f)
+
+        // Points behind the camera have w < 0 and should not be rendered.
         if (clipSpacePos.w < 0.1f) return null
+
+        // Perspective division to convert to Normalized Device Coordinates (NDC) [-1, 1]
         val ndc = Vector3f.from(clipSpacePos.x / clipSpacePos.w, clipSpacePos.y / clipSpacePos.w, clipSpacePos.z / clipSpacePos.w)
+
+        // Convert NDC to screen coordinates [0, screenWidth/screenHeight]
+        // NDC X: -1 (left) to 1 (right) -> Screen X: 0 to screenWidth
+        // NDC Y: -1 (bottom) to 1 (top) -> Screen Y: screenHeight to 0
         val screenX = (ndc.x + 1.0f) / 2.0f * screenWidth
         val screenY = (1.0f - ndc.y) / 2.0f * screenHeight
+
         return Vector2f.from(screenX, screenY)
     }
 
     private fun shouldRenderEntity(entity: Entity): Boolean {
-        return when {
-            entity == session.localPlayer -> false
-            entity is Player -> players
+        // Don't render ESP for the local player
+        if (entity == session.localPlayer) {
+            return false
+        }
+        return when (entity) {
+            is Player -> players
             else -> mobs
         }
     }

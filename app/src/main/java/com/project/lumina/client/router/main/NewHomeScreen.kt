@@ -6,11 +6,13 @@
 
 package com.project.lumina.client.router.main
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.content.res.Configuration
+import android.provider.Settings
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -63,6 +65,9 @@ private const val PREFS_NAME = "app_verification_prefs"
 // FIX: Updated SharedPreferences keys for clarity, matching reference code.
 private const val KEY_NOTICE_HASH = "notice_hash"
 private const val KEY_PRIVACY_HASH = "privacy_hash"
+// MODIFIED: Added key for accessibility prompt preference
+private const val KEY_DONT_SHOW_ACCESSIBILITY_PROMPT = "dont_show_accessibility_prompt"
+
 
 /* ======================================================
    主入口：NewHomeScreen
@@ -89,6 +94,8 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
 
     var tab by remember { mutableIntStateOf(0) }
+    // MODIFIED: State to control the accessibility dialog
+    var showAccessibilityDialog by remember { mutableStateOf(false) }
 
     /* 验证流程 (FIX: Reworked verification logic to be more robust and correct JSON parsing) */
     LaunchedEffect(Unit) {
@@ -176,6 +183,52 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     }
 
 
+    // MODIFIED: Logic for starting the service, extracted for reuse.
+    val startServiceAction = {
+        scope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "服务正在启动...",
+                actionLabel = "启动应用",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                val settingsPrefs = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
+                val selectedAppPackage = settingsPrefs.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe"
+                val intent = context.packageManager.getLaunchIntentForPackage(selectedAppPackage)
+                if (intent != null) {
+                    context.startActivity(intent)
+                } else {
+                    SimpleOverlayNotification.show(
+                        "未安装选定的应用，请在设置中配置正确的应用包名",
+                        NotificationType.ERROR,
+                        3000
+                    )
+                }
+            }
+        }
+        onStartToggle()
+    }
+
+    // MODIFIED: Centralized click handler for the FABs
+    val fabOnClick = {
+        if (Services.isActive) {
+            // If service is running, just stop it.
+            onStartToggle()
+        } else {
+            // If service is not running, check for accessibility permission before starting.
+            val accessibilityEnabled = isAccessibilityEnabled(context)
+            val dontAskAgain = prefs.getBoolean(KEY_DONT_SHOW_ACCESSIBILITY_PROMPT, false)
+
+            if (!accessibilityEnabled && !dontAskAgain) {
+                // Show the dialog if accessibility is off and the user hasn't opted out.
+                showAccessibilityDialog = true
+            } else {
+                // Otherwise, start the service directly.
+                startServiceAction()
+            }
+        }
+    }
+
     val configuration = LocalConfiguration.current
     
     // Determine if we should use NavigationRail (landscape/wide screen) or NavigationBar (portrait)
@@ -249,37 +302,8 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                 
                 // FAB for landscape (positioned in bottom end)
                 if (tab == 0) {
-                    val settingsPrefs = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-                    val selectedAppPackage = settingsPrefs.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe"
-                    
                     ExtendedFloatingActionButton(
-                onClick = {
-                    // Show snackbar only when starting the service
-                    if (!Services.isActive) {
-                        scope.launch {
-                            val result = snackbarHostState.showSnackbar(
-                                message = "服务正在启动...",
-                                        actionLabel = "启动应用",
-                                duration = SnackbarDuration.Long
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                        // Use the selectedAppPackage from SettingsScreen instead of hardcoded package
-                                        val intent = context.packageManager.getLaunchIntentForPackage(selectedAppPackage)
-                                if (intent != null) {
-                                    context.startActivity(intent)
-                                } else {
-                                    SimpleOverlayNotification.show(
-                                                "未安装选定的应用，请在设置中配置正确的应用包名",
-                                        NotificationType.ERROR,
-                                        3000
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    // Always call the toggle function
-                    onStartToggle()
-                },
+                        onClick = fabOnClick, // MODIFIED
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(16.dp),
@@ -289,9 +313,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                             defaultElevation = 6.dp,
                             pressedElevation = 12.dp
                         )
-            ) {
-                Icon(
-                    if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                    ) {
+                        Icon(
+                            if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
                             contentDescription = if (Services.isActive) "停止服务" else "启动服务"
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -329,37 +353,8 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             },
             floatingActionButton = {
                 if (tab == 0) {
-                    val settingsPrefs = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-                    val selectedAppPackage = settingsPrefs.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe"
-                    
                     ExtendedFloatingActionButton(
-                        onClick = {
-                            // Show snackbar only when starting the service
-                            if (!Services.isActive) {
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "服务正在启动...",
-                                        actionLabel = "启动应用",
-                                        duration = SnackbarDuration.Long
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        // Use the selectedAppPackage from SettingsScreen instead of hardcoded package
-                                        val intent = context.packageManager.getLaunchIntentForPackage(selectedAppPackage)
-                                        if (intent != null) {
-                                            context.startActivity(intent)
-                                        } else {
-                                            SimpleOverlayNotification.show(
-                                                "未安装选定的应用，请在设置中配置正确的应用包名",
-                                                NotificationType.ERROR,
-                                                3000
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            // Always call the toggle function
-                            onStartToggle()
-                        },
+                        onClick = fabOnClick, // MODIFIED
                         containerColor = if (Services.isActive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
                         contentColor = if (Services.isActive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                         elevation = FloatingActionButtonDefaults.elevation(
@@ -377,74 +372,74 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
+                }
+            }
+        ) { inner ->
+            Box(Modifier.padding(inner)) {
+                AnimatedContent(
+                    targetState = tab,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                    slideOutHorizontally { width -> -width } + fadeOut()
+                        } else {
+                            slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                    slideOutHorizontally { width -> width } + fadeOut()
+                        }
+                    },
+                    label = "tab"
+                ) { t ->
+                    when (t) {
+                        0 -> MainDashboard()
+                        1 -> AccountPage()
+                        2 -> AboutPage()
+                        3 -> SettingsScreen()
+                    }
+                }
             }
         }
-    ) { inner ->
-        Box(Modifier.padding(inner)) {
-            AnimatedContent(
-                targetState = tab,
-                transitionSpec = {
-                    if (targetState > initialState) {
-                        slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    } else {
-                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                slideOutHorizontally { width -> width } + fadeOut()
-                    }
-                },
-                label = "tab"
-            ) { t ->
-                when (t) {
-                    0 -> MainDashboard()
-                    1 -> AccountPage()
-                    2 -> AboutPage()
-                    3 -> SettingsScreen()
-                    }
-                }
-            }
-                }
-            }
+    }
 
-            // <<< MODIFIED: 验证遮罩动画化
-            // 1. 使用 `animateFloatAsState` 创建一个 `progress` 的动画版本
-            val animatedProgress by animateFloatAsState(
-                targetValue = progress,
-                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-                label = "VerificationProgressAnimation"
-            )
+    // <<< MODIFIED: 验证遮罩动画化
+    // 1. 使用 `animateFloatAsState` 创建一个 `progress` 的动画版本
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "VerificationProgressAnimation"
+    )
 
-            // 2. 使用 `AnimatedVisibility` 包裹整个遮罩，实现优雅的淡出效果
-            AnimatedVisibility(
-                visible = isVerifying,
-                exit = fadeOut(animationSpec = tween(durationMillis = 500))
+    // 2. 使用 `AnimatedVisibility` 包裹整个遮罩，实现优雅的淡出效果
+    AnimatedVisibility(
+        visible = isVerifying,
+        exit = fadeOut(animationSpec = tween(durationMillis = 500))
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+            modifier = Modifier.fillMaxSize(),
+            // 添加 clickable 以阻止下层UI的交互
+            onClick = {}
+        ) {
+            Column(
+                Modifier.fillMaxSize(),
+                Arrangement.Center,
+                Alignment.CenterHorizontally
             ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                    modifier = Modifier.fillMaxSize(),
-                    // 添加 clickable 以阻止下层UI的交互
-                    onClick = {}
-                ) {
-                    Column(
-                        Modifier.fillMaxSize(),
-                        Arrangement.Center,
-                        Alignment.CenterHorizontally
-                    ) {
-                        // 3. 将 `LinearProgressIndicator` 的 progress 指向我们创建的 `animatedProgress`
-                        LinearProgressIndicator(
-                            progress = { animatedProgress },
-                            Modifier.width(200.dp)
-                        )
-                        // 注意: 如果你想要的是那种无限循环的波浪线加载动画 (不显示具体进度),
-                        // 只需将上面的调用改为不带 progress 参数即可:
-                        // LinearProgressIndicator(Modifier.width(200.dp))
+                // 3. 将 `LinearProgressIndicator` 的 progress 指向我们创建的 `animatedProgress`
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    Modifier.width(200.dp)
+                )
+                // 注意: 如果你想要的是那种无限循环的波浪线加载动画 (不显示具体进度),
+                // 只需将上面的调用改为不带 progress 参数即可:
+                // LinearProgressIndicator(Modifier.width(200.dp))
 
-                        Spacer(Modifier.height(16.dp))
-                        Text(msg, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    }
-                }
+                Spacer(Modifier.height(16.dp))
+                Text(msg, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+                err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
-            // >>> MODIFIED END
+        }
+    }
+    // >>> MODIFIED END
 
     /* 弹窗 */
     privacy?.let {
@@ -464,6 +459,47 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.url)))
             update = null
         }) { update = null }
+    }
+    
+    // MODIFIED: Added AlertDialog for accessibility permission
+    if (showAccessibilityDialog) {
+        AlertDialog(
+            onDismissRequest = { /* Disallow dismissing by clicking outside */ },
+            title = { Text("启用实体按键绑定？") },
+            text = { Text("LuminaCN 可以使用无障碍服务来启用实体按键绑定功能（如音量键控制）。\n\n如果不需要，服务仍可正常启动，但无法使用实体按键绑定。") },
+            confirmButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            showAccessibilityDialog = false
+                            // User wants to enable it, go to settings.
+                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            context.startActivity(intent)
+                        }
+                    ) { Text("需要") }
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            showAccessibilityDialog = false
+                            // User doesn't want to enable it, just start the service.
+                            startServiceAction()
+                        }
+                    ) { Text("不需要") }
+
+                    TextButton(
+                        onClick = {
+                            showAccessibilityDialog = false
+                            // User doesn't want to be asked again, save preference and start service.
+                            prefs.edit().putBoolean(KEY_DONT_SHOW_ACCESSIBILITY_PROMPT, true).apply()
+                            startServiceAction()
+                        }
+                    ) { Text("不再提示") }
+                }
+            }
+        )
     }
 }
 
@@ -755,6 +791,13 @@ private fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -
 /* ======================================================
    网络/哈希工具
    ====================================================== */
+// MODIFIED: Added helper function to check for accessibility service status
+private fun isAccessibilityEnabled(context: Context): Boolean {
+    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+    val enabled = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
+    return enabled.any { it.id.contains(context.packageName) }
+}
+
 private suspend fun makeHttp(url: String): String = withContext(Dispatchers.IO) {
     val conn = URL(url).openConnection() as HttpURLConnection
     conn.apply {

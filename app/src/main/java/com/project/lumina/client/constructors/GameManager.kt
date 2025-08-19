@@ -76,7 +76,7 @@ import com.project.lumina.client.game.module.impl.combat.LockHeedElement
 import com.project.lumina.client.game.module.impl.combat.KillauraCDElement
 import com.project.lumina.client.game.module.impl.combat.RotationAuraElement
 
-
+import com.project.lumina.client.game.module.impl.combat.AutoTotemElement
 
 
 import kotlinx.serialization.json.Json
@@ -107,6 +107,7 @@ object GameManager {
             add(AirJumpElement())
             add(AutoWalkElement())
             add(NoClipElement())
+            add(AutoTotemElement())
             add(HasteElement())
             add(SpeedElement())
             add(JetPackElement())
