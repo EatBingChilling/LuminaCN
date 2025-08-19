@@ -115,7 +115,7 @@ fun ModuleContentA(moduleCategory: CheatCategory) {
                 items(it.size) { index ->
                     val module = it[index]
 
-                    
+
                     val animatedAlpha by animateFloatAsState(
                         targetValue = 1f,
                         animationSpec = tween(
@@ -247,11 +247,15 @@ private fun ModuleCard(element: Element) {
                     animationSpec = tween(durationMillis = 200)
                 )
 
+                // 国际化修改点
+                val displayName = element.displayNameResId?.let { resId ->
+                    stringResource(id = resId)
+                } ?: element.name
+
                 Text(
                     modifier = Modifier
-                        //.fillMaxWidth(),
                         .wrapContentWidth(Alignment.CenterHorizontally),
-                    text = element.name,
+                    text = displayName, // 使用 displayName
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontSize = MaterialTheme.typography.titleSmall.fontSize * 0.9
                     ),
@@ -507,7 +511,7 @@ private fun CustomSlider(
                 )
             }
     ) {
-        
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -515,7 +519,7 @@ private fun CustomSlider(
                 .align(Alignment.Center)
                 .background(SliderTrackColor, RoundedCornerShape(1.5.dp))
         )
-        
+
         val fraction = (animatedValue - valueRange.start) / (valueRange.endInclusive - valueRange.start)
         val activeTrackWidth by animateFloatAsState(
             targetValue = fraction * sliderWidth,
@@ -532,7 +536,7 @@ private fun CustomSlider(
                 .align(Alignment.CenterStart)
                 .background(SliderActiveTrackColor, RoundedCornerShape(1.5.dp))
         )
-        
+
         Box(
             modifier = Modifier
                 .offset(x = (fraction * sliderWidth).toDp() - 4.dp)

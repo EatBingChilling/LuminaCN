@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable // 添加: 用于点击交互
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -24,9 +25,12 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Keyboard // 添加: 按键图标
 import androidx.compose.material.icons.outlined.Shortcut
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox // 添加: 用于显示绑定状态
+import androidx.compose.material3.CheckboxDefaults // 添加: 自定义Checkbox颜色
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -39,6 +43,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState // 添加: 监听绑定状态
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,26 +51,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext // 添加: 获取Context
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
+import com.project.lumina.client.R // 添加: 为了stringResource
 import com.project.lumina.client.constructors.BoolValue
 import com.project.lumina.client.constructors.CheatCategory
 import com.project.lumina.client.constructors.Element
 import com.project.lumina.client.constructors.FloatValue
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.constructors.IntValue
+import com.project.lumina.client.constructors.KeyBindingManager // 添加: 绑定状态管理器
 import com.project.lumina.client.constructors.ListValue
 import com.project.lumina.client.overlay.manager.OverlayManager
+import com.project.lumina.client.service.KeyCaptureService // 添加: 绑定逻辑服务
 import java.util.Locale
 import kotlin.math.roundToInt
-
-// Removed imports related to key binding:
-// BroadcastReceiver, Context, Intent, IntentFilter, KeyEvent, RadioButtonChecked,
-// DisposableEffect, LocalContext, LocalBroadcastManager, KeyBindingManager, KeyCaptureService
 
 @Composable
 fun ModuleContent(
@@ -153,7 +158,6 @@ private fun ModuleCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // The settings button is kept
                         if (onOpenSettings != null) {
                             IconButton(
                                 onClick = {
@@ -183,6 +187,9 @@ private fun ModuleCard(
                         if (element.overlayShortcutButton != null) {
                             ShortcutContent(element)
                         }
+
+                        // 添加: 调用KeyBindContent
+                        KeyBindContent(element)
 
                         element.values.forEach { value ->
                             when (value) {
@@ -224,7 +231,7 @@ private fun ModuleCard(
     }
 }
 
-// ModuleShortcutContent remains unchanged as it's a different feature.
+// ... 其他函数保持不变 ...
 @Composable
 private fun ModuleShortcutContent(element: Element) {
     Row(
@@ -281,7 +288,6 @@ private fun ModuleShortcutContent(element: Element) {
     }
 }
 
-// ChoiceValueContent remains unchanged
 @Composable
 private fun ChoiceValueContent(value: ListValue) {
     Column(
@@ -344,7 +350,6 @@ private fun ChoiceValueContent(value: ListValue) {
     }
 }
 
-// FloatValueContent remains unchanged
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FloatValueContent(value: FloatValue) {
@@ -435,7 +440,6 @@ private fun FloatValueContent(value: FloatValue) {
     }
 }
 
-// IntValueContent remains unchanged
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IntValueContent(value: IntValue) {
@@ -527,7 +531,6 @@ private fun IntValueContent(value: IntValue) {
     }
 }
 
-// MODIFIED: BoolValueContent with key binding functionality removed.
 @Composable
 private fun BoolValueContent(value: BoolValue) {
     Row(
@@ -550,11 +553,9 @@ private fun BoolValueContent(value: BoolValue) {
             ),
             color = Color.White
         )
-        // The key binding IconButton has been removed from here.
-        // The Switch is now the only item on the right.
         Switch(
             checked = value.value,
-            onCheckedChange = null, // The toggleable modifier on the Row handles the change
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 uncheckedThumbColor = Color.Gray,
@@ -567,7 +568,6 @@ private fun BoolValueContent(value: BoolValue) {
     }
 }
 
-// ShortcutContent remains unchanged
 @Composable
 private fun ShortcutContent(element: Element) {
     Row(
@@ -620,6 +620,60 @@ private fun ShortcutContent(element: Element) {
                 uncheckedTrackColor = Color(0xFF4A4A4A),
                 checkedBorderColor = Color.Transparent,
                 uncheckedBorderColor = Color.Transparent
+            )
+        )
+    }
+}
+
+// 添加: 新增实体按键绑定UI组件, 风格与ShortcutContent保持一致
+@Composable
+private fun KeyBindContent(element: Element) {
+    val context = LocalContext.current
+    val bindings by KeyBindingManager.bindings.collectAsState()
+    val isBound = bindings.containsKey(element.name)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .clickable { // 修改: 使用clickable而不是toggleable
+                if (isBound) {
+                    KeyBindingManager.removeBinding(element.name)
+                } else {
+                    KeyCaptureService.requestBind(context, element)
+                }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Keyboard, // 添加: 使用键盘图标
+                contentDescription = "实体按键绑定",
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
+
+            Text(
+                text = "实体按键绑定",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium
+                ),
+                color = Color.White
+            )
+        }
+
+        // 修改: 使用Checkbox代替Switch来显示状态
+        Checkbox(
+            checked = isBound,
+            onCheckedChange = null,
+            colors = CheckboxDefaults.colors(
+                checkedColor = Color.White,
+                uncheckedColor = Color.Gray,
+                checkmarkColor = Color(0xFF2A2A2A) // 对勾颜色与背景色一致，突出显示
             )
         )
     }

@@ -2,6 +2,7 @@ package com.project.lumina.client.overlay.grace
 
 import io.havens.grace.ui.component.ModuleCardX
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable // 添加：用于点击交互
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState // 添加：用于监听绑定状态
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext // 添加：用于获取Context
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
@@ -42,8 +45,10 @@ import com.project.lumina.client.constructors.Element
 import com.project.lumina.client.constructors.FloatValue
 import com.project.lumina.client.constructors.GameManager
 import com.project.lumina.client.constructors.IntValue
+import com.project.lumina.client.constructors.KeyBindingManager // 添加：绑定状态管理器
 import com.project.lumina.client.constructors.ListValue
 import com.project.lumina.client.overlay.manager.OverlayManager
+import com.project.lumina.client.service.KeyCaptureService // 添加：绑定逻辑服务
 import com.smarttoolfactory.slider.ColorfulSlider
 import com.smarttoolfactory.slider.MaterialSliderDefaults
 import com.smarttoolfactory.slider.SliderBrushColor
@@ -281,6 +286,43 @@ internal fun ShortcutContent(element: Element) {
                 uncheckedColor = Color(0xFFCECECE),
                 checkedColor = Color(0xFFCECECE),
                 checkmarkColor = Color(0xFFCECECE)
+            )
+        )
+    }
+}
+
+// 添加：新增实体按键绑定UI组件
+@Composable
+internal fun KeyBindContent(element: Element) {
+    val context = LocalContext.current
+    val bindings by KeyBindingManager.bindings.collectAsState()
+    val isBound = bindings.containsKey(element.name)
+
+    Row(
+        Modifier
+            .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
+            .clickable {
+                if (isBound) {
+                    KeyBindingManager.removeBinding(element.name)
+                } else {
+                    KeyCaptureService.requestBind(context, element)
+                }
+            }
+    ) {
+        Text(
+            "实体按键绑定", // 遵循你的要求，不进行国际化处理
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFCECECE) // 匹配grace包的UI风格
+        )
+        Spacer(Modifier.weight(1f))
+        Checkbox(
+            checked = isBound,
+            onCheckedChange = null,
+            modifier = Modifier.padding(0.dp),
+            colors = CheckboxDefaults.colors(
+                uncheckedColor = Color(0xFFCECECE), // 匹配grace包的UI风格
+                checkedColor = Color(0xFFCECECE),   // 匹配grace包的UI风格
+                checkmarkColor = Color(0xFFCECECE)  // 匹配grace包的UI风格
             )
         )
     }
