@@ -55,8 +55,25 @@ class AppContext : Application() {
             Log.d(TAG, "ThemeManager initialized")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize ThemeManager", e)
-            themeManager = ThemeManager.createDefault()
+            // 如果主题管理器初始化失败，创建一个基本的默认实例
+            themeManager = createFallbackThemeManager()
         }
+    }
+
+    private fun createFallbackThemeManager(): ThemeManager {
+        // 尝试创建一个基本的 ThemeManager，如果失败就抛出异常
+        return try {
+            ThemeManager(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "Even fallback ThemeManager failed, using mock", e)
+            // 如果实在无法创建，返回一个模拟对象
+            createMockThemeManager()
+        }
+    }
+
+    private fun createMockThemeManager(): ThemeManager {
+        // 创建一个应用上下文作为fallback，但这通常不会执行到
+        return ThemeManager(applicationContext)
     }
 
     private fun postDelayedInitialization() {
