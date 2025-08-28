@@ -1,6 +1,7 @@
 package com.phoenix.luminacn.game.entity
 
 import android.util.Log
+import com.phoenix.luminacn.constructors.ListItem
 import com.phoenix.luminacn.constructors.NetBound
 import com.phoenix.luminacn.game.inventory.AbstractInventory
 import com.phoenix.luminacn.game.inventory.ContainerInventory
@@ -9,12 +10,15 @@ import org.cloudburstmc.math.vector.Vector3f
 import org.cloudburstmc.protocol.bedrock.data.AuthoritativeMovementMode
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryTransactionType
+import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction
 import org.cloudburstmc.protocol.bedrock.packet.*
+import java.util.LinkedList
 
 import java.util.UUID
 
 @Suppress("MemberVisibilityCanBePrivate")
 class LocalPlayer(val session: NetBound) : Player(0L, 0L, UUID.randomUUID(), "") {
+
 
     override var runtimeEntityId: Long = 0L
         private set
@@ -45,6 +49,10 @@ class LocalPlayer(val session: NetBound) : Player(0L, 0L, UUID.randomUUID(), "")
     var isOnGround: Boolean = false
         private set
 
+    private val pendingItemInteraction = LinkedList<ItemUseTransaction>()
+
+    private var skipSwings = 0
+
     override fun onPacketBound(packet: BedrockPacket) {
         super.onPacketBound(packet)
 
@@ -68,7 +76,7 @@ class LocalPlayer(val session: NetBound) : Player(0L, 0L, UUID.randomUUID(), "")
                 rotate(packet.rotation)
                 tickExists = packet.tick
 
-                
+
                 isOnGround = packet.motion.y == 0f
             }
 
@@ -99,13 +107,33 @@ class LocalPlayer(val session: NetBound) : Player(0L, 0L, UUID.randomUUID(), "")
         }
     }
 
+    fun useItem(inventoryTransaction: ItemUseTransaction) {
+        if (movementServerAuthoritative && inventoriesServerAuthoritative) {
+            pendingItemInteraction.add(inventoryTransaction)
+        } else {
+            session.sendPacket(InventoryTransactionPacket().apply {
+                transactionType = InventoryTransactionType.ITEM_USE
+                legacyRequestId = inventoryTransaction.legacyRequestId
+                actions.addAll(inventoryTransaction.actions)
+                actionType = inventoryTransaction.actionType
+                blockPosition = inventoryTransaction.blockPosition
+                blockFace = inventoryTransaction.blockFace
+                hotbarSlot = inventoryTransaction.hotbarSlot
+                itemInHand = inventoryTransaction.itemInHand
+                playerPosition = inventoryTransaction.playerPosition
+                clickPosition = inventoryTransaction.clickPosition
+                blockDefinition = inventoryTransaction.blockDefinition
+            })
+        }
+    }
+
     fun swing() {
         val animatePacket = AnimatePacket().apply {
             action = AnimatePacket.Action.SWING_ARM
             runtimeEntityId = this@LocalPlayer.runtimeEntityId
         }
 
-       
+
         session.clientBound(animatePacket)
 
         val levelSoundEventPacket = LevelSoundEventPacket().apply {
@@ -117,35 +145,35 @@ class LocalPlayer(val session: NetBound) : Player(0L, 0L, UUID.randomUUID(), "")
             isRelativeVolumeDisabled = false
         }
 
-        //session.serverBound(levelSoundEventPacket)
+        session.serverBound(levelSoundEventPacket)
         session.clientBound(levelSoundEventPacket)
     }
 
-    fun attack(entity: Entity) {
-        swing()
+        fun attack(entity: Entity) {
+            swing()
 
-        Log.e(
-            "Inventory", """
+            Log.e(
+                "Inventory", """
             hotbarSlot: ${inventory.heldItemSlot}
             hand: ${inventory.hand}
         """.trimIndent()
-        )
+            )
 
-        val inventoryTransactionPacket = InventoryTransactionPacket().apply {
-            transactionType = InventoryTransactionType.ITEM_USE_ON_ENTITY
-            actionType = 1
-            runtimeEntityId = entity.runtimeEntityId
-            hotbarSlot = inventory.heldItemSlot
-            itemInHand = inventory.hand
-            playerPosition = vec3Position
-            clickPosition = Vector3f.ZERO
+            val inventoryTransactionPacket = InventoryTransactionPacket().apply {
+                transactionType = InventoryTransactionType.ITEM_USE_ON_ENTITY
+                actionType = 1
+                runtimeEntityId = entity.runtimeEntityId
+                hotbarSlot = inventory.heldItemSlot
+                itemInHand = inventory.hand
+                playerPosition = vec3Position
+                clickPosition = Vector3f.ZERO
+            }
+
+            session.serverBound(inventoryTransactionPacket)
         }
 
-        session.serverBound(inventoryTransactionPacket)
+        override fun onDisconnect() {
+            super.onDisconnect()
+            reset()
+        }
     }
-
-    override fun onDisconnect() {
-        super.onDisconnect()
-        reset()
-    }
-}

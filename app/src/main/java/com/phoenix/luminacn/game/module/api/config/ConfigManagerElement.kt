@@ -41,6 +41,8 @@ class ConfigManagerElement : Element(
     category = CheatCategory.Config,
     displayNameResId = R.string.module_config_manager
 ) {
+    override val state: Boolean
+        get() = isEnabled
     
     val configFiles = mutableStateListOf<ConfigFile>()
 

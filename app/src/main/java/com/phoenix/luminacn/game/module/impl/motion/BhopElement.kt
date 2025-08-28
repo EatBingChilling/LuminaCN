@@ -1,6 +1,5 @@
 package com.phoenix.luminacn.game.module.impl.motion
 
-import com.phoenix.luminacn.R
 import com.phoenix.luminacn.game.InterceptablePacket
 import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.constructors.CheatCategory
@@ -17,7 +16,6 @@ class BhopElement(iconResId: Int = AssetManager.getAsset("ic_chevron_double_up_b
     iconResId,
     displayNameResId = AssetManager.getString("module_bhop_display_name")
 ) {
-
     private val jumpHeight by floatValue("跳跃高度", 0.42f, 0.4f..3.0f)
     private val motionInterval by intValue("间隔", 120, 50..2000)
     private val times by intValue("时间", 1, 1..20)
@@ -34,9 +32,9 @@ class BhopElement(iconResId: Int = AssetManager.getAsset("ic_chevron_double_up_b
 
         val currentTime = System.currentTimeMillis()
 
-        
+
         if (currentTime - lastMotionTime >= motionInterval) {
-            
+
 
 
             if (packet is PlayerAuthInputPacket) {
@@ -47,21 +45,21 @@ class BhopElement(iconResId: Int = AssetManager.getAsset("ic_chevron_double_up_b
                     val motionPacket = SetEntityMotionPacket().apply {
                         runtimeEntityId = session.localPlayer.runtimeEntityId
 
-                        
+
                         motion = Vector3f.from(
-                            session.localPlayer.motionX,  
-                            if ((currentTime / (motionInterval / times)) % 2 == 0L) jumpHeight else -jumpHeight,  
-                            session.localPlayer.motionZ   
+                            session.localPlayer.motionX,
+                            if ((currentTime / (motionInterval / times)) % 2 == 0L) jumpHeight else -jumpHeight,
+                            session.localPlayer.motionZ
                         )
                     }
 
 
-                    
+
                     session.clientBound(motionPacket)
                 }
             }
 
-            
+
             lastMotionTime = currentTime
         }
     }

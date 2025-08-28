@@ -55,7 +55,6 @@ class MinimapElement : Element(
     displayNameResId = R.string.module_minimap_display_name
 ) {
 
-
     private val playerOnly by boolValue("玩家", false)
     private var mobsOnly by boolValue("生物", true)
     private var rangeValue = 1000

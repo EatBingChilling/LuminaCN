@@ -15,6 +15,7 @@ class PingSpoofElement(iconResId: Int = AssetManager.getAsset("ic_timer_sand_bla
     iconResId = iconResId,
     displayNameResId = AssetManager.getString("module_fakeping_display_name")
 ) {
+
     private val pingValue by intValue("Ping(毫秒)", 300, 50..1000)
     private val jitter by intValue("抖动(毫秒)", 50, 0..200)
     private val tickInterval by intValue("Tick间隔", 1, 1..20)

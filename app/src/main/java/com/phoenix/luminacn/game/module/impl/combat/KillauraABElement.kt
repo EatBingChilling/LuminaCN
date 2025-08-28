@@ -23,7 +23,6 @@ class KillauraABElement(iconResId: Int = AssetManager.getAsset("ic_sword_cross_b
     private val delay by intValue("间隔", 5, 1..20)
     private val cps by intValue("CPS", 5, 1..20)
     private val packets by intValue("发包", 1, 1..10)
-    private val derp by boolValue("Derp", true)
     private val mode by stringValue(this, "Mode", "Single", listOf("Single", "Multi", "switch"))
     private val switchDelay by intValue("Delay", 100, 50..200)
 
@@ -71,31 +70,9 @@ class KillauraABElement(iconResId: Int = AssetManager.getAsset("ic_sword_cross_b
     }
 
     private fun attackTarget(target: Entity, now: Long) {
-        if (derp) spoofRotation(session.localPlayer, target)
         repeat(packets) { session.localPlayer.attack(target) }
         lastAttack = now
     }
-
-    private fun spoofRotation(player: LocalPlayer, target: Entity) {
-        val dx = target.vec3Position.x - player.vec3Position.x
-        val dz = target.vec3Position.z - player.vec3Position.z
-        val dy = target.vec3Position.y - player.vec3Position.y
-
-        val yaw = Math.toDegrees(atan2(-dx, dz).toDouble()).toFloat()
-        val pitch = Math.toDegrees((-atan2(dy, sqrt(dx * dx + dz * dz))).toDouble()).toFloat()
-
-        session.clientBound(MovePlayerPacket().apply {
-            runtimeEntityId = player.runtimeEntityId
-            position = player.vec3Position
-            rotation = Vector3f.from(yaw, pitch, yaw)
-            mode = MovePlayerPacket.Mode.NORMAL
-            isOnGround = true
-            tick = (clientTickCounter++.and(0xFFFF)).toLong()
-        })
-    }
-
-    private var clientTickCounter = 0
-        get() = field++
 
     private fun showNotification(targets: List<Entity>, now: Long) {
         val target = targets.first()
@@ -106,17 +83,19 @@ class KillauraABElement(iconResId: Int = AssetManager.getAsset("ic_sword_cross_b
 
         session.showNotification(
             "正在攻击 $entityName$targetCount",
-            "$coords | 距离: ${distance}b | CPS: $cps | 模式: ${getModeName()}",
+            "$coords | 距离: ${distance}b | CPS: $cps | 模式: ${getStatusInfo()}",
             com.phoenix.luminacn.R.drawable.swords_24px
         )
         lastNotificationTime = now
     }
 
-    private fun getModeName(): String = when (mode) {
-        "Single" -> "单目标"
-        "switch" -> "切换目标"
-        "Multi" -> "多目标"
-        else -> "未知"
+    override fun getStatusInfo(): String {
+        return when (mode) {
+            "Single" -> "单目标"
+            "switch" -> "切换目标"
+            "Multi" -> "多目标"
+            else -> mode
+        }
     }
 
     private fun getEntityName(entity: Entity): String = when (entity) {

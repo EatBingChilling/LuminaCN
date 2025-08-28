@@ -16,7 +16,6 @@ class WorldSaveElement : Element(
     category = CheatCategory.World,
     displayNameResId = R.string.module_world_save_display_name
 ) {
-
     private var saveOnce = false
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {

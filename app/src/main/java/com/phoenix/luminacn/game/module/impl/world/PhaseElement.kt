@@ -20,7 +20,6 @@ class PhaseElement(iconResId: Int = AssetManager.getAsset("ic_ghost_black_24dp")
     iconResId,
     displayNameResId = AssetManager.getString("module_phase_display_name")
 ) {
-
     private val enableNoClipAbilitiesPacket = UpdateAbilitiesPacket().apply {
         playerPermission = PlayerPermission.OPERATOR
         commandPermission = CommandPermission.OWNER

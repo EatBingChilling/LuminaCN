@@ -18,6 +18,7 @@ class JetPackElement(iconResId: Int = AssetManager.getAsset("ic_ethereum_black_2
     iconResId,
     displayNameResId = AssetManager.getString("module_jet_pack_display_name")
 ) {
+
     private var speed by floatValue("速度", 0.5f, 0.1f..1.5f)
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {

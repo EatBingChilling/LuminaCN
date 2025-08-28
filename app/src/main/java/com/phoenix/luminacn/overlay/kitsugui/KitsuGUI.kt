@@ -101,7 +101,7 @@ class KitsuGUI : OverlayWindow() {
         val cardWidth = 660.dp
         val cardHeight = 500.dp
 
-        
+
         var shouldAnimate by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
@@ -110,7 +110,7 @@ class KitsuGUI : OverlayWindow() {
             shouldAnimate = true
         }
 
-        
+
         val translateY by animateFloatAsState(
             targetValue = if (shouldAnimate) 0f else 100f,
             animationSpec = tween(
@@ -120,7 +120,7 @@ class KitsuGUI : OverlayWindow() {
             label = "slideAnimation"
         )
 
-        
+
         val alpha by animateFloatAsState(
             targetValue = if (shouldAnimate) 1f else 0f,
             animationSpec = tween(
@@ -214,7 +214,7 @@ class KitsuGUI : OverlayWindow() {
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
@@ -368,7 +368,7 @@ class KitsuGUI : OverlayWindow() {
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -376,7 +376,7 @@ class KitsuGUI : OverlayWindow() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    
+
                     key(selectedCheatCategory) {
                         val titleAlpha by animateFloatAsState(
                             targetValue = 1f,
@@ -398,7 +398,7 @@ class KitsuGUI : OverlayWindow() {
                         )
                     }
 
-                    
+
                     Row(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
@@ -433,7 +433,7 @@ class KitsuGUI : OverlayWindow() {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                
+
                 key(selectedCheatCategory) {
                     AnimatedVisibility(
                         visible = true,

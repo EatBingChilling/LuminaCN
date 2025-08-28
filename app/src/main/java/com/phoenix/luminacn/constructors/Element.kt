@@ -10,7 +10,24 @@ import com.phoenix.luminacn.overlay.manager.OverlayManager
 import com.phoenix.luminacn.overlay.mods.OverlayModuleList
 import com.phoenix.luminacn.overlay.mods.OverlayNotification
 import com.phoenix.luminacn.overlay.manager.OverlayShortcutButton
+import com.phoenix.luminacn.constructors.NetBound
+import com.phoenix.luminacn.game.event.EventHook
+import com.phoenix.luminacn.game.event.EventTick
+import com.phoenix.luminacn.game.event.Handler
+import com.phoenix.luminacn.game.event.EventManager
+import com.phoenix.luminacn.game.event.GameEvent
+import com.phoenix.luminacn.game.event.EventModuleToggle
+import com.phoenix.luminacn.game.module.api.setting.ChoiceValue
 import kotlinx.serialization.json.*
+import kotlin.properties.Delegates
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 abstract class Element(
     val name: String,
@@ -18,18 +35,42 @@ abstract class Element(
     val iconResId: Int = 0,
     defaultEnabled: Boolean = false,
     val private: Boolean = false,
-    @StringRes open val displayNameResId: Int? = null
+    @StringRes open val displayNameResId: Int? = null,
+    val canToggle: Boolean = true
 ) : InterruptiblePacketHandler, Configurable {
+
+    open val state: Any
+        get() = isEnabled
 
     open lateinit var session: NetBound
     private var _isEnabled by mutableStateOf(defaultEnabled)
 
+    protected val handlers = mutableListOf<EventHook<in GameEvent>>()
+    lateinit var moduleManager: GameManager
+
     var isEnabled: Boolean
         get() = _isEnabled
         set(value) {
-            if (_isEnabled != value) {
-                _isEnabled = value
-                if (value) onEnabled() else onDisabled()
+            if (_isEnabled == value) return
+
+            if (this::session.isInitialized) {
+                val event = EventModuleToggle(session, this, value)
+                session.eventManager.emit(event)
+                if (event.isCanceled()) {
+                    return
+                }
+            }
+
+            if (!canToggle) {
+                onEnabled()
+                return
+            }
+
+            _isEnabled = value
+            if (value) {
+                onEnabled()
+            } else {
+                onDisabled()
             }
         }
 
@@ -44,6 +85,10 @@ abstract class Element(
     val overlayShortcutButton by lazy { OverlayShortcutButton(this) }
     override val values: MutableList<Value<*>> = ArrayList()
 
+    open fun getStatusInfo(): String {
+        return ""
+    }
+
     open fun onEnabled() {
         ArrayListManager.addModule(this)
         sendToggleMessage(true)
@@ -54,7 +99,46 @@ abstract class Element(
         sendToggleMessage(false)
     }
 
-    /* ========= 以下两行必须加 override ========= */
+    open fun toggle() {
+        this.isEnabled = !this.isEnabled
+    }
+
+    @Suppress("unchecked_cast")
+    protected inline fun <reified T : GameEvent> handle(noinline handler: Handler<T>) {
+        handlers.add(EventHook(T::class.java, handler) { this.isEnabled } as EventHook<in GameEvent>)
+    }
+
+    @Suppress("unchecked_cast")
+    protected inline fun <reified T : GameEvent> handle(crossinline condition: () -> Boolean, noinline handler: Handler<T>) {
+        handlers.add(EventHook(T::class.java, handler) { this.isEnabled && condition() } as EventHook<in GameEvent>)
+    }
+
+    @Suppress("unchecked_cast")
+    protected inline fun <reified T : GameEvent> handleEvent(crossinline condition: (T) -> Boolean, noinline handler: Handler<T>) {
+        handlers.add(EventHook(T::class.java, handler) { this.isEnabled && condition(it) } as EventHook<in GameEvent>)
+    }
+
+    @Suppress("unchecked_cast")
+    protected inline fun <reified T : GameEvent> handleOneTime(crossinline condition: (T) -> Boolean, noinline handler: Handler<T>) {
+        var trigger = false
+        handlers.add(EventHook(T::class.java, handler) {
+            val satisfied = condition(it)
+            if (this.isEnabled) {
+                if (satisfied &&!trigger) {
+                    trigger = true
+                    true
+                } else {
+                    if (!satisfied) {
+                        trigger = false
+                    }
+                    false
+                }
+            } else {
+                trigger = false
+                false
+            }  } as EventHook<in GameEvent>)
+    }
+
     open fun toJson() = buildJsonObject {
         put("state", isEnabled)
         put("values", buildJsonObject {
@@ -98,8 +182,6 @@ abstract class Element(
         }
     }
 
-
-    /* ========= 通知：使用双参数扩展接口 ========= */
     private fun sendToggleMessage(enabled: Boolean) {
         if (!isSessionCreated) return
         try {

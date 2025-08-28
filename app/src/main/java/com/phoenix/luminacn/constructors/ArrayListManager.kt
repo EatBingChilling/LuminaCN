@@ -33,7 +33,10 @@ object ArrayListManager {
     enum class SoundSet {
         CELESTIAL,
         ALTERNATE,
-        SPECIAL
+        SPECIAL,
+        PROTOHAX,
+        SYNEO,
+        SYBRSE
     }
 
     
@@ -64,6 +67,18 @@ object ArrayListManager {
                 soundPairs[SoundSet.SPECIAL] = SoundPair(
                     load(context, R.raw.nursultan_on, 1),
                     load(context, R.raw.nursultan_off, 1)
+                )
+                soundPairs[SoundSet.PROTOHAX] = SoundPair(
+                    load(context, R.raw.protohax_on, 1),
+                    load(context, R.raw.protohax_off, 1)
+                )
+                soundPairs[SoundSet.SYNEO] = SoundPair(
+                    load(context, R.raw.syneo_on, 1),
+                    load(context, R.raw.syneo_off, 1)
+                )
+                soundPairs[SoundSet.SYBRSE] = SoundPair(
+                    load(context, R.raw.sybrse_on, 1),
+                    load(context, R.raw.sybrse_off, 1)
                 )
             }
     }

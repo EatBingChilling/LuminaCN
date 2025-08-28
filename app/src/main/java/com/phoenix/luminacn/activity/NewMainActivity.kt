@@ -68,7 +68,7 @@ class NewMainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (Settings.canDrawOverlays(this)) {
                 Log.i("NewMainActivity", "Overlay permission has been granted by user.")
-                (applicationContext as AppContext).checkOverlayPermissionAndStartServices()
+                (applicationContext as AppContext)//.checkOverlayPermissionAndStartServices()
             } else {
                 Log.w("NewMainActivity", "Overlay permission was not granted by user.")
                 Toast.makeText(this, "悬浮窗权限未授予，部分功能无法显示", Toast.LENGTH_LONG).show()

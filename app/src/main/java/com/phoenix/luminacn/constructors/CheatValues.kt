@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.int
+import kotlin.properties.Delegates
 import kotlin.reflect.KProperty
 
 interface Configurable {
@@ -39,11 +40,16 @@ interface Configurable {
     fun listValue(@StringRes nameResId: Int, value: ListItem, choices: Set<ListItem>) =
         ListValue(nameResId, value, choices).also { values.add(it) }
 
+    fun <T : Enum<T>> enumValue(name: String, value: T, enumClass: Class<T>) =
+        EnumValue(name, value, enumClass).also { values.add(it) }
+
+    fun stringeValue(name: String, defaultValue: String, listOf: List<String>?) =
+        StringeValue(name, defaultValue).also { values.add(it) }
+
 }
 
 @Suppress("MemberVisibilityCanBePrivate")
 sealed class Value<T>(val name: String, val defaultValue: T) {
-
     @StringRes
     var nameResId: Int = 0
 
@@ -51,7 +57,23 @@ sealed class Value<T>(val name: String, val defaultValue: T) {
         this.nameResId = nameResId
     }
 
-    var value: T by mutableStateOf(defaultValue)
+    private val changeListeners = mutableListOf<(T) -> Unit>()
+
+    // 使用 mutableStateOf 替代 Delegates.observable
+    private var _state by mutableStateOf(defaultValue)
+
+    fun addChangeListener(listener: (T) -> Unit) {
+        changeListeners.add(listener)
+    }
+
+    open var value: T
+        get() = _state
+        set(newValue) {
+            if (_state != newValue) {
+                _state = newValue
+                changeListeners.forEach { it(newValue) }
+            }
+        }
 
     open fun reset() {
         value = defaultValue
@@ -66,10 +88,9 @@ sealed class Value<T>(val name: String, val defaultValue: T) {
     }
 
     abstract fun toJson(): JsonElement
-
     abstract fun fromJson(element: JsonElement)
-
 }
+
 
 class BoolValue : Value<Boolean> {
     constructor(name: String, defaultValue: Boolean) : super(name, defaultValue)
@@ -124,8 +145,36 @@ class IntValue : Value<Int> {
     }
 }
 
+class EnumValue<T : Enum<T>>(name: String, defaultValue: T, val enumClass: Class<T>) :
+    Value<T>(name, defaultValue) {
+
+    override fun toJson() = JsonPrimitive(value.name)
+
+    override fun fromJson(element: JsonElement) {
+        if (element is JsonPrimitive) {
+            try {
+                value = java.lang.Enum.valueOf(enumClass, element.content)
+            } catch (e: IllegalArgumentException) {
+                reset()
+            }
+        }
+    }
+}
+
+class StringeValue(name: String, defaultValue: String) : Value<String>(name, defaultValue) {
+
+    override fun toJson() = JsonPrimitive(value)
+
+    override fun fromJson(element: JsonElement) {
+        if (element is JsonPrimitive) {
+            value = element.content
+        }
+    }
+
+}
+
 @Suppress("MemberVisibilityCanBePrivate")
-class ListValue : Value<ListItem> {
+open class ListValue : Value<ListItem> {
     val listItems: Set<ListItem>
 
     constructor(name: String, defaultValue: ListItem, listItems: Set<ListItem>) : super(name, defaultValue) {

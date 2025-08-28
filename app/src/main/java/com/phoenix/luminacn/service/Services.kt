@@ -35,7 +35,11 @@ import com.project.lumina.relay.listener.XboxLoginPacketListener
 import com.project.lumina.relay.util.XboxIdentityTokenCacheFileSystem
 import com.project.lumina.relay.util.captureLuminaRelay
 import android.app.ActivityManager
+import android.graphics.PixelFormat
+import android.view.WindowManager
+import com.phoenix.luminacn.game.module.impl.visual.EspElement
 import com.phoenix.luminacn.remlink.TerminalViewModel
+import com.phoenix.luminacn.shiyi.RenderOverlayView
 import java.io.File
 import kotlin.concurrent.thread
 
@@ -57,6 +61,9 @@ class Services : Service() {
         var RemisOnline by mutableStateOf(false)
         var RemInGame by mutableStateOf(false)
         var isLaunchingMinecraft by mutableStateOf(false)
+
+        private var renderView: RenderOverlayView? = null
+        private var windowManager: WindowManager? = null
 
         fun toggle(context: Context, captureModeModel: CaptureModeModel) {
             if (!isActive) {
@@ -85,16 +92,15 @@ class Services : Service() {
             val currentActivity = activityManager.appTasks
                 .flatMap { it.taskInfo.topActivity?.className?.let { listOf(it) } ?: emptyList() }
                 .firstOrNull()
-            // 删除远程连接相关代码
             RemisOnline = false
 
-
-            // [MODIFIED] 修改悬浮窗显示逻辑，使其在竖屏和横屏都显示
             if (!RemisOnline) {
                 handler.post {
                     OverlayManager.show(context)
                 }
             }
+
+            setupOverlay(context)
 
             thread = thread(name = "LuminaRelayThread") {
                 runCatching {
@@ -163,6 +169,9 @@ class Services : Service() {
                     OverlayManager.dismiss()
                     ConnectionInfoOverlay.dismiss()
                 }
+
+                removeOverlay()
+
                 TerminalViewModel.addTerminalLog("连接", "服务已停止.")
             }
         }
@@ -192,9 +201,53 @@ class Services : Service() {
                 TerminalViewModel.addTerminalLog("错误", "初始化模块时遇到错误: ${e.message}")
             }
         }
+
+        private fun setupOverlay(context: Context) {
+            windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                } else {
+                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+                },
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    alpha = 0.8f
+                    flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                    setFitInsetsTypes(0)
+                    setFitInsetsSides(0)
+                }
+            }
+
+            renderView = RenderOverlayView(context)
+            EspElement.setRenderView(renderView!!)
+
+            handler.post {
+                try {
+                    windowManager?.addView(renderView, params)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    context.toast("Failed to add overlay view: ${e.message}")
+                }
+            }
+        }
+
+        private fun removeOverlay() {
+            renderView?.let { view ->
+                windowManager?.removeView(view)
+                renderView = null
+            }
+        }
     }
 
-    // 添加标志来追踪服务是否被用户主动停止
     private var isStoppedByUser = false
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -204,7 +257,6 @@ class Services : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        // 设置为前台服务，防止被系统杀死
         startForeground(NOTIFICATION_ID, createNotification("Lumina Capture 服务正在运行"))
     }
 
@@ -225,13 +277,11 @@ class Services : Service() {
             }
         }
 
-        // 返回START_NOT_STICKY，防止系统自动重启服务
         return START_NOT_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // 只有在服务不是被用户主动停止的情况下才重启
         if (!isStoppedByUser && isActive) {
             val restartServiceIntent = Intent(applicationContext, Services::class.java)
             restartServiceIntent.setPackage(packageName)
@@ -242,7 +292,6 @@ class Services : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 只有在服务不是被用户主动停止的情况下才考虑重启
         if (!isStoppedByUser && isActive) {
             val restartServiceIntent = Intent(applicationContext, Services::class.java)
             restartServiceIntent.setPackage(packageName)
@@ -251,13 +300,10 @@ class Services : Service() {
         }
     }
 
-    // [MODIFIED] 修改屏幕旋转逻辑，确保悬浮窗在竖屏和横屏下都能保持显示
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         if (!isActive || RemisOnline) return
 
-        // 无论屏幕方向如何，只要服务是激活的，就确保悬浮窗显示
-        // 这可以防止从横屏转为竖屏时悬浮窗被隐藏
         handler.post {
             OverlayManager.show(this)
         }

@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    
+
 
     <!-- 通知 / 前台服务 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -106,7 +106,6 @@
 
         <activity android:name=".activity.CrashHandlerActivity" />
 
-        <!-- 自定义前台服务 -->
         <service
             android:name=".service.Services"
             android:exported="false"
@@ -123,10 +122,10 @@
 
 
         <service
-              android:name=".service.DynamicIslandService"
-              android:foregroundServiceType="specialUse"
-              android:exported="true">
-              <property
+            android:name=".service.DynamicIslandService"
+            android:foregroundServiceType="specialUse"
+            android:exported="true">
+            <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floating_window"/>
         </service>
@@ -145,31 +144,31 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-    <service
-    android:name=".service.ESPService" 
-    android:foregroundServiceType="specialUse"
-    android:exported="true">
-                  <property
+        <service
+            android:name=".service.ESPService"
+            android:foregroundServiceType="specialUse"
+            android:exported="true">
+            <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floating_window"/>
-    </service>
-    
-            <!-- 开机自启广播接收器 -->
-    <receiver
-        android:name=".receiver.BootReceiver"
-        android:enabled="true"
-        android:exported="true">
-        <intent-filter>
-            <action android:name="android.intent.action.BOOT_COMPLETED" />
-        </intent-filter>
-    </receiver>
+        </service>
 
-    <!-- 保活前台服务 -->
-    <service
-        android:name=".service.PersistentService"
-        android:enabled="true"
-        android:exported="false"
-        android:foregroundServiceType="specialUse" />
+        <!-- 开机自启广播接收器 -->
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 保活前台服务 -->
+        <service
+            android:name=".service.PersistentService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
 
 
         <!-- ImGui 服务 -->

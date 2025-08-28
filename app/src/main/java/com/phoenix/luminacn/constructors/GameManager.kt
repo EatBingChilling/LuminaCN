@@ -12,7 +12,6 @@ import com.phoenix.luminacn.game.module.impl.world.StrafeElement
 import com.phoenix.luminacn.game.module.impl.combat.TPAuraElement
 import com.phoenix.luminacn.game.module.impl.combat.TriggerBotElement
 import com.phoenix.luminacn.game.module.impl.combat.VelocityElement
-import com.phoenix.luminacn.game.module.impl.combat.ReachElement
 import com.phoenix.luminacn.game.module.api.config.ConfigManagerElement
 import com.phoenix.luminacn.game.module.impl.world.HasteElement
 import com.phoenix.luminacn.game.module.impl.misc.AntiKickElement
@@ -41,7 +40,7 @@ import com.phoenix.luminacn.game.module.impl.motion.JetPackElement
 import com.phoenix.luminacn.game.module.impl.motion.JitterFlyElement
 import com.phoenix.luminacn.game.module.impl.motion.LongJumpElement
 import com.phoenix.luminacn.game.module.impl.motion.MotionFlyElement
-import com.phoenix.luminacn.game.module.impl.combat.OpFightBotElement
+import com.phoenix.luminacn.game.module.impl.combat.OPFightBotElement
 import com.phoenix.luminacn.game.module.api.commands.CmdListener
 import com.phoenix.luminacn.game.module.impl.misc.KeyStrokes
 import com.phoenix.luminacn.game.module.impl.misc.TargetHud
@@ -71,13 +70,15 @@ import com.phoenix.luminacn.game.module.impl.misc.PlayerTracerElement
 import com.phoenix.luminacn.game.module.impl.misc.ReplayElement
 import com.phoenix.luminacn.game.module.impl.misc.TimeShiftElement
 import com.phoenix.luminacn.game.module.impl.misc.WeatherControllerElement
-
-import com.phoenix.luminacn.game.module.impl.combat.LockHeedElement
-import com.phoenix.luminacn.game.module.impl.combat.KillauraCDElement
-import com.phoenix.luminacn.game.module.impl.combat.RotationAuraElement
-
 import com.phoenix.luminacn.game.module.impl.combat.AutoTotemElement
-
+import com.phoenix.luminacn.game.module.impl.visual.WaterMarkShiyiElement
+import com.phoenix.luminacn.game.module.impl.visual.ArrayListShiyiElement
+import com.phoenix.luminacn.game.module.impl.combat.KillauraV2Element
+import com.phoenix.luminacn.game.module.impl.combat.FightBotElement
+import com.phoenix.luminacn.game.module.impl.misc.ChestStealerElement
+import com.phoenix.luminacn.game.module.impl.combat.GodModeElement
+import com.phoenix.luminacn.game.module.impl.motion.TPFlyElement
+import com.phoenix.luminacn.game.module.impl.combat.AutoArmorElement
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -99,14 +100,12 @@ object GameManager {
 
     init {
         with(_elements) {
-            add(KillauraCDElement())
-            add(LockHeedElement())
-            add(RotationAuraElement())
             add(FlyElement())
             add(ZoomElement())
             add(AirJumpElement())
             add(AutoWalkElement())
             add(NoClipElement())
+            add(AutoArmorElement())
             add(AutoTotemElement())
             add(HasteElement())
             add(SpeedElement())
@@ -129,8 +128,6 @@ object GameManager {
             add(FullStopElement())
             add(JitterFlyElement())
             add(PhaseElement())
-            add(EspElement())
-            add(ReachElement())
             //add(MaceAuraElement())
             //add(CrystalAuraElement())
             add(AntiBotElement())
@@ -139,7 +136,7 @@ object GameManager {
             add(InfiniteAuraElement())
             add(DamageBoostElement())
             add(FullBrightElement())
-            add(OpFightBotElement())
+            add(FightBotElement())
             add(FollowBotElement())
             add(VelocityElement())
             add(AntiKickElement())
@@ -175,6 +172,14 @@ object GameManager {
                 add(ReplayElement())
                 add(TimeShiftElement())
                 add(WeatherControllerElement())
+                add(WaterMarkShiyiElement())
+                add(ArrayListShiyiElement())
+                add(EspElement())
+                add(KillauraV2Element())
+                add(OPFightBotElement())
+                add(ChestStealerElement())
+                add(GodModeElement())
+                add(TPFlyElement())
 
             }
         }

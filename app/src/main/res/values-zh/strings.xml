@@ -106,7 +106,7 @@
     <string name="module_weakness">虚弱</string>
     <string name="module_poison">中毒</string>
     <string name="module_wither">凋零</string>
-    <string name="module_esp_display_name">透视（不可用）</string>
+    <string name="module_esp_display_name">透视</string>
     <string name="module_critbot_display_name">刀刀暴击</string>
     <string name="module_infiniteaura_display_name">无限光环</string>
     <string name="module_reach_display_name">长臂</string>
@@ -131,6 +131,13 @@
     <string name="module_anti_crystal_display_name">防水晶</string>
     <string name="module_weather_controller_display_name">天气控制器</string>
     <string name="module_killaura_display_name">杀戮光环</string>
+    <string name="module_killaurav2_display_name">杀戮光环V2</string>
+    <string name="module_tpfly_display_name">传送飞行</string>
+    <string name="module_cheststealer_display_name">箱子小偷</string>
+    <string name="module_godmode_display_name">上帝模式</string>
+    <string name="module_clicktp_display_name">点击传送</string>
+    <string name="module_tracer_display_name">目标射线</string>
+    <string name="module_autoarmor_display_name">自动穿甲</string>
 
     <string name="module_crash_attack_display_name">崩溃攻击</string>
     <string name="module_crasher_display_name">崩溃器</string>
@@ -253,8 +260,7 @@
     <string name="module_glide_display_name">滑行</string>
     <string name="module_step_display_name">自动上坡</string>
 
-    <string name="module_killauraab_display_name">杀戮光环2（更多模式）</string>
-    <string name="module_lock_heed_display_name">转头</string>
+    <string name="module_killauraab_display_name">杀戮光环2</string>
     <string name="module_fakeping_display_name">假延迟</string>
     <string name="module_farsight_display_name">贴脸开大</string>
     <string name="module_damage_text_display_name">伤害提示</string>
@@ -262,7 +268,7 @@
     <string name="luminacn_dev">LuminaCN 开发者: 十一, Phoen1x_</string>
     
     <string name="module_antibot_display_name">防假人</string>
-        <string name="module_killauracd_display_name">杀戮光环3（测试）</string>
+
         <string name="module_autototem_display_name">自动图腾</string>
     
 </resources>

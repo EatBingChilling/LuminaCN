@@ -19,6 +19,7 @@ class JitterFlyElement(iconResId: Int = AssetManager.getAsset("ic_menu_arrow_up_
     iconResId,
     displayNameResId = AssetManager.getString("module_jitterfly_display_name")
 ) {
+
     private val glideSpeed by floatValue("滑行速度", 0.0f, -2.0f..1.0f)
     private val verticalSpeedUp by floatValue("上升速度", 0.2f, 0.1f..1.0f)
     private val verticalSpeedDown by floatValue("下降速度", 0.2f, 0.1f..1.0f)

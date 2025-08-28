@@ -45,10 +45,11 @@ import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket
 
 class SpeedoMeterElement(iconResId: Int = AssetManager.getAsset("ic_speedometer_black_24dp")) : Element(
     name = "SpeedoMeter",
-    category = CheatCategory.Misc,
+    category = CheatCategory.Visual,
     iconResId,
     displayNameResId = AssetManager.getString("module_speedm_display_name")
 ) {
+
     override fun onEnabled() {
         super.onEnabled()
 

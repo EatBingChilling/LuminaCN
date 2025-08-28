@@ -10,6 +10,8 @@ import com.phoenix.luminacn.util.AssetManager
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAbilitiesPacket
 
 class MotionVarElement : Element("_var_", CheatCategory.Motion) {
+    override val state: Boolean
+        get() = isEnabled
 
     init {
         isEnabled = true

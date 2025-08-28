@@ -18,9 +18,10 @@ import kotlin.math.sqrt
 
 class PlayerTracerElement : Element(
     name = "PlayerTracer",
-    category = CheatCategory.Misc,
+    category = CheatCategory.Visual,
     displayNameResId = AssetManager.getString("module_player_tracer_display_name")
 ) {
+
     
     private val playersInfo = mutableMapOf<Long, PlayerInfo>()
     private var playerPosition = Vector3f.from(0f, 0f, 0f)

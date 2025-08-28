@@ -12,7 +12,7 @@ import kotlin.math.*
 
 class KeyStrokes : Element(
     name = "KeyStrokes",
-    category = CheatCategory.Misc,
+    category = CheatCategory.Visual,
     displayNameResId = AssetManager.getString("module_keystrokes")
 ) {
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import com.phoenix.luminacn.constructors.*
 import com.phoenix.luminacn.overlay.manager.OverlayManager
+import com.phoenix.luminacn.util.translatedSelf
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -125,6 +126,8 @@ private fun ModuleCard(element: Element) {
                             is FloatValue -> FloatValueContent(value)
                             is IntValue -> IntValueContent(value)
                             is ListValue -> ChoiceValueContent(value)
+                            is EnumValue<*> -> EnumValueContent(value)
+                            is StringeValue -> StringeValueContent(value)
                         }
                     }
 
@@ -514,6 +517,70 @@ private fun BoolValueContent(value: BoolValue) {
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+        )
+    }
+}
+
+@Composable
+private fun <T : Enum<T>> EnumValueContent(value: EnumValue<T>) {
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
+    ) {
+        Text(
+            value.name.translatedSelf,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+        ) {
+            value.enumClass.enumConstants?.forEach { enumValue ->
+                ElevatedFilterChip(
+                    selected = value.value == enumValue,
+                    onClick = {
+                        if (value.value != enumValue) {
+                            value.value = enumValue
+                        }
+                    },
+                    label = {
+                        Text(enumValue.name.translatedSelf)
+                    },
+                    modifier = Modifier.height(30.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StringeValueContent(value: StringeValue) {
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
+    ) {
+        Text(
+            value.name.translatedSelf,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        OutlinedTextField(
+            value = value.value,
+            onValueChange = { value.value = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.White,
+                unfocusedBorderColor = Color.Gray,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
             )
         )
     }

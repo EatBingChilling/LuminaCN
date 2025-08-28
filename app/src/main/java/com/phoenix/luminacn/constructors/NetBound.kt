@@ -6,6 +6,7 @@ import com.phoenix.luminacn.game.InterceptablePacket
 import com.phoenix.luminacn.game.entity.LocalPlayer
 import com.phoenix.luminacn.game.event.EventManager
 import com.phoenix.luminacn.game.event.EventPacketInbound
+import com.phoenix.luminacn.game.event.EventPacketOutbound
 import com.phoenix.luminacn.game.registry.BlockMapping
 import com.phoenix.luminacn.game.registry.BlockMappingProvider
 import com.phoenix.luminacn.game.world.Level
@@ -161,6 +162,14 @@ class NetBound(val luminaRelaySession: LuminaRelaySession) : ComposedPacketHandl
 }
 
         return false
+    }
+
+    fun sendPacket(packet: BedrockPacket) {
+        val event = EventPacketOutbound(this, packet)
+        eventManager.emit(event)
+        if (event.isCanceled()) {
+            return
+        }
     }
 
     override fun afterPacketBound(packet: BedrockPacket) {

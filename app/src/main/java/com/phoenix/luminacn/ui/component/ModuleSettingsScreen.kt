@@ -52,14 +52,17 @@ import coil.compose.AsyncImagePainter.State.Empty.painter
 import com.phoenix.luminacn.R
 import com.phoenix.luminacn.constructors.BoolValue
 import com.phoenix.luminacn.constructors.Element
+import com.phoenix.luminacn.constructors.EnumValue
 import com.phoenix.luminacn.constructors.FloatValue
 import com.phoenix.luminacn.constructors.IntValue
 import com.phoenix.luminacn.constructors.ListValue
+import com.phoenix.luminacn.constructors.StringeValue
 import com.phoenix.luminacn.overlay.grace.BoolValueContent
 import com.phoenix.luminacn.overlay.grace.ChoiceValueContent
 import com.phoenix.luminacn.overlay.grace.FloatValueContent
 import com.phoenix.luminacn.overlay.grace.IntValueContent
 import com.phoenix.luminacn.overlay.grace.ShortcutContent
+import com.phoenix.luminacn.shiyi.Theme.ShiyiColors
 
 @SuppressLint("UseOfNonLambdaOffsetOverload")
 @Composable
@@ -150,7 +153,13 @@ fun ModuleSettingsScreen(
                                 is FloatValue -> FloatValueContent(it)
                                 is IntValue -> IntValueContent(it)
                                 is ListValue -> ChoiceValueContent(it)
-
+                                else -> {
+                                    Text(
+                                        text = "Unsupported type",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ShiyiColors.OnSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
                             }
                         }
 

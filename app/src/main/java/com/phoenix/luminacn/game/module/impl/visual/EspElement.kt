@@ -1,5 +1,6 @@
 package com.phoenix.luminacn.game.module.impl.visual
 
+import android.annotation.SuppressLint
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -8,12 +9,15 @@ import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.game.InterceptablePacket
 import com.phoenix.luminacn.game.entity.Entity
 import com.phoenix.luminacn.game.entity.Player
-import com.phoenix.luminacn.ui.ESPOverlayView
+import com.phoenix.luminacn.game.module.api.setting.stringValue
+import com.phoenix.luminacn.shiyi.RenderOverlayView
 import com.phoenix.luminacn.util.AssetManager
+import com.phoenix.luminacn.util.ColorUtils
 import org.cloudburstmc.math.matrix.Matrix4f
 import org.cloudburstmc.math.vector.Vector2f
 import org.cloudburstmc.math.vector.Vector3f
-import kotlin.math.*
+import kotlin.math.cos
+import kotlin.math.sin
 
 class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : Element(
     name = "ESP",
@@ -21,163 +25,54 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     iconResId,
     displayNameResId = AssetManager.getString("module_esp_display_name")
 ) {
-    // --- Settings ---
-    private val fov by floatValue("FOV", 90f, 40f..120f)
-    private val strokeWidth by floatValue("线条宽度", 2f, 1f..10f)
-    private val colorRed by intValue("红 (R)", 255, 0..255)
-    private val colorGreen by intValue("绿 (G)", 0, 0..255)
-    private val colorBlue by intValue("蓝 (B)", 0, 0..255)
-    private val players by boolValue("玩家", true)
-    private val mobs by boolValue("生物", false)
-    private val showDistance by boolValue("距离", true)
-    private val showNames by boolValue("名称", true)
-    private val use2DBox by boolValue("2D方框", true)
-    private val use3DBox by boolValue("3D方框", false)
-    private val useCornerBox by boolValue("角框", false)
-    private val tracers by boolValue("射线", false)
-    private val tracerBottom by boolValue("底部", true)
-    private val tracerTop by boolValue("顶部", false)
+    companion object {
+        private var renderView: RenderOverlayView? = null
+
+        fun setRenderView(view: RenderOverlayView) {
+            renderView = view
+        }
+    }
+
+    private val fov by floatValue("fov", 80f, 40f..180f)
+    private val mode by stringValue("box_style", "2D", listOf("2D", "3D", "corner"))
+    private val strokeWidth by floatValue("stroke_width", 2f, 1f..10f)
+    private val rainbowValue by boolValue("Rainbow", true)
+    private val colorRed by intValue("color_red", 255, 0..255)
+    private val colorGreen by intValue("color_green", 0, 0..255)
+    private val colorBlue by intValue("color_blue", 0, 0..255)
+
+    private val showAllEntities by boolValue("show_all_entities", false)
+    private val showDistance by boolValue("show_distance", true)
+    private val showNames by boolValue("show_names", true)
+
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
-        if (isEnabled && session.localPlayer != null) {
-            ESPOverlayView.instance?.postInvalidate()
-        }
     }
 
-    fun onRender2D(canvas: Canvas) {
-        // [!!] 崩溃修复点:
-        // 使用 `?: return` 安全地获取 localPlayer。
-        // 如果 session.localPlayer 为 null，函数会在此处直接返回，避免后续的空指针异常。
-        val player = session.localPlayer ?: return
-        if (!isEnabled) return
-
-        val entities = session.level.entityMap.values.filter { shouldRenderEntity(it) }
-        if (entities.isEmpty()) return
-
-        val screenWidth = canvas.width
-        val screenHeight = canvas.height
-
-        // [!!] 视角修复点: 移除了 Y 轴旋转中多余的 "- 180f"。
-        val viewMatrix = rotateX(-player.vec3Rotation.x)
-            .mul(rotateY(-player.vec3Rotation.y))
-            .mul(Matrix4f.createTranslation(player.vec3Position.add(0f, 1.62f, 0f).mul(-1f)))
-
-        val projectionMatrix = Matrix4f.createPerspective(fov, screenWidth.toFloat() / screenHeight, 0.1f, 100f)
-        val viewProjMatrix = projectionMatrix.mul(viewMatrix)
-
-        val paint = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = this@EspElement.strokeWidth
-            color = Color.rgb(colorRed, colorGreen, colorBlue)
-            isAntiAlias = true
-        }
-
-        entities.forEach { entity ->
-            // 现在可以安全地将 non-null 的 player 传递给需要它的函数
-            drawEntityESP(entity, player, viewProjMatrix, screenWidth, screenHeight, canvas, paint)
-        }
+    override fun onEnabled() {
+        super.onEnabled()
+        renderView?.invalidate()
     }
 
-    private fun drawEntityESP(entity: Entity, localPlayer: Player, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int, canvas: Canvas, paint: Paint) {
-        val boxVertices = getEntityBoxVertices(entity)
-        val screenPositions = boxVertices.mapNotNull { worldToScreen(it, viewProjMatrix, screenWidth, screenHeight) }
-
-        if (screenPositions.isEmpty()) return
-
-        var minX = Float.MAX_VALUE
-        var minY = Float.MAX_VALUE
-        var maxX = -Float.MAX_VALUE
-        var maxY = -Float.MAX_VALUE
-
-        screenPositions.forEach {
-            minX = min(minX, it.x)
-            minY = min(minY, it.y)
-            maxX = max(maxX, it.x)
-            maxY = max(maxY, it.y)
-        }
-
-        if (maxX < 0 || minX > screenWidth || maxY < 0 || minY > screenHeight) return
-
-        when {
-            use2DBox -> draw2DBox(canvas, paint, minX, minY, maxX, maxY)
-            use3DBox -> if (screenPositions.size >= 8) draw3DBox(canvas, paint, screenPositions)
-            useCornerBox -> drawCornerBox(canvas, paint, minX, minY, maxX, maxY)
-        }
-
-        if (tracers) {
-            drawTracer(canvas, paint, screenWidth, screenHeight, (minX + maxX) / 2, maxY)
-        }
-
-        if (showNames || showDistance) {
-            drawEntityInfo(canvas, paint, entity, localPlayer, minX, minY, maxX)
-        }
+    override fun onDisabled() {
+        super.onDisabled()
+        renderView?.invalidate()
     }
 
-    private fun draw2DBox(canvas: Canvas, paint: Paint, minX: Float, minY: Float, maxX: Float, maxY: Float) {
-        canvas.drawRect(minX, minY, maxX, maxY, paint)
-    }
-
-    private fun draw3DBox(canvas: Canvas, paint: Paint, screenPositions: List<Vector2f>) {
-        val edges = intArrayOf(0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7)
-        for (i in edges.indices step 2) {
-            val p1 = screenPositions[edges[i]]
-            val p2 = screenPositions[edges[i + 1]]
-            canvas.drawLine(p1.x, p1.y, p2.x, p2.y, paint)
+    override fun getStatusInfo(): String {
+        return when (mode) {
+            "2d" -> "2D"
+            "3d" -> "3D"
+            "corner" -> "corner"
+            else -> mode
         }
-    }
-
-    private fun drawCornerBox(canvas: Canvas, paint: Paint, minX: Float, minY: Float, maxX: Float, maxY: Float) {
-        val width = maxX - minX
-        val height = maxY - minY
-        val lineLength = min(width, height) / 4f
-
-        canvas.drawLine(minX, minY, minX + lineLength, minY, paint)
-        canvas.drawLine(minX, minY, minX, minY + lineLength, paint)
-        canvas.drawLine(maxX, minY, maxX - lineLength, minY, paint)
-        canvas.drawLine(maxX, minY, maxX, minY + lineLength, paint)
-        canvas.drawLine(minX, maxY, minX + lineLength, maxY, paint)
-        canvas.drawLine(minX, maxY, minX, maxY - lineLength, paint)
-        canvas.drawLine(maxX, maxY, maxX - lineLength, maxY, paint)
-        canvas.drawLine(maxX, maxY, maxX, maxY - lineLength, paint)
-    }
-
-    private fun drawTracer(canvas: Canvas, paint: Paint, screenWidth: Int, screenHeight: Int, entityMidX: Float, entityBottomY: Float) {
-        val startX = screenWidth / 2f
-        val startY = when {
-            tracerBottom -> screenHeight.toFloat()
-            tracerTop -> 0f
-            else -> screenHeight.toFloat()
-        }
-        canvas.drawLine(startX, startY, entityMidX, entityBottomY, paint)
-    }
-
-    private fun drawEntityInfo(canvas: Canvas, paint: Paint, entity: Entity, localPlayer: Player, minX: Float, minY: Float, maxX: Float) {
-        val textPaint = Paint(paint).apply {
-            style = Paint.Style.FILL
-            textSize = 28f
-            textAlign = Paint.Align.CENTER
-        }
-        val info = buildString {
-            if (showNames && entity is Player) append(entity.username)
-            if (showDistance) {
-                if (isNotEmpty()) append(" ")
-                append("[${String.format("%.1f", entity.distance(localPlayer))}m]")
-            }
-        }
-        if (info.isEmpty()) return
-
-        val textX = (minX + maxX) / 2
-        val textY = minY - 10
-        textPaint.color = Color.BLACK
-        canvas.drawText(info, textX + 2, textY + 2, textPaint)
-        textPaint.color = paint.color
-        canvas.drawText(info, textX, textY, textPaint)
     }
 
     private fun rotateX(angle: Float): Matrix4f {
-        val rad = Math.toRadians(angle.toDouble()).toFloat()
-        val c = cos(rad)
-        val s = sin(rad)
+        val rad = Math.toRadians(angle.toDouble())
+        val c = cos(rad).toFloat()
+        val s = sin(rad).toFloat()
+
         return Matrix4f.from(
             1f, 0f, 0f, 0f,
             0f, c, -s, 0f,
@@ -187,9 +82,10 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     }
 
     private fun rotateY(angle: Float): Matrix4f {
-        val rad = Math.toRadians(angle.toDouble()).toFloat()
-        val c = cos(rad)
-        val s = sin(rad)
+        val rad = Math.toRadians(angle.toDouble())
+        val c = cos(rad).toFloat()
+        val s = sin(rad).toFloat()
+
         return Matrix4f.from(
             c, 0f, s, 0f,
             0f, 1f, 0f, 0f,
@@ -199,11 +95,17 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     }
 
     private fun getEntityBoxVertices(entity: Entity): Array<Vector3f> {
-        val pos = entity.vec3Position
-        val height = 1.8f
         val width = 0.6f
+        val height = 1.8f
+
+        val pos = entity.vec3Position
         val halfWidth = width / 2f
-        val yPos = pos.y
+
+        val yPos = if (entity is Player) {
+            pos.y - 1.62f
+        } else {
+            pos.y
+        }
 
         return arrayOf(
             Vector3f.from(pos.x - halfWidth, yPos, pos.z - halfWidth),
@@ -218,21 +120,238 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     }
 
     private fun worldToScreen(pos: Vector3f, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int): Vector2f? {
-        val clipSpacePos = viewProjMatrix.transform(pos.x, pos.y, pos.z, 1.0f)
-        if (clipSpacePos.w < 0.1f) return null
-        val ndc = Vector3f.from(clipSpacePos.x / clipSpacePos.w, clipSpacePos.y / clipSpacePos.w, clipSpacePos.z / clipSpacePos.w)
-        val screenX = (ndc.x + 1.0f) / 2.0f * screenWidth
-        val screenY = (1.0f - ndc.y) / 2.0f * screenHeight
+        val w = viewProjMatrix.get(3, 0) * pos.x +
+                viewProjMatrix.get(3, 1) * pos.y +
+                viewProjMatrix.get(3, 2) * pos.z +
+                viewProjMatrix.get(3, 3)
+
+        if (w < 0.01f) return null
+
+        val inverseW = 1f / w
+
+        val screenX = screenWidth / 2f + (0.5f * ((viewProjMatrix.get(0, 0) * pos.x +
+                viewProjMatrix.get(0, 1) * pos.y +
+                viewProjMatrix.get(0, 2) * pos.z +
+                viewProjMatrix.get(0, 3)) * inverseW) * screenWidth + 0.5f)
+
+        val screenY = screenHeight / 2f - (0.5f * ((viewProjMatrix.get(1, 0) * pos.x +
+                viewProjMatrix.get(1, 1) * pos.y +
+                viewProjMatrix.get(1, 2) * pos.z +
+                viewProjMatrix.get(1, 3)) * inverseW) * screenHeight + 0.5f)
+
         return Vector2f.from(screenX, screenY)
     }
 
     private fun shouldRenderEntity(entity: Entity): Boolean {
-        if (entity == session.localPlayer) {
-            return false
+        if (entity == session.localPlayer) return false
+        if (!showAllEntities && entity !is Player) return false
+        return true
+    }
+
+    fun render(canvas: Canvas) {
+        if (!isEnabled || !isSessionCreated) return
+
+        val player = session.localPlayer
+        val entities = if (showAllEntities) {
+            session.level.entityMap.values
+        } else {
+            session.level.entityMap.values.filterIsInstance<Player>()
         }
-        return when (entity) {
-            is Player -> players
-            else -> mobs
+
+        if (entities.isEmpty()) return
+
+        val screenWidth = canvas.width
+        val screenHeight = canvas.height
+
+        val viewProjMatrix = Matrix4f.createPerspective(fov,
+            screenWidth.toFloat() / screenHeight, 0.1f, 128f)
+            .mul(Matrix4f.createTranslation(player.vec3Position)
+                .mul(rotateY(-player.rotationYaw - 180))
+                .mul(rotateX(-player.rotationPitch))
+                .invert())
+
+        val paint = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = this@EspElement.strokeWidth
+            color = Color.rgb(colorRed, colorGreen, colorBlue)
         }
+        val colors = ColorUtils.getChromaRainbow(100.0, 10.0)
+        paint.color = if(rainbowValue) Color.rgb(colors.r, colors.g, colors.b) else Color.rgb( colorRed, colorGreen, colorBlue)
+
+        entities.forEach { entity ->
+            if (shouldRenderEntity(entity)) {
+                drawEntityBox(entity, viewProjMatrix, screenWidth, screenHeight, canvas, paint)
+            }
+        }
+    }
+
+    private fun drawEntityBox(entity: Entity, viewProjMatrix: Matrix4f,
+                              screenWidth: Int, screenHeight: Int,
+                              canvas: Canvas, paint: Paint) {
+        val boxVertices = getEntityBoxVertices(entity)
+        var minX = screenWidth.toDouble()
+        var minY = screenHeight.toDouble()
+        var maxX = 0.0
+        var maxY = 0.0
+        val screenPositions = mutableListOf<Vector2f>()
+
+        boxVertices.forEach { vertex ->
+            val screenPos = worldToScreen(vertex, viewProjMatrix, screenWidth, screenHeight)
+                ?: return@forEach
+            screenPositions.add(screenPos)
+            minX = minX.coerceAtMost(screenPos.x.toDouble())
+            minY = minY.coerceAtMost(screenPos.y.toDouble())
+            maxX = maxX.coerceAtLeast(screenPos.x.toDouble())
+            maxY = maxY.coerceAtLeast(screenPos.y.toDouble())
+        }
+
+        if (!(minX >= screenWidth || minY >= screenHeight || maxX <= 0 || maxY <= 0)) {
+            when (mode) {
+                "2D" -> draw2DBox(canvas, paint, minX, minY, maxX, maxY)
+                "3D" -> draw3DBox(canvas, paint, screenPositions)
+                "corner" -> drawCornerBox(canvas, paint, minX, minY, maxX, maxY)
+            }
+
+            if (showNames || showDistance) {
+                drawEntityInfo(canvas, paint, entity, minX, minY, maxX)
+            }
+        }
+    }
+
+    private fun draw2DBox(canvas: Canvas, paint: Paint, minX: Double, minY: Double, maxX: Double, maxY: Double) {
+        val padding = paint.strokeWidth / 2
+        canvas.drawRect(
+            minX.toFloat() + padding,
+            minY.toFloat() + padding,
+            maxX.toFloat() - padding,
+            maxY.toFloat() - padding,
+            paint
+        )
+    }
+
+    private fun draw3DBox(canvas: Canvas, paint: Paint, screenPositions: List<Vector2f>) {
+        if (screenPositions.size < 8) return
+
+        val edges = listOf(
+            0 to 1, 1 to 2, 2 to 3, 3 to 0,
+            4 to 5, 5 to 6, 6 to 7, 7 to 4,
+            0 to 4, 1 to 5, 2 to 6, 3 to 7
+        )
+
+        edges.forEach { (start, end) ->
+            val startPos = screenPositions[start]
+            val endPos = screenPositions[end]
+
+            if (isOnScreen(startPos, canvas) && isOnScreen(endPos, canvas)) {
+                //slight padding
+                val padding = paint.strokeWidth / 2
+                canvas.drawLine(
+                    startPos.x.coerceIn(padding, canvas.width - padding),
+                    startPos.y.coerceIn(padding, canvas.height - padding),
+                    endPos.x.coerceIn(padding, canvas.width - padding),
+                    endPos.y.coerceIn(padding, canvas.height - padding),
+                    paint
+                )
+            }
+        }
+    }
+
+    private fun isOnScreen(pos: Vector2f, canvas: Canvas): Boolean {
+        return pos.x >= 0 && pos.x <= canvas.width &&
+                pos.y >= 0 && pos.y <= canvas.height
+    }
+
+    private fun drawCornerBox(canvas: Canvas, paint: Paint, minX: Double, minY: Double, maxX: Double, maxY: Double) {
+        val cornerLength = (maxX - minX).toFloat() / 4
+        val corners = listOf(
+            minX to minY,
+            maxX to minY,
+            maxX to maxY,
+            minX to maxY
+        )
+
+        corners.forEachIndexed { i, (x, y) ->
+            val nextCorner = corners[(i + 1) % 4]
+
+            // Horizontal lines
+            canvas.drawLine(
+                x.toFloat(),
+                y.toFloat(),
+                x.toFloat() + if (i % 2 == 0) cornerLength else -cornerLength,
+                y.toFloat(),
+                paint
+            )
+
+            // Vertical lines
+            canvas.drawLine(
+                x.toFloat(),
+                y.toFloat(),
+                x.toFloat(),
+                y.toFloat() + if (i < 2) cornerLength else -cornerLength,
+                paint
+            )
+
+            // Connect to next corner
+            canvas.drawLine(
+                x.toFloat() + if (i % 2 == 0) cornerLength else -cornerLength,
+                y.toFloat(),
+                nextCorner.first.toFloat(),
+                nextCorner.second.toFloat(),
+                paint
+            )
+        }
+    }
+
+    @SuppressLint("DefaultLocale")
+    private fun drawEntityInfo(canvas: Canvas, paint: Paint, entity: Entity, minX: Double, minY: Double, maxX: Double) {
+        val bgPaint = Paint().apply {
+            color = Color.argb(160, 0, 0, 0) // Semi-transparent black background
+            style = Paint.Style.FILL
+        }
+
+        val outlinePaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 30f
+            textAlign = Paint.Align.CENTER
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+
+        val textPaint = Paint().apply {
+            color = paint.color
+            textSize = 30f
+            textAlign = Paint.Align.CENTER
+            style = Paint.Style.FILL
+        }
+
+        val info = buildString {
+            if (showNames && entity is Player) {
+                append(entity.username)
+            }
+            if (showDistance) {
+                if (isNotEmpty()) append(" | ")
+                val distance = entity.vec3Position.distance(session.localPlayer.vec3Position)
+                append("${String.format("%.1f", distance)}m")
+            }
+        }
+
+        val textX = (minX + maxX).toFloat() / 2
+        val textY = minY.toFloat() - 10
+
+        val bounds = android.graphics.Rect()
+        textPaint.getTextBounds(info, 0, info.length, bounds)
+
+        val padding = 8f
+        val bgRect = android.graphics.RectF(
+            textX - bounds.width() / 2 - padding,
+            textY - bounds.height() - padding,
+            textX + bounds.width() / 2 + padding,
+            textY + padding
+        )
+        canvas.drawRoundRect(bgRect, 4f, 4f, bgPaint)
+
+        canvas.drawText(info, textX, textY, outlinePaint)
+
+        canvas.drawText(info, textX, textY, textPaint)
     }
 }

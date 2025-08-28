@@ -22,6 +22,8 @@ abstract class GameEventCancellable(session: NetBound, friendlyName: String) : G
 
 class EventTick(session: NetBound) : GameEvent(session, "tick")
 
+class EventPostTick(session: NetBound) : GameEvent(session, "post_tick")
+
 /**
  * @param reason BedrockDisconnectReasons
  */
@@ -30,6 +32,7 @@ class EventDisconnect(session: NetBound, val client: Boolean, val reason: String
 class EventPacketInbound(session: NetBound, val packet: BedrockPacket) : GameEventCancellable(session, "packet_inbound")
 
 class EventPacketOutbound(session: NetBound, val packet: BedrockPacket) : GameEventCancellable(session, "packet_outbound")
+
 
 /**
  * the container just "initialized", the content not received

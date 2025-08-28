@@ -19,7 +19,6 @@ class SpeedElement(iconResId: Int = AssetManager.getAsset("ic_run_black_24dp")) 
     iconResId,
     displayNameResId = AssetManager.getString("module_speed_display_name")
 ) {
-
     private var speedMultiplier by floatValue("速度", 1.5f, 1.1f..3.0f)
 
 

@@ -37,7 +37,7 @@ import com.phoenix.luminacn.game.module.impl.motion.JetPackElement
 import com.phoenix.luminacn.game.module.impl.motion.JitterFlyElement
 import com.phoenix.luminacn.game.module.impl.motion.LongJumpElement
 import com.phoenix.luminacn.game.module.impl.motion.MotionFlyElement
-import com.phoenix.luminacn.game.module.impl.combat.OpFightBotElement
+import com.phoenix.luminacn.game.module.impl.combat.OPFightBotElement
 import com.phoenix.luminacn.game.module.impl.world.PhaseElement
 import com.phoenix.luminacn.game.module.impl.motion.SpeedElement
 import com.phoenix.luminacn.game.module.impl.motion.SpiderElement
@@ -104,7 +104,7 @@ object RemModuleManager {
             add(InfiniteAuraElement())
             add(DamageBoostElement())
             add(FullBrightElement())
-            add(OpFightBotElement())
+            add(OPFightBotElement())
             add(FollowBotElement())
             add(VelocityElement())
             add(AntiKickElement())

@@ -12,7 +12,6 @@ class ModalDialogElement : Element(
     displayNameResId = AssetManager.getString("module_time_shift_display_name")
 ) {
 
-
     override fun onEnabled() {
         super.onEnabled()
 

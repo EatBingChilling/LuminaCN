@@ -1,169 +1,114 @@
-/*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
- * You are free to use, modify, and redistribute this code under the terms
- * of the GNU General Public License v3. See the LICENSE file for details.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * This is open source — not open credit.
- *
- * If you're here to build, welcome. If you're here to repaint and reupload
- * with your tag slapped on it… you're not fooling anyone.
- *
- * Changing colors and class names doesn't make you a developer.
- * Copy-pasting isn't contribution.
- *
- * You have legal permission to fork. But ask yourself — are you improving,
- * or are you just recycling someone else's work to feed your ego?
- *
- * Open source isn't about low-effort clones or chasing clout.
- * It's about making things better. Sharper. Cleaner. Smarter.
- *
- * So go ahead, fork it — but bring something new to the table,
- * or don't bother pretending.
- *
- * This message is philosophical. It does not override your legal rights under GPLv3.
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * GPLv3 Summary:
- * - You have the freedom to run, study, share, and modify this software.
- * - If you distribute modified versions, you must also share the source code.
- * - You must keep this license and copyright intact.
- * - You cannot apply further restrictions — the freedom stays with everyone.
- * - This license is irrevocable, and applies to all future redistributions.
- *
- * Full text: https://www.gnu.org/licenses/gpl-3.0.html
- */
-
 package com.phoenix.luminacn.game.module.impl.visual
 
-import com.phoenix.luminacn.R
+import android.graphics.Canvas
+import android.graphics.Point
 import com.phoenix.luminacn.game.InterceptablePacket
 import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.constructors.CheatCategory
-import com.phoenix.luminacn.game.entity.Entity
-import com.phoenix.luminacn.game.entity.EntityUnknown
-import com.phoenix.luminacn.game.entity.LocalPlayer
-import com.phoenix.luminacn.game.entity.MobList
 import com.phoenix.luminacn.game.entity.Player
-import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataMap
-import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes
-import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket
-import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket
-import java.util.Locale
+import com.phoenix.luminacn.shiyi.EntityNameTag
+import com.phoenix.luminacn.shiyi.RenderLayerView
+import org.cloudburstmc.math.matrix.Matrix4f
+import org.cloudburstmc.math.vector.Vector2d
+import kotlin.math.cos
+import kotlin.math.sin
 import com.phoenix.luminacn.util.AssetManager
 
 class NameTagElement(iconResId: Int = AssetManager.getAsset("ic_guy_fawkes_mask_black_24dp")) : Element(
-    name = "NameTag",
+    name = "NameTage",
     category = CheatCategory.Visual,
     iconResId,
     displayNameResId = AssetManager.getString("module_name_tag_display_name")
 ) {
-    
-    private val showDistance by boolValue("显示距离", true)
-    private val colorPlayers by boolValue("玩家染色", true)
-    private val range by floatValue("范围", 20f, 5f..50f)
+    private val fovValue by intValue("Fov", 80, 40..110)
+    private val showAllEntities by boolValue("Bots", false)
+    private val originalSizeValue by boolValue("OriginalSize", true)
+    private val avoidScreenValue by boolValue("AvoidScreen", true)
 
-    
-    private val originalNames = mutableMapOf<Long, String>()
+    override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
+    }
 
     override fun onEnabled() {
         super.onEnabled()
-        
-        originalNames.clear()
+        session.eventManager.emit(RenderLayerView.EventRefreshRender(session))
+        displayList.clear()
     }
 
-    override fun onDisabled() {
-        super.onDisabled()
-        
-        if (isSessionCreated) {
-            session.level.entityMap.values.forEach { entity ->
-                val originalName = originalNames[entity.runtimeEntityId] ?: return@forEach
-                val metadata = EntityDataMap()
-                metadata.put(EntityDataTypes.NAME, originalName)
-                session.clientBound(SetEntityDataPacket().apply {
-                    runtimeEntityId = entity.runtimeEntityId
-                    this.metadata = metadata
-                })
+    var displayList = HashMap<Player, EntityNameTag>()
+
+    init {
+        handle<RenderLayerView.EventRender> { event ->
+            event.needRefresh = true
+            if (avoidScreenValue && event.session.localPlayer.openContainer != null) return@handle
+            val player = event.session.localPlayer
+            val canvas = event.canvas
+            val realSize = Point()
+            val screenWidth = if(originalSizeValue) realSize.x else canvas.width
+            val screenHeight = if(originalSizeValue) realSize.y else canvas.height
+
+            val viewProjMatrix =  Matrix4f.createPerspective(fovValue.toFloat()+10, screenWidth.toFloat() / screenHeight, 0.1f, 128f)
+                .mul(Matrix4f.createTranslation(player.vec3Position)
+                    .mul(rotY(-player.rotationYaw-180))
+                    .mul(rotX(-player.rotationPitch))
+                    .invert())
+
+            val entities = if (showAllEntities) {
+                event.session.level.entityMap.values
+            } else {
+                event.session.level.entityMap.values.filterIsInstance<Player>()
             }
-            originalNames.clear()
-        }
-    }
 
-    override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
-        if (!isEnabled || interceptablePacket.packet !is PlayerAuthInputPacket) return
+            entities.forEach { entity ->
+                if (entity == player) return@forEach
 
-        
-        if (session.localPlayer.tickExists % 20 != 0L) return
-
-        session.level.entityMap.values
-            .filter { it.distance(session.localPlayer) < range && it.isTarget() }
-            .forEach { entity ->
-                
-                if (!originalNames.containsKey(entity.runtimeEntityId)) {
-                    val currentName = entity.metadata[EntityDataTypes.NAME] as? String ?: ""
-                    originalNames[entity.runtimeEntityId] = currentName
+                if (entity is Player) {
+                    drawEntityBox(entity, viewProjMatrix, screenWidth, screenHeight, canvas)
                 }
-
-                
-                val customName = formatName(entity)
-                val metadata = EntityDataMap()
-                metadata.put(EntityDataTypes.NAME, customName)
-
-                
-                session.clientBound(SetEntityDataPacket().apply {
-                    runtimeEntityId = entity.runtimeEntityId
-                    this.metadata = metadata
-                })
             }
-    }
-
-    /**
-     * Formats the name tag for an entity based on settings.
-     */
-    private fun formatName(entity: Entity): String {
-        val baseName = when (entity) {
-            is Player -> session.level.playerMap[entity.uuid]?.name?.takeIf { it.isNotBlank() } ?: "Player"
-            is EntityUnknown -> entity.identifier.split(":").lastOrNull()?.replaceFirstChar {
-                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
-            } ?: "Unknown"
-            else -> entity.javaClass.simpleName
-        }
-
-        val color = if (colorPlayers && entity is Player && !entity.isBot()) "§a" else "§7"
-        val distance = if (showDistance) {
-            " [${"%.1f".format(entity.distance(session.localPlayer))}m]"
-        } else {
-            ""
-        }
-
-        return "$color$baseName$distance"
-    }
-
-    /**
-     * Determines if an entity is a valid target for name tags.
-     */
-    private fun Entity.isTarget(): Boolean {
-        return when (this) {
-            is LocalPlayer -> false
-            is Player -> !this.isBot()
-            is EntityUnknown -> this.isMob()
-            else -> false
         }
     }
 
-    /**
-     * Checks if an EntityUnknown is a mob.
-     */
-    private fun EntityUnknown.isMob(): Boolean {
-        return this.identifier in MobList.mobTypes
+    private fun drawEntityBox(entity: Player, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int, canvas: Canvas) {
+        if(displayList[entity]==null){
+            displayList[entity]= EntityNameTag()
+        }
+        displayList[entity]!!.draw(entity,viewProjMatrix,screenWidth,screenHeight,canvas,this)
     }
 
-    /**
-     * Checks if a Player is a bot.
-     */
-    private fun Player.isBot(): Boolean {
-        if (this is LocalPlayer) return false
-        val playerList = session.level.playerMap[this.uuid] ?: return true
-        return playerList.name.isBlank()
+    fun worldToScreen(posX: Double, posY: Double, posZ: Double, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int): Vector2d? {
+        val w = viewProjMatrix.get(3, 0) * posX +
+                viewProjMatrix.get(3, 1) * posY +
+                viewProjMatrix.get(3, 2) * posZ +
+                viewProjMatrix.get(3, 3)
+        if (w < 0.01f) return null
+        val inverseW = 1 / w
+
+        val screenX = screenWidth / 2f + (0.5f * ((viewProjMatrix.get(0, 0) * posX + viewProjMatrix.get(0, 1) * posY +
+                viewProjMatrix.get(0, 2) * posZ + viewProjMatrix.get(0, 3)) * inverseW) * screenWidth + 0.5f)
+        val screenY = screenHeight / 2f - (0.5f * ((viewProjMatrix.get(1, 0) * posX + viewProjMatrix.get(1, 1) * posY +
+                viewProjMatrix.get(1, 2) * posZ + viewProjMatrix.get(1, 3)) * inverseW) * screenHeight + 0.5f)
+        return Vector2d.from(screenX, screenY)
+    }
+
+    private fun rotX(angle: Float): Matrix4f {
+        val rad = Math.toRadians(angle.toDouble())
+        val c = cos(rad).toFloat()
+        val s = sin(rad).toFloat()
+
+        return Matrix4f.from(1f, 0f, 0f, 0f,
+            0f, c, -s, 0f,
+            0f, s, c, 0f,
+            0f, 0f, 0f, 1f)
+    }
+
+    private fun rotY(angle: Float): Matrix4f {
+        val rad = Math.toRadians(angle.toDouble())
+        val c = cos(rad).toFloat()
+        val s = sin(rad).toFloat()
+
+        return Matrix4f.from(c, 0f, s, 0f,
+            0f, 1f, 0f, 0f,
+            -s, 0f, c, 0f,
+            0f, 0f, 0f, 1f)
     }
 }

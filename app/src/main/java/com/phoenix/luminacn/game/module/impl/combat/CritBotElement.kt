@@ -54,9 +54,18 @@ class CritBotElement(iconResId: Int = AssetManager.getAsset("ic_angle")) : Eleme
     iconResId,
     displayNameResId = AssetManager.getString("module_critbot_display_name")
 ) {
+
     private val mode by stringValue(this, "Mode", "Vanilla", listOf("Vanilla", "Jump"))
 
     private var canJump = true
+
+    override fun getStatusInfo(): String {
+        return when (mode) {
+            "Vanilla" -> "Vanilla"
+            "Jump" -> "Jump"
+            else -> mode
+        }
+    }
 
     private object Vanilla {
         fun handlePacket(interceptablePacket: InterceptablePacket, parent: CritBotElement) {

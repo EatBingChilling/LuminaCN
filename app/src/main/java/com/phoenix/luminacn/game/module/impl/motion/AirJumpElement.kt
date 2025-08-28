@@ -15,6 +15,7 @@ class AirJumpElement(iconResId: Int = AssetManager.getAsset("ic_cloud_upload_bla
     iconResId,
     displayNameResId = AssetManager.getString("module_air_jump_display_name")
 ) {
+
     private var mode by intValue("模式", 0, 0..1)
     
     private var jumpValue by floatValue("跳跃", 0.42f, 0.1f..3f)

@@ -35,8 +35,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedFilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,16 +70,18 @@ import com.phoenix.luminacn.R
 import com.phoenix.luminacn.constructors.BoolValue
 import com.phoenix.luminacn.constructors.CheatCategory
 import com.phoenix.luminacn.constructors.Element
+import com.phoenix.luminacn.constructors.EnumValue
 import com.phoenix.luminacn.constructors.FloatValue
 import com.phoenix.luminacn.constructors.GameManager
 import com.phoenix.luminacn.constructors.IntValue
 import com.phoenix.luminacn.constructors.ListValue
+import com.phoenix.luminacn.constructors.StringeValue
 import com.phoenix.luminacn.overlay.manager.OverlayManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import com.phoenix.luminacn.ui.theme.*
-
+import com.phoenix.luminacn.util.translatedSelf
 
 
 private val moduleCache = HashMap<CheatCategory, List<Element>>()
@@ -304,6 +310,8 @@ private fun ModuleCard(element: Element) {
                         is FloatValue -> FloatValueContent(it)
                         is IntValue -> IntValueContent(it)
                         is ListValue -> ChoiceValueContent(it)
+                        is EnumValue<*> -> EnumValueContent(it)
+                        is StringeValue -> StringeValueContent(it)
                     }
                 }
                 ShortcutContent(element)
@@ -591,6 +599,70 @@ private fun BoolValueContent(value: BoolValue) {
                 .size(8.dp)
                 .scale(toggleScale)
                 .background(toggleColor, CircleShape)
+        )
+    }
+}
+
+@Composable
+private fun <T : Enum<T>> EnumValueContent(value: EnumValue<T>) {
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
+    ) {
+        Text(
+            value.name.translatedSelf,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+        ) {
+            value.enumClass.enumConstants?.forEach { enumValue ->
+                ElevatedFilterChip(
+                    selected = value.value == enumValue,
+                    onClick = {
+                        if (value.value != enumValue) {
+                            value.value = enumValue
+                        }
+                    },
+                    label = {
+                        Text(enumValue.name.translatedSelf)
+                    },
+                    modifier = Modifier.height(30.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StringeValueContent(value: StringeValue) {
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
+    ) {
+        Text(
+            value.name.translatedSelf,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        OutlinedTextField(
+            value = value.value,
+            onValueChange = { value.value = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.White,
+                unfocusedBorderColor = Color.Gray,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            )
         )
     }
 }

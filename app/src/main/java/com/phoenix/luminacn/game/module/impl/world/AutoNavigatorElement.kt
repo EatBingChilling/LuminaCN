@@ -19,7 +19,6 @@ class AutoNavigatorElement : Element(
     category = CheatCategory.World,
     displayNameResId = R.string.module_autonavigator_display_name
 ) {
-
     private var targetX = 0.0
     private var targetY = 0.0
     private var targetZ = 0.0

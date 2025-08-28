@@ -21,7 +21,6 @@ class DesyncElement(iconResId: Int = AssetManager.getAsset("ic_timer_sand_black_
     iconResId,
     displayNameResId = AssetManager.getString("module_desync_display_name")
 ) {
-
     private var isDesynced = false
     private val storedPackets = ConcurrentLinkedQueue<PlayerAuthInputPacket>()
     private val updateDelay = 1000L

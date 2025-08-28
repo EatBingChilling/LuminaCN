@@ -15,7 +15,7 @@ open class Player(
 ) : Entity(runtimeEntityId, uniqueEntityId) {
 
     val vec3PositionFeet: Vector3f
-        get() = Vector3f.from(posX, posY, posZ)
+        get() = Vector3f.from(posX, posY - EYE_HEIGHT, posZ)
 
     val displayName: String
         get() = (metadata[EntityDataTypes.NAME] as? String?)?.ifEmpty { username } ?: username
@@ -29,4 +29,11 @@ open class Player(
         }
     }
 
+    override fun toString(): String {
+        return "EntityPlayer(entityId=$runtimeEntityId, uniqueId=$uniqueEntityId, username=$username, uuid=$uuid, posX=$posX, posY=$posY, posZ=$posZ)"
+    }
+
+    companion object {
+        val EYE_HEIGHT = 1.62f
+    }
 }

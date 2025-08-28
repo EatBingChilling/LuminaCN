@@ -31,12 +31,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox // 添加: 用于显示绑定状态
 import androidx.compose.material3.CheckboxDefaults // 添加: 自定义Checkbox颜色
+import androidx.compose.material3.ElevatedFilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -62,13 +65,16 @@ import com.phoenix.luminacn.R // 添加: 为了stringResource
 import com.phoenix.luminacn.constructors.BoolValue
 import com.phoenix.luminacn.constructors.CheatCategory
 import com.phoenix.luminacn.constructors.Element
+import com.phoenix.luminacn.constructors.EnumValue
 import com.phoenix.luminacn.constructors.FloatValue
 import com.phoenix.luminacn.constructors.GameManager
 import com.phoenix.luminacn.constructors.IntValue
 import com.phoenix.luminacn.constructors.KeyBindingManager // 添加: 绑定状态管理器
 import com.phoenix.luminacn.constructors.ListValue
+import com.phoenix.luminacn.constructors.StringeValue
 import com.phoenix.luminacn.overlay.manager.OverlayManager
 import com.phoenix.luminacn.service.KeyCaptureService // 添加: 绑定逻辑服务
+import com.phoenix.luminacn.util.translatedSelf
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -197,6 +203,8 @@ private fun ModuleCard(
                                 is IntValue -> IntValueContent(value)
                                 is FloatValue -> FloatValueContent(value)
                                 is ListValue -> ChoiceValueContent(value)
+                                is EnumValue<*> -> EnumValueContent(value)
+                                is StringeValue -> StringeValueContent(value)
                             }
                         }
                     }
@@ -563,6 +571,70 @@ private fun BoolValueContent(value: BoolValue) {
                 uncheckedTrackColor = Color(0xFF4A4A4A),
                 checkedBorderColor = Color.Transparent,
                 uncheckedBorderColor = Color.Transparent
+            )
+        )
+    }
+}
+
+@Composable
+private fun <T : Enum<T>> EnumValueContent(value: EnumValue<T>) {
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
+    ) {
+        Text(
+            value.name.translatedSelf,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+        ) {
+            value.enumClass.enumConstants?.forEach { enumValue ->
+                ElevatedFilterChip(
+                    selected = value.value == enumValue,
+                    onClick = {
+                        if (value.value != enumValue) {
+                            value.value = enumValue
+                        }
+                    },
+                    label = {
+                        Text(enumValue.name.translatedSelf)
+                    },
+                    modifier = Modifier.height(30.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StringeValueContent(value: StringeValue) {
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
+    ) {
+        Text(
+            value.name.translatedSelf,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        OutlinedTextField(
+            value = value.value,
+            onValueChange = { value.value = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.White,
+                unfocusedBorderColor = Color.Gray,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
             )
         )
     }

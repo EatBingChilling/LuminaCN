@@ -17,6 +17,8 @@ class PoseidonElement : BaseEffectElement(
     effectId = Effect.WATER_BREATHING,
     effectSetting = Effects.WATER_BREATHING
 ) {
+    override val state: Boolean
+        get() = isEnabled
     private val speedMultiplier = 1.5f
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {

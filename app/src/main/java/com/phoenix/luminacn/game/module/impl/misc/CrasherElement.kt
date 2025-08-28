@@ -53,6 +53,7 @@ class CrasherElement(iconResId: Int = AssetManager.getAsset("ic_at_off")) : Elem
     displayNameResId = AssetManager.getString("module_crasher_display_name"),
     iconResId = iconResId
 ) {
+
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
         if (!isEnabled) {
             return

@@ -60,6 +60,15 @@ class VelocityElement(iconResId: Int = AssetManager.getAsset("ic_file_download_b
     private val horizontalBlocks by floatValue("横向块", 0.2f, 0f..2f)
     private val verticalBlocks by floatValue("竖向块", 0.2f, 0f..2f)
 
+    override fun getStatusInfo(): String {
+        return when (mode) {
+            "Vanilla" -> "Vanilla"
+            "Percentage" -> "Percentage"
+            "Blocks" -> "Blocks"
+            else -> mode
+        }
+    }
+
     private object Vanilla {
         fun handlePacket(interceptablePacket: InterceptablePacket) {
             if (interceptablePacket.packet is SetEntityMotionPacket) {

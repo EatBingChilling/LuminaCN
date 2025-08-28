@@ -19,7 +19,6 @@ class NoClipElement(iconResId: Int = R.drawable.ic_circle_double_black_24dp) : E
     iconResId,
     displayNameResId = R.string.module_no_clip_display_name
 ) {
-
     private val enableNoClipAbilitiesPacket = UpdateAbilitiesPacket().apply {
         playerPermission = PlayerPermission.OPERATOR
         commandPermission = CommandPermission.OWNER

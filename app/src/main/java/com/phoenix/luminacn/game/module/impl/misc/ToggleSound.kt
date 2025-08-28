@@ -4,7 +4,7 @@ import com.phoenix.luminacn.constructors.ArrayListManager
 import com.phoenix.luminacn.constructors.CheatCategory
 import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.game.InterceptablePacket
-import com.phoenix.luminacn.constructors.BoolValue
+import com.phoenix.luminacn.game.module.api.setting.stringValue
 import com.phoenix.luminacn.util.AssetManager
 
 class ToggleSound : Element(
@@ -13,9 +13,7 @@ class ToggleSound : Element(
     displayNameResId = AssetManager.getString("module_togglesound"),
     iconResId = AssetManager.getAsset("ic_music")
 ) {
-    private var celestial by boolValue("天体", true)
-    private var nursultan by boolValue("Nursultan", false)
-    private var smooth by boolValue("舒适", false)
+    private var selectedSound by stringValue("音效选择", "protohax", listOf("天体", "Nursultan", "舒适", "protohax", "syneo", "sybrse"))
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
         if (!isEnabled) {
@@ -25,40 +23,13 @@ class ToggleSound : Element(
 
         session.toggleSounds(true)
 
-        when {
-            celestial -> {
-                disableOthers(except = 1)
-                session.soundList(ArrayListManager.SoundSet.CELESTIAL)
-            }
-
-            nursultan -> {
-                disableOthers(except = 2)
-                session.soundList(ArrayListManager.SoundSet.ALTERNATE)
-            }
-
-            smooth -> {
-                disableOthers(except = 3)
-                session.soundList(ArrayListManager.SoundSet.SPECIAL)
-            }
-        }
-    }
-
-    private fun disableOthers(except: Int) {
-        when (except) {
-            1 -> {
-                nursultan = false
-                smooth = false
-            }
-
-            2 -> {
-                celestial = false
-                smooth = false
-            }
-
-            3 -> {
-                celestial = false
-                nursultan = false
-            }
+        when (selectedSound) {
+            "天体" -> session.soundList(ArrayListManager.SoundSet.CELESTIAL)
+            "Nursultan" -> session.soundList(ArrayListManager.SoundSet.ALTERNATE)
+            "舒适" -> session.soundList(ArrayListManager.SoundSet.SPECIAL)
+            "protohax" -> session.soundList(ArrayListManager.SoundSet.PROTOHAX)
+            "syneo" -> session.soundList(ArrayListManager.SoundSet.SYNEO)
+            "sybrse" -> session.soundList(ArrayListManager.SoundSet.SYBRSE)
         }
     }
 }

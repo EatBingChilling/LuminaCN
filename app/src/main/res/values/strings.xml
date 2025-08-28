@@ -97,7 +97,6 @@
     <string name="module_bhop">Bhop</string>
     <string name="module_sprint">Sprint</string>
     <string name="module_desync">Desync</string>
-    <string name="module_rotationaura">RotationAura</string>
     <string name="module_killaura">Kill Aura</string>
     <string name="module_critic">Critic</string>
     <string name="module_nausea">Nausea</string>
@@ -134,7 +133,6 @@
     <string name="module_dsw_display_name">DSwitch</string>
     <string name="module_damage_text_display_name">DamageText</string>
     <string name="module_farsight_display_name">FarSight</string>
-    <string name="module_lock_heed_display_name">LockHeed</string>
     <string name="arraylist">ArrayList</string>
     <string name="module_minimap_display_name">MiniMap</string>
     <string name="module_speedm_display_name">Speedo Meter</string>
@@ -144,10 +142,12 @@
     <string name="module_chat_logger">Chat Logger</string>
 
     <!-- Module Display Name strings -->
+    <string name="module_tracer_display_name">Tracer</string>
     <string name="module_anti_crystal_display_name">AntiCrystal</string>
     <string name="module_weather_controller_display_name">Weather Controller</string>
     <string name="module_killaura_display_name">KillAura</string>
     <string name="module_killauraab_display_name">KillAuraAB</string>
+    <string name="module_killaurav2_display_name">KillAuraV2</string>
     <string name="module_crash_attack_display_name">Crash Attack</string>
     <string name="module_crasher_display_name">Crasher</string>
     <string name="module_critic_display_name">Critic</string>
@@ -160,6 +160,7 @@
     <string name="module_keystrokes">KeyStrokes</string>
     <string name="module_nofire">NoFire</string>
     <string name="module_targethud">TargetHud</string>
+
     <string name="module_skin_downloader_display_name">SkinDownloader</string>
     <string name="module_air_jump_display_name">AirJump</string>
     <string name="module_anti_afk_display_name">AntiAFK</string>
@@ -218,6 +219,11 @@
     <string name="module_autonavigator_display_name">AutoNavigator</string>
     <string name="module_text_spoof_display_name">TextSpoof</string>
     <string name="module_fakeping_display_name">PingSpoof</string>
+    <string name="module_tpfly_display_name">TPFly</string>
+    <string name="module_cheststealer_display_name">ChestStealer</string>
+    <string name="module_godmode_display_name">GodMode</string>
+    <string name="module_clicktp_display_name">ClickTP</string>
+    <string name="module_autoarmor_display_name">AutoArmor</string>
     <!-- Config Module Strings -->
     <string name="module_config_manager">Config Manager</string>
     <string name="save_config">Save Config</string>

@@ -18,6 +18,7 @@ class AntiACFly(iconResId: Int = AssetManager.getAsset("ic_menu_arrow_up_black_2
     iconResId,
     displayNameResId = AssetManager.getString("module_Anti_Ac_fly_display_name")
 ) {
+
     private val glideSpeed by floatValue("滑行速度", 0.0f, -2.0f..1.0f)
     private val verticalSpeedUp by floatValue("向上速度", 0.2f, 0.1f..1.0f)
     private val verticalSpeedDown by floatValue(

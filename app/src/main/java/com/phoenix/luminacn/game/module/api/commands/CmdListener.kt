@@ -16,11 +16,16 @@ import com.phoenix.luminacn.remlink.TerminalViewModel
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket
 import org.cloudburstmc.protocol.bedrock.packet.TextPacket
 
-class CmdListener(private val moduleManager: GameManager) : Element(
+class CmdListener(gameManager: GameManager) : Element(
     name = "ChatListener",
     category = CheatCategory.Misc,
     displayNameResId = R.string.module_chat_listener
 ) {
+    init {
+        this.moduleManager = gameManager
+    }
+    override val state: Boolean
+        get() = isEnabled
 
     companion object {
         const val PREFIX = "!"

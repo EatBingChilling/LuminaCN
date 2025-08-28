@@ -19,7 +19,6 @@ class HitboxElement(iconResId: Int = AssetManager.getAsset("ic_box")) : Element(
     iconResId,
     displayNameResId = AssetManager.getString("module_hitbox_display_name")
 ) {
-
     private val hitboxWidth by floatValue("宽度", 1.5f, 0.5f..8f)
     private val hitboxHeight by floatValue("高度", 1.5f, 0.5f..8f)
     private var playersOnly by boolValue("玩家", true)

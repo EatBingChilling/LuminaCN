@@ -13,7 +13,6 @@ class WorldDebuggerElement : Element(
     category = CheatCategory.World,
     displayNameResId = R.string.module_world_debugger_display_name
 ) {
-
     private var replaceBlock by boolValue("方块重放置", false)
     private var dumpChunk by boolValue("调试区块", true)
     private var hasRun = false

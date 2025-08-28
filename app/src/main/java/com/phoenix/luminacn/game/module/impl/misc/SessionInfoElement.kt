@@ -46,11 +46,10 @@ import kotlin.math.floor
 
 class SessionInfoElement(iconResId: Int = AssetManager.getAsset("ic_info_hexagon"))  : Element(
     name = "SessionInfo",
-    category = CheatCategory.Misc,
+    category = CheatCategory.Visual,
     displayNameResId = AssetManager.getString("module_sessioni_display_name"),
     iconResId = iconResId
 ) {
-
     
     private var startTime = 0L
     private var attackCount = 0
