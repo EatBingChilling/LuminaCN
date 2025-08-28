@@ -13,7 +13,6 @@ import com.phoenix.luminacn.activity.CrashHandlerActivity
 import com.phoenix.luminacn.constructors.GameManager
 import com.phoenix.luminacn.constructors.KeyBindingManager
 import com.phoenix.luminacn.overlay.manager.OverlayManager
-import com.phoenix.luminacn.service.ESPService
 import com.phoenix.luminacn.shiyi.RenderOverlay
 import com.phoenix.luminacn.shiyi.ArrayListOverlay
 import com.phoenix.luminacn.ui.theme.ThemeManager
@@ -87,24 +86,24 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (Settings.canDrawOverlays(this)) {
                 Log.d("AppContext", "Overlay permission already granted. Starting services.")
-                startEspService()
+                startServices()
             } else {
                 Log.w("AppContext", "Overlay permission not granted. Services requiring it will not start.")
             }
         } else {
             Log.d("AppContext", "Device is pre-Marshmallow. Starting services directly.")
-            startEspService()
+            startServices()
         }
     }
 
-    private fun startEspService() {
-        Log.d("AppContext", "Attempting to start ESPService.")
-        val intent = Intent(this, ESPService::class.java)
+    private fun startServices() {
+        Log.d("AppContext", "Attempting to start services.")
         try {
-            startService(intent)
-            Log.i("AppContext", "ESPService started successfully.")
+            // 这里可以启动其他需要的服务
+            // 例如：startService(Intent(this, SomeOtherService::class.java))
+            Log.i("AppContext", "Services started successfully.")
         } catch (e: Exception) {
-            Log.e("AppContext", "Failed to start ESPService.", e)
+            Log.e("AppContext", "Failed to start services.", e)
         }
     }
 
