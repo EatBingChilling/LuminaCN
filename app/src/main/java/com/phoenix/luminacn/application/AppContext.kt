@@ -2,108 +2,185 @@ package com.phoenix.luminacn.application
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import com.phoenix.luminacn.constructors.GameManager
 import com.phoenix.luminacn.overlay.manager.OverlayManager
 import com.phoenix.luminacn.shiyi.RenderOverlay
 import com.phoenix.luminacn.shiyi.ArrayListOverlay
+import com.phoenix.luminacn.ui.theme.ThemeManager
 
 class AppContext : Application() {
 
     companion object {
+        private const val TAG = "AppContext"
+        
         lateinit var instance: AppContext
             private set
     }
+
+    // 添加主题管理器
+    lateinit var themeManager: ThemeManager
+        private set
+
+    private var isInitialized = false
 
     override fun onCreate() {
         super.onCreate()
         instance = this
         
-        // 初始化游戏管理器
-        GameManager.initialize(this)
+        try {
+            initializeCore()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize AppContext", e)
+        }
+    }
+
+    private fun initializeCore() {
+        // 1. 首先初始化主题管理器
+        initializeThemeManager()
         
-        // 初始化悬浮窗管理器
-        initializeOverlays()
+        // 2. GameManager 是 object，不需要调用 initialize
+        // 它会在第一次访问时自动初始化
         
-        // 启动渲染悬浮窗
-        startRenderOverlay()
+        // 3. 延迟初始化悬浮窗
+        postDelayedInitialization()
+        
+        isInitialized = true
+        Log.d(TAG, "AppContext initialized successfully")
+    }
+
+    private fun initializeThemeManager() {
+        try {
+            themeManager = ThemeManager(this)
+            Log.d(TAG, "ThemeManager initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize ThemeManager", e)
+            themeManager = ThemeManager.createDefault()
+        }
+    }
+
+    private fun postDelayedInitialization() {
+        android.os.Handler(mainLooper).postDelayed({
+            try {
+                initializeOverlays()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize overlays", e)
+            }
+        }, 500)
     }
 
     private fun initializeOverlays() {
-        // 显示悬浮窗
-        OverlayManager.show(this)
-        
-        // 初始化渲染悬浮窗
-        initializeRenderOverlay()
-        
-        // 初始化ArrayList悬浮窗
-        initializeArrayListOverlay()
+        try {
+            OverlayManager.show(this)
+            initializeRenderOverlay()
+            initializeArrayListOverlay()
+            Log.d(TAG, "Overlays initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize overlays", e)
+        }
     }
 
     private fun initializeRenderOverlay() {
-        // 设置当前session给RenderOverlay
-        GameManager.currentSession?.let { session ->
-            RenderOverlay.setSession(session)
+        try {
+            // 使用 netBound 替代 currentSession
+            GameManager.netBound?.let { session ->
+                RenderOverlay.setSession(session)
+                Log.d(TAG, "RenderOverlay session set")
+            } ?: run {
+                Log.w(TAG, "GameManager netBound not available yet")
+            }
+            
+            RenderOverlay.setOverlayEnabled(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize RenderOverlay", e)
         }
-        
-        // 启动渲染悬浮窗
-        RenderOverlay.setOverlayEnabled(true)
     }
 
     private fun initializeArrayListOverlay() {
-        // 启动ArrayList悬浮窗
-        ArrayListOverlay.setOverlayEnabled(true)
-        
-        // 更新模块列表
-        updateModuleList()
-    }
-
-    private fun startRenderOverlay() {
-        // 确保渲染悬浮窗已启动
-        if (!RenderOverlay.isOverlayEnabled()) {
-            RenderOverlay.setOverlayEnabled(true)
+        try {
+            ArrayListOverlay.setOverlayEnabled(true)
+            updateModuleListSafely()
+            Log.d(TAG, "ArrayListOverlay initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize ArrayListOverlay", e)
         }
     }
 
-    private fun updateModuleList() {
-        // 从GameManager获取模块列表并更新到ArrayListOverlay
-        val moduleList = GameManager.elements
-            .filter { it.isEnabled }
-            .map { element ->
-                ArrayListOverlay.ModuleInfo(
-                    name = element.name,
-                    category = element.category?.name ?: "Unknown",
-                    isEnabled = element.isEnabled,
-                    priority = element.priority ?: 0
-                )
+    private fun updateModuleListSafely() {
+        try {
+            val elements = GameManager.elements
+            if (elements.isNotEmpty()) {
+                val moduleList = elements
+                    .filter { element -> element.isEnabled }
+                    .map { element ->
+                        ArrayListOverlay.ModuleInfo(
+                            name = element.name,
+                            category = element.category?.name ?: "Unknown",
+                            isEnabled = element.isEnabled,
+                            priority = 0  // 使用默认值，因为 Element 可能没有 priority 属性
+                        )
+                    }
+                
+                ArrayListOverlay.setModules(moduleList)
+                Log.d(TAG, "Module list updated: ${moduleList.size} modules")
+            } else {
+                Log.w(TAG, "No modules available to update")
             }
-        
-        ArrayListOverlay.setModules(moduleList)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update module list", e)
+        }
     }
 
     /**
-     * 更新session时调用
+     * 更新session时调用 - 使用 netBound 替代 currentSession
      */
     fun updateSession(session: com.phoenix.luminacn.constructors.NetBound?) {
-        RenderOverlay.setSession(session)
+        try {
+            RenderOverlay.setSession(session)
+            Log.d(TAG, "Session updated")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update session", e)
+        }
     }
 
     /**
      * 更新模块状态时调用
      */
     fun onModuleStateChanged() {
-        updateModuleList()
+        if (isInitialized) {
+            updateModuleListSafely()
+        }
     }
 
     /**
      * 获取应用上下文
      */
-    fun getContext(): Context {
-        return this
+    fun getContext(): Context = this
+
+    /**
+     * 检查是否已初始化
+     */
+    fun isInitialized(): Boolean = isInitialized
+
+    /**
+     * 清理资源的方法
+     */
+    fun cleanup() {
+        try {
+            OverlayManager.dismiss()
+            Log.d(TAG, "Resources cleaned up")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to cleanup resources", e)
+        }
     }
 
-    override fun onTerminate() {
-        super.onTerminate()
-        // 清理资源
-        OverlayManager.dismiss()
+    override fun onLowMemory() {
+        super.onLowMemory()
+        Log.w(TAG, "Low memory warning received")
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        Log.w(TAG, "Memory trim requested: level $level")
     }
 }
