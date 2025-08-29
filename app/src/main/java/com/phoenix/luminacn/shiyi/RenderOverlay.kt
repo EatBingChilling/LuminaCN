@@ -54,9 +54,9 @@ class RenderOverlay : OverlayWindow() {
             // 添加格式设置确保透明度
             format = android.graphics.PixelFormat.TRANSLUCENT
             
-            // Android 11+ 的额外设置
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                flags = flags or WindowManager.LayoutParams.FLAG_LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            // Android P+ 的刘海屏处理
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
     }

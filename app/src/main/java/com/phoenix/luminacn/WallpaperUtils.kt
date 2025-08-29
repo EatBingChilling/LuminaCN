@@ -387,7 +387,9 @@ object WallpaperUtils {
         if (!isNightMode(context)) return bitmap
         
         return try {
-            val filteredBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, bitmap.config)
+            // 修复：为config提供默认值，避免null pointer异常
+            val config = bitmap.config ?: Bitmap.Config.ARGB_8888
+            val filteredBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, config)
             val canvas = Canvas(filteredBitmap)
             val paint = Paint().apply {
                 colorFilter = ColorMatrixColorFilter(ColorMatrix().apply {
