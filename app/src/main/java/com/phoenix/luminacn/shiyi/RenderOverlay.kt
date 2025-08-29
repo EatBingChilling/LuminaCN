@@ -1,5 +1,6 @@
 package com.phoenix.luminacn.shiyi
 
+import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -20,7 +21,7 @@ class RenderOverlay : OverlayWindow() {
 
     private val _layoutParams by lazy {
         super.layoutParams.apply {
-            // 触摸穿透设置
+            // 完整的全屏触摸穿透设置
             flags = flags or
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -30,7 +31,10 @@ class RenderOverlay : OverlayWindow() {
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                     WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or
                     WindowManager.LayoutParams.FLAG_FULLSCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or
+                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION
             
             // 全屏设置
             width = WindowManager.LayoutParams.MATCH_PARENT
@@ -40,11 +44,19 @@ class RenderOverlay : OverlayWindow() {
             y = 0
             
             // 确保窗口类型正确
-            type = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE
+            }
+            
+            // 添加格式设置确保透明度
+            format = android.graphics.PixelFormat.TRANSLUCENT
+            
+            // Android 11+ 的额外设置
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                flags = flags or WindowManager.LayoutParams.FLAG_LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
         }
     }
@@ -87,11 +99,41 @@ class RenderOverlay : OverlayWindow() {
         }
     }
 
+    private fun getFullscreenSystemUIFlags(): Int {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                // Android 11+ 使用新的API
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT -> {
+                // Android 4.4+
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            }
+            else -> {
+                // 旧版本Android
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            }
+        }
+    }
+
     @Composable
     override fun Content() {
         if (!isOverlayEnabled()) return
 
         val context = LocalContext.current
+        val systemUIFlags = remember { getFullscreenSystemUIFlags() }
         
         Box(modifier = Modifier.fillMaxSize()) {
             // 渲染层视图 - 需要session
@@ -105,18 +147,25 @@ class RenderOverlay : OverlayWindow() {
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
-                            // 确保View完全可见
-                            systemUiVisibility = (
-                                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            )
+                            // 设置完整的全屏UI
+                            systemUiVisibility = systemUIFlags
+                            
+                            // 确保View获得焦点以应用SystemUI设置
+                            isFocusable = true
+                            isFocusableInTouchMode = true
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
                         // 强制重新布局以确保全屏
                         view.requestLayout()
+                        // 重新应用SystemUI设置
+                        view.systemUiVisibility = systemUIFlags
+                        
+                        // 强制进入全屏模式
+                        view.post {
+                            view.systemUiVisibility = systemUIFlags
+                        }
                     }
                 )
             }
@@ -131,18 +180,25 @@ class RenderOverlay : OverlayWindow() {
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        // 确保View完全可见
-                        systemUiVisibility = (
-                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        )
+                        // 设置完整的全屏UI
+                        systemUiVisibility = systemUIFlags
+                        
+                        // 确保View获得焦点以应用SystemUI设置
+                        isFocusable = true
+                        isFocusableInTouchMode = true
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
                     // 强制重新布局以确保全屏
                     view.requestLayout()
+                    // 重新应用SystemUI设置
+                    view.systemUiVisibility = systemUIFlags
+                    
+                    // 强制进入全屏模式
+                    view.post {
+                        view.systemUiVisibility = systemUIFlags
+                    }
                 }
             )
         }

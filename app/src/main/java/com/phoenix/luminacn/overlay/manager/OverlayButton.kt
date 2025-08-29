@@ -11,6 +11,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -124,9 +125,6 @@ class OverlayButton : OverlayWindow() {
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .clipToBounds()
-                .padding(5.dp)
                 .pointerInput(Unit) {
                     detectDragGestures { _, drag ->
                         _layoutParams.x += drag.x.toInt()
@@ -136,12 +134,13 @@ class OverlayButton : OverlayWindow() {
                 }
                 .clickable { OverlayManager.showOverlayWindow(selectedGUI) }
         ) {
+            // 背景雾化动画
             FogAnimation()
 
-            // 根据图标类型显示不同的组件
+            // 图标显示 - 使用完整的圆形容器
             IconDisplay(
                 iconResource = iconResource,
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -159,6 +158,8 @@ class OverlayButton : OverlayWindow() {
                     contentDescription = null,
                     tint = Color.Unspecified,
                     modifier = modifier
+                        .clip(CircleShape)
+                        .padding(4.dp)
                 )
             }
             IconType.BITMAP -> {
@@ -166,8 +167,10 @@ class OverlayButton : OverlayWindow() {
                 Image(
                     painter = painterResource(id = iconResource.resourceId),
                     contentDescription = null,
-                    contentScale = ContentScale.Fit,
+                    contentScale = ContentScale.Crop, // 使用Crop来填满整个容器
                     modifier = modifier
+                        .clip(CircleShape) // 圆形裁剪
+                        .clipToBounds()
                 )
             }
         }
@@ -241,7 +244,11 @@ private fun FogAnimation() {
         AnimatedLayer(offsetSt, alphaSt, cfg.sizeFactor, cfg.blurFactor, cfg.angleDeg)
     }
 
-    Canvas(modifier = Modifier.fillMaxSize()) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(CircleShape) // 确保雾化动画也是圆形的
+    ) {
         val w = size.width
         val h = size.height
 

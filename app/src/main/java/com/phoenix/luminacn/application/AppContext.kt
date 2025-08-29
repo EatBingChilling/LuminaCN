@@ -9,6 +9,7 @@ import android.os.Looper
 import android.os.Process
 import android.provider.Settings
 import android.util.Log
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.activity.CrashHandlerActivity
 import com.phoenix.luminacn.constructors.GameManager
 import com.phoenix.luminacn.constructors.KeyBindingManager
@@ -40,6 +41,21 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     private var isNameTagServiceRunning = false
     private var nameTagStartupAttempts = 0
     private val maxNameTagStartupAttempts = 5
+    
+    // ====================== 【壁纸状态管理】 ======================
+    private var wallpaperStatus: WallpaperStatus = WallpaperStatus.UNKNOWN
+    private val wallpaperCallbacks = mutableListOf<WallpaperStatusCallback>()
+    
+    enum class WallpaperStatus {
+        UNKNOWN,           // 未检查
+        AVAILABLE,         // 壁纸可用
+        NEEDS_SETUP,       // 需要用户设置
+        SETTING_UP         // 正在设置中
+    }
+    
+    interface WallpaperStatusCallback {
+        fun onWallpaperStatusChanged(status: WallpaperStatus)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -62,10 +78,13 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
         // 1. 首先初始化主题管理器
         initializeThemeManager()
         
-        // 2. 检查权限并启动服务
+        // 2. 预检查壁纸状态（新增）
+        preCheckWallpaperStatus()
+        
+        // 3. 检查权限并启动服务
         checkOverlayPermissionAndStartServices()
         
-        // 3. 延迟初始化悬浮窗
+        // 4. 延迟初始化悬浮窗
         postDelayedInitialization()
         
         isInitialized = true
@@ -83,6 +102,80 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
             } catch (fallbackException: Exception) {
                 Log.e(TAG, "Even fallback ThemeManager failed", fallbackException)
                 throw fallbackException
+            }
+        }
+    }
+    
+    // ====================== 【壁纸预检查逻辑】 ======================
+    
+    private fun preCheckWallpaperStatus() {
+        try {
+            // 在后台线程中检查壁纸状态
+            Thread {
+                try {
+                    val status = checkWallpaperAvailability()
+                    handler.post {
+                        updateWallpaperStatus(status)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to check wallpaper status", e)
+                    handler.post {
+                        updateWallpaperStatus(WallpaperStatus.UNKNOWN)
+                    }
+                }
+            }.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start wallpaper status check", e)
+        }
+    }
+    
+    private fun checkWallpaperAvailability(): WallpaperStatus {
+        return try {
+            // 使用WallpaperUtils检查壁纸状态，但不触发对话框
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // 高版本SDK，检查是否有自定义壁纸
+                if (WallpaperUtils.hasCustomWallpaper(this)) {
+                    Log.d(TAG, "Custom wallpaper available")
+                    WallpaperStatus.AVAILABLE
+                } else {
+                    Log.d(TAG, "High SDK version, needs custom wallpaper setup")
+                    WallpaperStatus.NEEDS_SETUP
+                }
+            } else {
+                // 低版本SDK，尝试获取系统壁纸
+                val testDrawable = try {
+                    val wallpaperManager = android.app.WallpaperManager.getInstance(this)
+                    wallpaperManager.drawable
+                } catch (e: Exception) {
+                    null
+                }
+                
+                if (testDrawable != null) {
+                    Log.d(TAG, "System wallpaper available")
+                    WallpaperStatus.AVAILABLE
+                } else {
+                    Log.d(TAG, "System wallpaper not available")
+                    WallpaperStatus.NEEDS_SETUP
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check wallpaper availability", e)
+            WallpaperStatus.UNKNOWN
+        }
+    }
+    
+    private fun updateWallpaperStatus(status: WallpaperStatus) {
+        if (wallpaperStatus != status) {
+            wallpaperStatus = status
+            Log.d(TAG, "Wallpaper status updated: $status")
+            
+            // 通知所有监听器
+            wallpaperCallbacks.forEach { callback ->
+                try {
+                    callback.onWallpaperStatusChanged(status)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to notify wallpaper status callback", e)
+                }
             }
         }
     }
@@ -310,6 +403,89 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     }
 
     fun isNameTagOverlayRunning(): Boolean = isNameTagServiceRunning
+    
+    // ====================== 【公共壁纸管理接口】 ======================
+    
+    /**
+     * 获取当前壁纸状态
+     */
+    fun getWallpaperStatus(): WallpaperStatus = wallpaperStatus
+    
+    /**
+     * 添加壁纸状态监听器
+     */
+    fun addWallpaperStatusCallback(callback: WallpaperStatusCallback) {
+        if (!wallpaperCallbacks.contains(callback)) {
+            wallpaperCallbacks.add(callback)
+            // 立即通知当前状态
+            if (wallpaperStatus != WallpaperStatus.UNKNOWN) {
+                callback.onWallpaperStatusChanged(wallpaperStatus)
+            }
+        }
+    }
+    
+    /**
+     * 移除壁纸状态监听器
+     */
+    fun removeWallpaperStatusCallback(callback: WallpaperStatusCallback) {
+        wallpaperCallbacks.remove(callback)
+    }
+    
+    /**
+     * 预热壁纸数据（在合适的时机调用）
+     * 这会预加载壁纸，避免使用时的延迟
+     */
+    fun preloadWallpaper() {
+        if (wallpaperStatus == WallpaperStatus.AVAILABLE) {
+            Thread {
+                try {
+                    // 预加载壁纸到内存
+                    val bitmap = WallpaperUtils.getWallpaperBitmap(this)
+                    if (bitmap != null) {
+                        Log.d(TAG, "Wallpaper preloaded successfully: ${bitmap.width}x${bitmap.height}")
+                    } else {
+                        Log.w(TAG, "Failed to preload wallpaper")
+                        // 重新检查状态
+                        handler.post { preCheckWallpaperStatus() }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to preload wallpaper", e)
+                }
+            }.start()
+        }
+    }
+    
+    /**
+     * 请求设置壁纸（需要Activity context）
+     * 这个方法应该从Activity中调用
+     */
+    fun requestWallpaperSetup(activity: androidx.appcompat.app.AppCompatActivity, callback: WallpaperUtils.WallpaperSelectorCallback? = null) {
+        if (wallpaperStatus == WallpaperStatus.NEEDS_SETUP) {
+            wallpaperStatus = WallpaperStatus.SETTING_UP
+            updateWallpaperStatus(WallpaperStatus.SETTING_UP)
+            
+            WallpaperUtils.setupCustomWallpaper(activity, object : WallpaperUtils.WallpaperSelectorCallback {
+                override fun onWallpaperSelected() {
+                    updateWallpaperStatus(WallpaperStatus.AVAILABLE)
+                    callback?.onWallpaperSelected()
+                    // 预加载新设置的壁纸
+                    preloadWallpaper()
+                }
+                
+                override fun onWallpaperSelectionCancelled() {
+                    updateWallpaperStatus(WallpaperStatus.NEEDS_SETUP)
+                    callback?.onWallpaperSelectionCancelled()
+                }
+            })
+        }
+    }
+    
+    /**
+     * 检查是否需要提示用户设置壁纸
+     */
+    fun shouldPromptWallpaperSetup(): Boolean {
+        return wallpaperStatus == WallpaperStatus.NEEDS_SETUP
+    }
 
     // ====================== 【崩溃处理逻辑】 ======================
     override fun uncaughtException(t: Thread, e: Throwable) {
@@ -479,6 +655,7 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
 
     fun cleanup() {
         try {
+            wallpaperCallbacks.clear() // 清理壁纸回调
             stopNameTagService() // 添加NameTag服务清理
             OverlayManager.dismiss()
             Log.d(TAG, "Resources cleaned up")

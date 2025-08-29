@@ -1,7 +1,6 @@
 package com.phoenix.luminacn.overlay.kitsugui
 
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.view.WindowManager
@@ -12,10 +11,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,16 +25,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -49,7 +43,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phoenix.luminacn.R
-import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.constructors.CheatCategory
 import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.overlay.manager.KitsuSettingsOverlay
@@ -102,18 +95,32 @@ class KitsuGUI : OverlayWindow() {
 
     @Composable
     override fun Content() {
+        val context = LocalContext.current
+        
+        // 使用MD3动态配色
+        val colorScheme = if (isSystemInDarkTheme()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                dynamicDarkColorScheme(context)
+            } else {
+                darkColorScheme()
+            }
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                dynamicLightColorScheme(context)
+            } else {
+                lightColorScheme()
+            }
+        }
+
         val configuration = LocalConfiguration.current
         val cardWidth = 660.dp
         val cardHeight = 500.dp
-        val context = LocalContext.current
-        var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
         var shouldAnimate by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
-        // 获取壁纸
+        // 启动动画
         LaunchedEffect(Unit) {
-            wallpaperBitmap = WallpaperUtils.getWallpaperBitmap(context)
             delay(50)
             shouldAnimate = true
         }
@@ -147,79 +154,50 @@ class KitsuGUI : OverlayWindow() {
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0x70000000),
-                            Color(0x90000000)
+        MaterialTheme(colorScheme = colorScheme) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0x70000000),
+                                Color(0x90000000)
+                            )
                         )
                     )
-                )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (selectedModule == null) {
-                        dismissWithAnimation()
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent // 设置卡片背景为透明
-                ),
-                modifier = Modifier
-                    .widthIn(max = cardWidth)
-                    .height(cardHeight)
-                    .padding(horizontal = 24.dp, vertical = 24.dp)
-                    .graphicsLayer {
-                        translationY = translateY
-                        this.alpha = alpha
-                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { /* Prevent clicks from passing through */ },
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 12.dp
-                )
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // 壁纸背景层 (80%)
-                    wallpaperBitmap?.let { bitmap ->
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop,
-                            colorFilter = ColorFilter.tint(
-                                color = Color.White.copy(alpha = 0.8f), // 80% 壁纸显示
-                                blendMode = BlendMode.Modulate
-                            )
-                        )
-                    }
-                    
-                    // 主题色叠加层 (20%)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // 20% 主题色
-                            )
-                    )
-                    
-                    // UI内容层
-                    Row(
-                        modifier = Modifier.fillMaxSize()
                     ) {
+                        if (selectedModule == null) {
+                            dismissWithAnimation()
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    modifier = Modifier
+                        .widthIn(max = cardWidth)
+                        .height(cardHeight)
+                        .padding(horizontal = 24.dp, vertical = 24.dp)
+                        .graphicsLayer {
+                            translationY = translateY
+                            this.alpha = alpha
+                        }
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { /* Prevent clicks from passing through */ },
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 12.dp
+                    )
+                ) {
+                    Row(modifier = Modifier.fillMaxSize()) {
                         Sidebar()
                         VerticalDivider(
                             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
@@ -227,13 +205,13 @@ class KitsuGUI : OverlayWindow() {
                         MainUICard(dismissWithAnimation)
                     }
                 }
-            }
 
-            selectedModule?.let { module ->
-                KitsuSettingsOverlay(
-                    element = module,
-                    onDismiss = { selectedModule = null }
-                )
+                selectedModule?.let { module ->
+                    KitsuSettingsOverlay(
+                        element = module,
+                        onDismiss = { selectedModule = null }
+                    )
+                }
             }
         }
     }
@@ -245,7 +223,7 @@ class KitsuGUI : OverlayWindow() {
                 .width(160.dp)
                 .fillMaxHeight()
                 .background(
-                    color = Color.Transparent, // 透明背景使用底层混合背景
+                    color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
                 )
                 .padding(12.dp),
@@ -282,12 +260,12 @@ class KitsuGUI : OverlayWindow() {
 
                 Text(
                     text = "LUMINA",
-                    style = TextStyle(
+                    style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 18.sp,
                         fontFamily = modernFont,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold
                     ),
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -333,7 +311,7 @@ class KitsuGUI : OverlayWindow() {
         val backgroundColor by animateColorAsState(
             targetValue = when {
                 isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                isHovered -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.4f)
+                isHovered -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 else -> Color.Transparent
             },
             animationSpec = tween(durationMillis = 200),
@@ -386,12 +364,12 @@ class KitsuGUI : OverlayWindow() {
 
             Text(
                 text = getCategoryTitle(category),
-                style = TextStyle(
+                style = MaterialTheme.typography.bodyMedium.copy(
                     fontSize = 16.sp,
                     fontFamily = modernFont,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
+                    fontWeight = FontWeight.Bold
                 ),
+                color = textColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -403,7 +381,7 @@ class KitsuGUI : OverlayWindow() {
         Card(
             shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent // 透明背景使用底层混合背景
+                containerColor = MaterialTheme.colorScheme.surface
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -432,12 +410,12 @@ class KitsuGUI : OverlayWindow() {
 
                         Text(
                             text = getCategoryTitle(selectedCheatCategory),
-                            style = TextStyle(
+                            style = MaterialTheme.typography.headlineSmall.copy(
                                 fontSize = 24.sp,
                                 fontFamily = modernFont,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                fontWeight = FontWeight.Bold
                             ),
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.alpha(titleAlpha)
@@ -500,7 +478,7 @@ class KitsuGUI : OverlayWindow() {
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .background(
-                    color = Color.Transparent, // 透明背景使用底层混合背景
+                    color = Color.Transparent,
                     shape = RoundedCornerShape(8.dp)
                 )
         ) {
