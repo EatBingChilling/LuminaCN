@@ -38,6 +38,8 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     
     // 添加NameTag服务管理
     private var isNameTagServiceRunning = false
+    private var nameTagStartupAttempts = 0
+    private val maxNameTagStartupAttempts = 5
 
     override fun onCreate() {
         super.onCreate()
@@ -103,15 +105,62 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     private fun startServices() {
         Log.d("AppContext", "Attempting to start services.")
         try {
-            // 启动NameTag悬浮窗服务
-            startNameTagService()
+            // 延迟启动NameTag悬浮窗服务，等待GameManager初始化
+            scheduleNameTagServiceStart()
             Log.i("AppContext", "Services started successfully.")
         } catch (e: Exception) {
             Log.e("AppContext", "Failed to start services.", e)
         }
     }
 
-    // 添加NameTag服务管理方法
+    // 修改：添加延迟和重试机制的NameTag服务启动
+    private fun scheduleNameTagServiceStart() {
+        val delayMs = when (nameTagStartupAttempts) {
+            0 -> 2000L      // 第一次尝试：2秒后
+            1 -> 5000L      // 第二次尝试：5秒后
+            2 -> 10000L     // 第三次尝试：10秒后
+            3 -> 15000L     // 第四次尝试：15秒后
+            else -> 30000L  // 最后一次尝试：30秒后
+        }
+
+        Log.d(TAG, "Scheduling NameTag service start attempt ${nameTagStartupAttempts + 1}/$maxNameTagStartupAttempts in ${delayMs}ms")
+        
+        handler.postDelayed({
+            tryStartNameTagService()
+        }, delayMs)
+    }
+
+    private fun tryStartNameTagService() {
+        nameTagStartupAttempts++
+        
+        try {
+            // 检查GameManager是否已经初始化
+            if (GameManager.netBound != null) {
+                startNameTagService()
+                Log.d(TAG, "NameTag service started successfully on attempt $nameTagStartupAttempts")
+                return
+            }
+            
+            Log.w(TAG, "GameManager.netBound still null on attempt $nameTagStartupAttempts")
+            
+            // 如果还有重试机会，继续尝试
+            if (nameTagStartupAttempts < maxNameTagStartupAttempts) {
+                scheduleNameTagServiceStart()
+            } else {
+                Log.e(TAG, "Failed to start NameTag service after $maxNameTagStartupAttempts attempts - GameManager not ready")
+                // 即使GameManager未就绪，也尝试启动服务（服务内部会处理null session）
+                startNameTagServiceFallback()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start NameTag service on attempt $nameTagStartupAttempts", e)
+            
+            if (nameTagStartupAttempts < maxNameTagStartupAttempts) {
+                scheduleNameTagServiceStart()
+            }
+        }
+    }
+
+    // 修改：更安全的NameTag服务启动
     private fun startNameTagService() {
         try {
             if (!isNameTagServiceRunning && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
@@ -119,10 +168,27 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
                 intent.action = NameTagOverlayService.ACTION_SHOW_OVERLAY
                 startService(intent)
                 isNameTagServiceRunning = true
-                Log.d(TAG, "NameTag service started")
+                Log.d(TAG, "NameTag service started successfully")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start NameTag service", e)
+            throw e
+        }
+    }
+
+    // 添加：备用启动方法（即使没有session也启动）
+    private fun startNameTagServiceFallback() {
+        try {
+            if (!isNameTagServiceRunning && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                Log.w(TAG, "Starting NameTag service without GameManager session (fallback mode)")
+                val intent = Intent(this, NameTagOverlayService::class.java)
+                intent.action = NameTagOverlayService.ACTION_SHOW_OVERLAY
+                startService(intent)
+                isNameTagServiceRunning = true
+                Log.d(TAG, "NameTag service started in fallback mode")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start NameTag service in fallback mode", e)
         }
     }
 
@@ -215,7 +281,9 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     fun enableNameTagOverlay() {
         try {
             if (!isNameTagServiceRunning) {
-                startNameTagService()
+                // 如果服务还没启动，重置计数器并立即尝试启动
+                nameTagStartupAttempts = 0
+                tryStartNameTagService()
             } else {
                 // 如果服务已运行，发送显示命令
                 val intent = Intent(this, NameTagOverlayService::class.java)
@@ -279,9 +347,13 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
             
             is IllegalStateException -> {
                 val message = e.message?.lowercase() ?: ""
+                val stackTrace = e.stackTraceToString()
+                // 添加对"No session available"错误的特殊处理
+                message.contains("no session available") ||
                 message.contains("network") || 
                 message.contains("connection") ||
-                message.contains("timeout")
+                message.contains("timeout") ||
+                stackTrace.contains("NameTagRenderView") // NameTag相关的错误也视为非致命
             }
             
             else -> false
@@ -324,6 +396,18 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
             }
             is NullPointerException -> {
                 Log.i(TAG, "空指针错误恢复：重新初始化相关组件")
+            }
+            is IllegalStateException -> {
+                val message = e.message?.lowercase() ?: ""
+                if (message.contains("no session available")) {
+                    Log.i(TAG, "Session不可用错误恢复：尝试重新启动NameTag服务")
+                    // 重置NameTag服务启动计数器，稍后重试
+                    nameTagStartupAttempts = 0
+                    handler.postDelayed({ tryStartNameTagService() }, 5000)
+                } else {
+                    Log.i(TAG, "状态异常恢复：执行垃圾回收")
+                    System.gc()
+                }
             }
             else -> {
                 Log.i(TAG, "通用错误恢复：执行垃圾回收")
@@ -371,6 +455,13 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
         try {
             RenderOverlay.setSession(session)
             Log.d(TAG, "Session updated")
+            
+            // 如果NameTag服务还没启动且现在有了session，尝试启动
+            if (!isNameTagServiceRunning && session != null) {
+                Log.d(TAG, "Session now available, attempting to start NameTag service")
+                nameTagStartupAttempts = 0
+                tryStartNameTagService()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update session", e)
         }

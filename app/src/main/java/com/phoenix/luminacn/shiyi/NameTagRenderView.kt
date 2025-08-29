@@ -11,19 +11,19 @@ import com.phoenix.luminacn.game.event.*
 class NameTagRenderView(context: Context) : View(context), Listenable {
 
     private var _session: NetBound? = null
-    private val session: NetBound
-        get() = _session ?: GameManager.netBound ?: throw IllegalStateException("No session available")
+    private var _eventManager: EventManager? = null
 
     init {
         setWillNotDraw(false)
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
         
-        // 尝试获取初始session
-        _session = GameManager.netBound
+        // 不在构造函数中强制要求 session
+        updateSession(GameManager.netBound)
     }
 
     fun updateSession(newSession: NetBound?) {
         this._session = newSession
+        this._eventManager = newSession?.eventManager
         invalidate()
     }
 
@@ -31,25 +31,52 @@ class NameTagRenderView(context: Context) : View(context), Listenable {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        try {
-            val currentSession = session
-            val event = EventNameTagRender(currentSession, canvas, context)
-            currentSession.eventManager.emit(event)
-            if (event.needRefresh) {
-                invalidate()
+        // 只在有 session 时才绘制
+        _session?.let { currentSession ->
+            try {
+                val event = EventNameTagRender(currentSession, canvas, context)
+                currentSession.eventManager.emit(event)
+                if (event.needRefresh) {
+                    invalidate()
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("NameTagRenderView", "Error during rendering: ${e.message}")
             }
-        } catch (e: IllegalStateException) {
-            // Session不可用，跳过本次绘制
-            android.util.Log.w("NameTagRenderView", "Session not available for rendering: ${e.message}")
         }
     }
 
-    private val handleRefreshRender = handle<EventRefreshNameTagRender> {
-        invalidate()
+    // 延迟注册事件处理器，只在有 session 时注册
+    private var refreshHandlerRegistered = false
+    
+    private fun ensureEventHandlerRegistered() {
+        if (!refreshHandlerRegistered && _session != null) {
+            try {
+                handle<EventRefreshNameTagRender> {
+                    invalidate()
+                }
+                refreshHandlerRegistered = true
+            } catch (e: Exception) {
+                android.util.Log.w("NameTagRenderView", "Failed to register event handler: ${e.message}")
+            }
+        }
     }
 
+    // 提供一个安全的 EventManager，如果没有 session 就创建一个空的
     override val eventManager: EventManager
-        get() = session.eventManager
+        get() {
+            if (_eventManager == null) {
+                // 创建一个临时的空 EventManager
+                _eventManager = EventManager()
+            }
+            return _eventManager!!
+        }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // 窗口附加时尝试更新 session
+        updateSession(GameManager.netBound)
+        ensureEventHandlerRegistered()
+    }
 
     class EventNameTagRender(session: NetBound, val canvas: Canvas, val context: Context, var needRefresh: Boolean = false) : GameEvent(session, "nametag_render")
     class EventRefreshNameTagRender(session: NetBound) : GameEvent(session, "refresh_nametag_render")

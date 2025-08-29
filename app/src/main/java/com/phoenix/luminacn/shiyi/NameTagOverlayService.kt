@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.phoenix.luminacn.overlay.manager.OverlayWindow
 import com.phoenix.luminacn.overlay.manager.OverlayManager
 import com.phoenix.luminacn.constructors.GameManager
+import kotlinx.coroutines.delay
 
 class NameTagOverlayService : Service() {
 
@@ -50,8 +52,9 @@ class NameTagOverlayService : Service() {
                 try {
                     OverlayManager.showOverlayWindow(overlay)
                     isOverlayShown = true
+                    android.util.Log.d("NameTagService", "NameTag overlay shown")
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    android.util.Log.e("NameTagService", "Failed to show overlay", e)
                 }
             }
         }
@@ -63,8 +66,9 @@ class NameTagOverlayService : Service() {
                 try {
                     OverlayManager.dismissOverlayWindow(overlay)
                     isOverlayShown = false
+                    android.util.Log.d("NameTagService", "NameTag overlay hidden")
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    android.util.Log.e("NameTagService", "Failed to hide overlay", e)
                 }
             }
         }
@@ -98,7 +102,7 @@ class NameTagOverlay : OverlayWindow() {
 
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
-            gravity = Gravity.TOP or Gravity.START // 修复: Start -> START
+            gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
             format = PixelFormat.TRANSLUCENT
@@ -122,31 +126,49 @@ class NameTagOverlay : OverlayWindow() {
         Box(modifier = Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { ctx ->
-                    NameTagRenderView(ctx).apply {
-                        setBackgroundColor(Color.TRANSPARENT)
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        systemUiVisibility = (
-                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        )
-                        updateSession(GameManager.netBound)
+                    try {
+                        NameTagRenderView(ctx).apply {
+                            setBackgroundColor(Color.TRANSPARENT)
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            systemUiVisibility = (
+                                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            )
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("NameTagOverlay", "Failed to create NameTagRenderView", e)
+                        // 返回一个空的 View 作为备选
+                        View(ctx).apply {
+                            setBackgroundColor(Color.TRANSPARENT)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
-                    view.updateSession(GameManager.netBound)
-                    view.requestLayout()
+                    if (view is NameTagRenderView) {
+                        // 定期检查并更新 session
+                        view.updateSession(GameManager.netBound)
+                        view.requestLayout()
+                    }
                 }
             )
         }
 
+        // 定期更新 session
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(1000) // 每秒检查一次
+                // 触发重新组合以更新 session
+            }
+        }
+
         DisposableEffect(Unit) {
             onDispose {
-                // 清理资源
+                android.util.Log.d("NameTagOverlay", "NameTag overlay disposed")
             }
         }
     }

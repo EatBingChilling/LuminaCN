@@ -7,6 +7,7 @@ import android.graphics.BlurMaskFilter
 import android.view.WindowManager
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -18,12 +19,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.phoenix.luminacn.R
@@ -62,6 +67,17 @@ class OverlayButton : OverlayWindow() {
     private val protohaxUi by lazy { ProtohaxUi() }
     private val clickGUI by lazy { ClickGUI() }
 
+    // 枚举来定义图标类型
+    enum class IconType {
+        VECTOR, BITMAP
+    }
+
+    // 数据类来存储图标信息
+    data class IconResource(
+        val resourceId: Int,
+        val type: IconType
+    )
+
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -76,17 +92,20 @@ class OverlayButton : OverlayWindow() {
             windowManager.updateViewLayout(composeView, _layoutParams)
         }
 
-        val logoVector: ImageVector = ImageVector.vectorResource(id = R.drawable.logo)
-
+        // 使用位图 img 作为图标
+        val iconResource = IconResource(
+            resourceId = R.drawable.img,
+            type = IconType.BITMAP
+        )
 
         val prefs = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-        var selectedGUIName by remember { mutableStateOf(prefs.getString("selectedGUI", "KitsuGUI") ?: "KitsuGUI") }
-
+        // 默认改为 ProtohaxUi
+        var selectedGUIName by remember { mutableStateOf(prefs.getString("selectedGUI", "ProtohaxUi") ?: "ProtohaxUi") }
 
         DisposableEffect(Unit) {
             val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                 if (key == "selectedGUI") {
-                    selectedGUIName = prefs.getString("selectedGUI", "KitsuGUI") ?: "KitsuGUI"
+                    selectedGUIName = prefs.getString("selectedGUI", "ProtohaxUi") ?: "ProtohaxUi"
                 }
             }
             prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -119,12 +138,38 @@ class OverlayButton : OverlayWindow() {
         ) {
             FogAnimation()
 
-            Icon(
-                imageVector = logoVector,
-                contentDescription = null,
-                tint = Color.Unspecified,
+            // 根据图标类型显示不同的组件
+            IconDisplay(
+                iconResource = iconResource,
                 modifier = Modifier.align(Alignment.Center)
             )
+        }
+    }
+
+    @Composable
+    private fun IconDisplay(
+        iconResource: IconResource,
+        modifier: Modifier = Modifier
+    ) {
+        when (iconResource.type) {
+            IconType.VECTOR -> {
+                // 对于Vector资源使用Icon组件
+                Icon(
+                    imageVector = ImageVector.vectorResource(id = iconResource.resourceId),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = modifier
+                )
+            }
+            IconType.BITMAP -> {
+                // 对于Bitmap资源(PNG/JPG)使用Image组件
+                Image(
+                    painter = painterResource(id = iconResource.resourceId),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = modifier
+                )
+            }
         }
     }
 }
