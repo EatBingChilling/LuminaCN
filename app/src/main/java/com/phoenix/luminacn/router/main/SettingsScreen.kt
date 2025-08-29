@@ -139,10 +139,10 @@ fun SettingsScreen() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f) // 半透明背景
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 2.dp
+                defaultElevation = 0.dp // 移除阴影
             ),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -318,9 +318,9 @@ fun SettingsScreen() {
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val screenWidthDp = configuration.screenWidthDp
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+    // 移除 Surface，使用透明背景
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
         if (isPortrait || screenWidthDp < 800) {
             LazyColumn(
@@ -486,8 +486,13 @@ private fun ServerConfigCard(ip: String, port: String, onClick: () -> Unit) {
     ElevatedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp, pressedElevation = 8.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f) // 半透明背景
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 0.dp, // 移除阴影
+            pressedElevation = 0.dp
+        ),
         shape = RoundedCornerShape(16.dp)
     ) {
         Row(
@@ -495,7 +500,11 @@ private fun ServerConfigCard(ip: String, port: String, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Surface(modifier = Modifier.size(48.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+            Surface(
+                modifier = Modifier.size(48.dp), 
+                shape = CircleShape, 
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) // 半透明背景
+            ) {
                 Icon(
                     Icons.Filled.Storage,
                     contentDescription = null,
@@ -518,23 +527,36 @@ private fun AppManagerCard(pkg: String, onClick: () -> Unit, name: (String) -> S
     ElevatedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp, pressedElevation = 8.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f) // 半透明背景
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 0.dp, // 移除阴影
+            pressedElevation = 0.dp
+        ),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(modifier = Modifier.size(24.dp), shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                Surface(
+                    modifier = Modifier.size(24.dp), 
+                    shape = CircleShape, 
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f) // 半透明背景
+                ) {
                     Icon(Icons.Filled.Apps, null, modifier = Modifier.padding(4.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
                 Text("应用管理器", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 icon(pkg)?.let {
-                    Surface(modifier = Modifier.size(56.dp), shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp) {
+                    Surface(modifier = Modifier.size(56.dp), shape = RoundedCornerShape(12.dp), shadowElevation = 0.dp) { // 移除阴影
                         Image(it.toBitmap(112, 112).asImageBitmap(), null, modifier = Modifier.fillMaxSize())
                     }
-                } ?: Surface(modifier = Modifier.size(56.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                } ?: Surface(
+                    modifier = Modifier.size(56.dp), 
+                    shape = RoundedCornerShape(12.dp), 
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) // 半透明背景
+                ) {
                     Icon(Icons.Filled.Android, null, modifier = Modifier.padding(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

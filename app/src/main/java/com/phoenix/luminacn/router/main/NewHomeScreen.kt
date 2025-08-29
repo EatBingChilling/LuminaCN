@@ -373,8 +373,8 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                 containerColor = Color.Transparent, // 透明背景使用底层混合背景
                 bottomBar = {
                     NavigationBar(
-                        containerColor = Color.Transparent,
-                        tonalElevation = 0.dp
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), // 85% 不透明度的表面色
+                        tonalElevation = 3.dp // 添加一点高度感
                     ) {
                         navigationItems.forEachIndexed { idx, (label, icon) ->
                             NavigationBarItem(

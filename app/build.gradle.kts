@@ -128,7 +128,7 @@ android {
 dependencies {
     // 添加对libs目录中JAR文件的支持
     implementation(fileTree(mapOf("dir" to "libs", "include" to arrayOf("*.jar"))))
-    
+    implementation("com.github.skydoves:cloudy:2.0.3")
     implementation(libs.leveldb)
     implementation(libs.ui.graphics)
     implementation(libs.androidx.compose.material)

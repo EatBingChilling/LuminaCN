@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -50,9 +51,9 @@ fun AccountScreen(showNotification: (String, NotificationType) -> Unit) {
     // Determine layout based on screen size and orientation
     val useWideLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background // 与其他 screen 保持一致
+    // 移除 Surface，使用透明背景
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
         if (useWideLayout) {
             // Wide layout: centered with more space
@@ -111,11 +112,11 @@ private fun AccountCard(
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface // 在 background 基础上使用 surface
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f) // 半透明背景
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 0.dp, // 删除阴影
-            pressedElevation = 0.dp // 删除阴影
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp
         )
     ) {
         Column(
@@ -214,8 +215,8 @@ private fun AccountCard(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant, // 调整为与新背景协调的颜色
-                    tonalElevation = 0.dp // 删除阴影
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f), // 半透明背景
+                    tonalElevation = 0.dp
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -245,7 +246,7 @@ private fun AccountCard(
                                             deviceInfo = device
                                             showAddAccountMenu = false
                                         },
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f)
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f) // 半透明背景
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -319,10 +320,10 @@ private fun AccountCard(
                                     )
                                 ),
                             color = if (account == AccountManager.currentAccount)
-                                MaterialTheme.colorScheme.primaryContainer
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) // 半透明背景
                             else
-                                MaterialTheme.colorScheme.surfaceVariant, // 调整为与新背景协调的颜色
-                            tonalElevation = 0.dp // 删除阴影
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), // 半透明背景
+                            tonalElevation = 0.dp
                         ) {
                             Row(
                                 modifier = Modifier
@@ -486,14 +487,15 @@ private fun AccountDialog(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), // 删除 elevation
+                        containerColor = Color.Transparent, // 完全透明背景
                         titleContentColor = MaterialTheme.colorScheme.onSurface,
                         navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     modifier = Modifier
-                        .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)) // 删除阴影
+                        .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
                 )
-            }
+            },
+            containerColor = Color.Transparent // Scaffold 背景透明
         ) {
             Column(
                 Modifier

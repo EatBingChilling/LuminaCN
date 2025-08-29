@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
@@ -22,6 +24,8 @@ import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.application.AppContext
 import com.phoenix.luminacn.constructors.ArrayListManager
 import com.phoenix.luminacn.constructors.GameManager
@@ -59,6 +63,72 @@ class NewMainActivity : ComponentActivity() {
                     Log.e("NewMainActivity", "Error launching import: ${e.message}", e)
                 }
             }
+        }
+
+        /**
+         * 启动壁纸选择器（公共方法）
+         * 可以从其他地方调用来让用户选择壁纸
+         */
+        fun launchWallpaperPicker() {
+            if (currentInstance == null) {
+                Log.e("NewMainActivity", "Error: NewMainActivity instance is null when trying to launch wallpaper picker")
+                return
+            }
+
+            currentInstance?.let { activity ->
+                try {
+                    Log.d("NewMainActivity", "Launching wallpaper picker from external call")
+                    activity.launchWallpaperPickerInternal()
+                } catch (e: Exception) {
+                    Log.e("NewMainActivity", "Error launching wallpaper picker: ${e.message}", e)
+                }
+            }
+        }
+
+        /**
+         * 检查当前是否有Activity实例可用
+         */
+        fun isAvailable(): Boolean = currentInstance != null && 
+            !currentInstance!!.isFinishing && !currentInstance!!.isDestroyed
+    }
+
+    // ====================== 【壁纸相关】 ======================
+    private lateinit var wallpaperCallback: AppContext.WallpaperStatusCallback
+    private var hasShownWallpaperDialog = false
+    
+    // 壁纸选择器 - 修改为传回WallpaperUtils处理
+    private val wallpaperPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { uri ->
+                Log.d("NewMainActivity", "Wallpaper selected: $uri")
+                // 传回给WallpaperUtils统一处理
+                WallpaperUtils.handleSelectedWallpaper(this, uri, object : WallpaperUtils.WallpaperSelectorCallback {
+                    override fun onWallpaperSelected() {
+                        Toast.makeText(this@NewMainActivity, "壁纸设置成功", Toast.LENGTH_SHORT).show()
+                        Log.d("NewMainActivity", "Wallpaper set successfully")
+                        
+                        // 更新AppContext中的壁纸状态
+                        if (AppContext.instance.getWallpaperStatus() != AppContext.WallpaperStatus.AVAILABLE) {
+                            // 重新检查壁纸状态，触发预加载
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                AppContext.instance.preloadWallpaper()
+                            }, 500)
+                        }
+                    }
+                    
+                    override fun onWallpaperSelectionCancelled() {
+                        Toast.makeText(this@NewMainActivity, "壁纸设置失败", Toast.LENGTH_SHORT).show()
+                        Log.w("NewMainActivity", "Wallpaper setting failed")
+                    }
+                })
+            } ?: run {
+                Toast.makeText(this, "未选择图片", Toast.LENGTH_SHORT).show()
+                Log.w("NewMainActivity", "No image selected")
+            }
+        } else {
+            Log.d("NewMainActivity", "User cancelled wallpaper selection")
         }
     }
 
@@ -140,6 +210,120 @@ class NewMainActivity : ComponentActivity() {
         }
     }
 
+    // ====================== 【壁纸处理方法】 ======================
+    
+    private fun setupWallpaperStatusListener() {
+        wallpaperCallback = object : AppContext.WallpaperStatusCallback {
+            override fun onWallpaperStatusChanged(status: AppContext.WallpaperStatus) {
+                when (status) {
+                    AppContext.WallpaperStatus.NEEDS_SETUP -> {
+                        if (!hasShownWallpaperDialog && !isFinishing && !isDestroyed) {
+                            showWallpaperSetupDialog()
+                        }
+                    }
+                    AppContext.WallpaperStatus.AVAILABLE -> {
+                        Log.d("NewMainActivity", "Wallpaper is available")
+                        AppContext.instance.preloadWallpaper()
+                    }
+                    AppContext.WallpaperStatus.SETTING_UP -> {
+                        Log.d("NewMainActivity", "Wallpaper is being set up")
+                    }
+                    AppContext.WallpaperStatus.UNKNOWN -> {
+                        Log.w("NewMainActivity", "Wallpaper status unknown")
+                    }
+                }
+            }
+        }
+        
+        AppContext.instance.addWallpaperStatusCallback(wallpaperCallback)
+    }
+    
+    private fun showWallpaperSetupDialog() {
+        if (hasShownWallpaperDialog) return
+        hasShownWallpaperDialog = true
+        
+        // 延迟显示，避免启动时太突兀
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!isFinishing && !isDestroyed) {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("需要设置壁纸")
+                    .setMessage("由于系统权限限制，需要您手动选择一张图片作为应用壁纸。这只需要设置一次。")
+                    .setPositiveButton("选择图片") { _, _ ->
+                        launchWallpaperPickerInternal()
+                    }
+                    .setNegativeButton("稍后设置") { _, _ ->
+                        // 允许用户稍后设置，但会在下次启动时再次提示
+                        hasShownWallpaperDialog = false
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
+        }, 2000) // 延迟2秒显示
+    }
+    
+    /**
+     * 内部壁纸选择器启动方法
+     */
+    private fun launchWallpaperPickerInternal() {
+        try {
+            Log.d("NewMainActivity", "Launching wallpaper picker")
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "image/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/jpeg", "image/png", "image/webp", "image/bmp"))
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                putExtra("android.provider.extra.SHOW_ADVANCED", true)
+            }
+            wallpaperPickerLauncher.launch(intent)
+        } catch (e: Exception) {
+            Log.e("NewMainActivity", "Failed to launch wallpaper picker", e)
+            Toast.makeText(this, "无法启动图片选择器：${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /**
+     * 公共方法：显示壁纸选择器
+     * 可以从设置页面等地方调用
+     */
+    fun showWallpaperPicker() {
+        if (isFinishing || isDestroyed) {
+            Log.w("NewMainActivity", "Activity is finishing or destroyed, cannot show wallpaper picker")
+            return
+        }
+        
+        try {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("选择壁纸")
+                .setMessage("选择一张图片作为应用背景壁纸")
+                .setPositiveButton("选择图片") { _, _ ->
+                    launchWallpaperPickerInternal()
+                }
+                .setNeutralButton("清除壁纸") { _, _ ->
+                    clearCurrentWallpaper()
+                }
+                .setNegativeButton("取消", null)
+                .show()
+        } catch (e: Exception) {
+            Log.e("NewMainActivity", "Failed to show wallpaper picker dialog", e)
+            // 如果对话框显示失败，直接启动选择器
+            launchWallpaperPickerInternal()
+        }
+    }
+
+    /**
+     * 清除当前壁纸
+     */
+    private fun clearCurrentWallpaper() {
+        try {
+            WallpaperUtils.clearCustomWallpaper(this)
+            Toast.makeText(this, "壁纸已清除", Toast.LENGTH_SHORT).show()
+            Log.d("NewMainActivity", "Custom wallpaper cleared")
+        } catch (e: Exception) {
+            Log.e("NewMainActivity", "Failed to clear wallpaper", e)
+            Toast.makeText(this, "清除壁纸失败", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     @OptIn(ExperimentalFoundationApi::class)
     @SuppressLint("BatteryLife")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -182,6 +366,9 @@ class NewMainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestStoragePermissions()
         requestOverlayPermission()
+        
+        // 设置壁纸状态监听器
+        setupWallpaperStatusListener()
 
         setContent {
             CompositionLocalProvider(
@@ -208,6 +395,12 @@ class NewMainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ArrayListManager.releaseSounds()
+        
+        // 移除壁纸状态监听器
+        if (::wallpaperCallback.isInitialized) {
+            AppContext.instance.removeWallpaperStatusCallback(wallpaperCallback)
+        }
+        
         if (currentInstance == this) {
             currentInstance = null
         }
