@@ -480,13 +480,22 @@ private fun CustomSlider(
 ) {
     var sliderWidth by remember { mutableFloatStateOf(0f) }
     var isDragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(value) }
 
+    // 当不在拖拽时，使用动画值；拖拽时直接使用拖拽值
+    val displayValue = if (isDragging) dragValue else value
+    
     val animatedValue by animateFloatAsState(
-        targetValue = value,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
+        targetValue = displayValue,
+        animationSpec = if (isDragging) {
+            // 拖拽时使用更快的动画或无动画
+            tween(durationMillis = 0)
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        }
     )
 
     val thumbScale by animateFloatAsState(
@@ -497,6 +506,13 @@ private fun CustomSlider(
         )
     )
 
+    // 同步拖拽值和实际值
+    LaunchedEffect(value) {
+        if (!isDragging) {
+            dragValue = value
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -506,20 +522,28 @@ private fun CustomSlider(
             }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = { isDragging = true },
-                    onDragEnd = { isDragging = false },
+                    onDragStart = { 
+                        isDragging = true
+                        dragValue = value
+                    },
+                    onDragEnd = { 
+                        isDragging = false
+                        // 确保最终值同步
+                        onValueChange(dragValue)
+                    },
                     onHorizontalDrag = { _, dragAmount ->
-                        if (isDragging) {
+                        if (isDragging && sliderWidth > 0) {
                             val fraction = dragAmount / sliderWidth
                             val range = valueRange.endInclusive - valueRange.start
-                            val newValue = (value + fraction * range).coerceIn(valueRange)
+                            val newValue = (dragValue + fraction * range).coerceIn(valueRange)
+                            dragValue = newValue
                             onValueChange(newValue)
                         }
                     }
                 )
             }
     ) {
-
+        // 滑条轨道
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -528,15 +552,22 @@ private fun CustomSlider(
                 .background(SliderTrackColor, RoundedCornerShape(1.5.dp))
         )
 
+        // 计算进度
         val fraction = (animatedValue - valueRange.start) / (valueRange.endInclusive - valueRange.start)
+        
         val activeTrackWidth by animateFloatAsState(
             targetValue = fraction * sliderWidth,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
-            )
+            animationSpec = if (isDragging) {
+                tween(durationMillis = 0)
+            } else {
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            }
         )
 
+        // 活动轨道
         Box(
             modifier = Modifier
                 .width(activeTrackWidth.toDp())
@@ -545,6 +576,7 @@ private fun CustomSlider(
                 .background(SliderActiveTrackColor, RoundedCornerShape(1.5.dp))
         )
 
+        // 滑块
         Box(
             modifier = Modifier
                 .offset(x = (fraction * sliderWidth).toDp() - 4.dp)

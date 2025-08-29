@@ -159,15 +159,15 @@ private fun GuidePages(
         // Page 0
         {
             GuidePage(
-                title = "欢迎使用 LuminaCN",
-                subtitle = "一款功能强大的 Minecraft 辅助客户端，由 MITM 原理驱动。"
+                title = "欢迎使用 Kitasan",
+                subtitle = "一款基于 LuminaCN 的 Minecraft 辅助客户端，由 MITM 驱动 (Lunaris)。"
             )
         },
         // Page 1
         {
             GuidePage(
                 title = "登录您的账号",
-                subtitle = "您需要先在 LuminaCN 的账号页中登录。请注意，不能在此应用内注册，即使只是注册 Xbox 游戏名。"
+                subtitle = "您需要先在 Kitasan 的账号页中登录。请注意，不能在此应用内注册，即使只是注册 Xbox 游戏名。"
             )
         },
         // Page 2
@@ -244,7 +244,7 @@ private fun GuidePages(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text("LuminaCN", style = MaterialTheme.typography.headlineLarge)
+                Text("Kitasan", style = MaterialTheme.typography.headlineLarge)
                 Spacer(Modifier.height(8.dp))
                 Text("您已完成所有引导，开启您的游玩之旅吧！", style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(24.dp))

@@ -15,6 +15,7 @@ import com.phoenix.luminacn.constructors.KeyBindingManager
 import com.phoenix.luminacn.overlay.manager.OverlayManager
 import com.phoenix.luminacn.shiyi.RenderOverlay
 import com.phoenix.luminacn.shiyi.ArrayListOverlay
+import com.phoenix.luminacn.shiyi.NameTagOverlayService // 添加导入
 import com.phoenix.luminacn.ui.theme.ThemeManager
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,6 +35,9 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     private val retryCountMap = ConcurrentHashMap<String, AtomicInteger>()
     private val handler = Handler(Looper.getMainLooper())
     private var isInitialized = false
+    
+    // 添加NameTag服务管理
+    private var isNameTagServiceRunning = false
 
     override fun onCreate() {
         super.onCreate()
@@ -99,11 +103,40 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
     private fun startServices() {
         Log.d("AppContext", "Attempting to start services.")
         try {
-            // 这里可以启动其他需要的服务
-            // 例如：startService(Intent(this, SomeOtherService::class.java))
+            // 启动NameTag悬浮窗服务
+            startNameTagService()
             Log.i("AppContext", "Services started successfully.")
         } catch (e: Exception) {
             Log.e("AppContext", "Failed to start services.", e)
+        }
+    }
+
+    // 添加NameTag服务管理方法
+    private fun startNameTagService() {
+        try {
+            if (!isNameTagServiceRunning && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                val intent = Intent(this, NameTagOverlayService::class.java)
+                intent.action = NameTagOverlayService.ACTION_SHOW_OVERLAY
+                startService(intent)
+                isNameTagServiceRunning = true
+                Log.d(TAG, "NameTag service started")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start NameTag service", e)
+        }
+    }
+
+    private fun stopNameTagService() {
+        try {
+            if (isNameTagServiceRunning) {
+                val intent = Intent(this, NameTagOverlayService::class.java)
+                intent.action = NameTagOverlayService.ACTION_STOP_SERVICE
+                startService(intent)
+                isNameTagServiceRunning = false
+                Log.d(TAG, "NameTag service stopped")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop NameTag service", e)
         }
     }
 
@@ -177,6 +210,38 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
             Log.e(TAG, "Failed to update module list", e)
         }
     }
+
+    // ====================== 【NameTag管理接口】 ======================
+    fun enableNameTagOverlay() {
+        try {
+            if (!isNameTagServiceRunning) {
+                startNameTagService()
+            } else {
+                // 如果服务已运行，发送显示命令
+                val intent = Intent(this, NameTagOverlayService::class.java)
+                intent.action = NameTagOverlayService.ACTION_SHOW_OVERLAY
+                startService(intent)
+            }
+            Log.d(TAG, "NameTag overlay enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enable NameTag overlay", e)
+        }
+    }
+
+    fun disableNameTagOverlay() {
+        try {
+            if (isNameTagServiceRunning) {
+                val intent = Intent(this, NameTagOverlayService::class.java)
+                intent.action = NameTagOverlayService.ACTION_HIDE_OVERLAY
+                startService(intent)
+            }
+            Log.d(TAG, "NameTag overlay disabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disable NameTag overlay", e)
+        }
+    }
+
+    fun isNameTagOverlayRunning(): Boolean = isNameTagServiceRunning
 
     // ====================== 【崩溃处理逻辑】 ======================
     override fun uncaughtException(t: Thread, e: Throwable) {
@@ -323,6 +388,7 @@ class AppContext : Application(), Thread.UncaughtExceptionHandler {
 
     fun cleanup() {
         try {
+            stopNameTagService() // 添加NameTag服务清理
             OverlayManager.dismiss()
             Log.d(TAG, "Resources cleaned up")
         } catch (e: Exception) {

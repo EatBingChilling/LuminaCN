@@ -23,7 +23,7 @@ class WaterMarkShiyiElement(
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    private val customText by stringeValue("显示文字", "LuminaCN", listOf())
+    private val customText by stringeValue("显示文字", "Kitasan", listOf())
     private val showVersion by boolValue("版本", true)
     private val showTime by boolValue("时间", false)
     private val position by stringValue("位置", "TOP_LEFT", Position.values().map { it.name })

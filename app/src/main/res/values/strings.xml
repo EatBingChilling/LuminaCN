@@ -1,8 +1,8 @@
 ﻿<resources>
-    <string name="app_name" translatable="false">LuminaCN</string>
+    <string name="app_name" translatable="false">Kitasan</string>
     <string name="home">Home</string>
     <string name="what_is_this">What\'s this?</string>
-    <string name="introduction">LuminaCN Client is a Minecraft Bedrock plugin implemented using a MITM attack, which allows you to cheat without modifying the game\'s memory.</string>
+    <string name="introduction">Kitasan Client is a Minecraft Bedrock plugin implemented using a MITM attack, which allows you to cheat without modifying the game\'s memory.</string>
     <string name="backend" translatable="false">Lunaris</string>
     <string name="backend_introduction">Implement MITM attack in a few simple steps.</string>
     <string name="minecraft" translatable="false">Minecraft</string>
@@ -259,20 +259,20 @@
     <string name="no_account_added">No Accounts Added</string>
     <string name="add_a_gaming_account_to_get_started">Add a gaming account to get started</string>
     <string name="no_account_added_yet">No accounts added yet</string>
-    <string name="about_lumina">About LuminaCN</string>
-    <string name="lumina_introduction">LuminaCN is a Minecraft Bedrock Edition (MCBE) PvP cheat client that works across multiple operating systems. We\'ve built it with a focus on combat performance and sneaky bypasses for minigame servers. </string>
+    <string name="about_lumina">About Kitasan</string>
+    <string name="lumina_introduction">Kitasan is a Minecraft Bedrock Edition (MCBE) PvP cheat client that works across multiple operating systems. We\'ve built it with a focus on combat performance and sneaky bypasses for minigame servers. </string>
     <string name="lumina_expectation">Our goal is to provide a lightweight, stable, and feature-rich solution that enhances gameplay without compromising system performance or security.</string>
     <string name="lumina_compatibility">Compatible with Android 9+ devices and both 64-bit and 32-bit versions of Minecraft Pocket Edition, with the latest Minecraft version recommended for optimal experience.</string>
-    <string name="lumina_copyright">© 2025 Project LuminaCN — Licensed under GNU GPLv3</string>
+    <string name="lumina_copyright">© 2025 Project Kitasan — Licensed under GNU GPLv3</string>
     <string name="lumina_team">Made with ♥️ by the Project Lumina team</string>
     <string name="connect_with_us">Connect with us</string>
     <string name="module_rotationaura_display_name">RotationAura</string>
-    <string name="luminacn_dev">LuminaCN Developers: ShiYi, Phoen1x_</string>
+    <string name="luminacn_dev">Kitasan Developers: ShiYi, Phoen1x_</string>
     <string name="module_antibot_display_name">AntiBot</string>
     <string name="module_killauracd_display_name">KillauraCD</string>
-    <string name="accessibility_service_label">LuminaCN 按键监听服务</string>
+    <string name="accessibility_service_label">Kitasan 按键监听服务</string>
     <string name="crash_title">爆炸了</string>
-    <string name="crash_subtitle">LuminaCN 遇到了一个意料之外的问题。</string>
+    <string name="crash_subtitle">Kitasan 遇到了一个意料之外的问题。</string>
     <string name="crash_stack_trace_label">技术细节</string>
     <string name="crash_restart">重启应用</string>
     <string name="crash_copy_log">复制日志</string>

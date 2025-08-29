@@ -10,6 +10,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.content.res.Configuration
 import android.provider.Settings
@@ -29,9 +30,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -40,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.phoenix.luminacn.R
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.constructors.*
 import com.phoenix.luminacn.overlay.manager.ConnectionInfoOverlay
 import com.phoenix.luminacn.overlay.mods.NotificationType
@@ -81,6 +89,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     val vm: MainScreenViewModel = viewModel()
     val model by vm.captureModeModel.collectAsState()
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     /* 状态 */
     var isVerifying by remember { mutableStateOf(true) }
@@ -96,6 +105,11 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     // MODIFIED: State to control the accessibility dialog
     var showAccessibilityDialog by remember { mutableStateOf(false) }
+
+    // 获取壁纸
+    LaunchedEffect(Unit) {
+        wallpaperBitmap = WallpaperUtils.getWallpaperBitmap(context)
+    }
 
     /* 验证流程 (FIX: Reworked verification logic to be more robust and correct JSON parsing) */
     LaunchedEffect(Unit) {
@@ -241,159 +255,188 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         "设置" to Icons.Filled.Settings
     )
 
-    if (useNavigationRail) {
-        Row(
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 壁纸背景层 (80%)
+        wallpaperBitmap?.let { bitmap ->
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                colorFilter = ColorFilter.tint(
+                    color = Color.White.copy(alpha = 0.8f), // 80% 壁纸显示
+                    blendMode = BlendMode.Modulate
+                )
+            )
+        }
+        
+        // 主题色叠加层 (20%)
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-        ) {
-            // NavigationRail for landscape
-            NavigationRail(
-                modifier = Modifier.fillMaxHeight(),
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ) {
-                Spacer(modifier = Modifier.height(16.dp))
-                navigationItems.forEachIndexed { idx, (label, icon) ->
-                    NavigationRailItem(
-                        selected = tab == idx,
-                        onClick = { tab = idx },
-                        icon = { Icon(icon, label) },
-                        label = { Text(label) },
-                        colors = NavigationRailItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    )
-                }
-            }
-            
-            // Content area for landscape
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            ) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                .background(
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // 20% 主题色
                 )
-                
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> -width } + fadeOut()
-                        } else {
-                            slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> width } + fadeOut()
-                        }
-                    },
-                    label = "tab"
-                ) { t ->
-                    when (t) {
-                        0 -> MainDashboard()
-                        1 -> AccountPage()
-                        2 -> AboutPage()
-                        3 -> SettingsScreen()
-                    }
-                }
-                
-                // FAB for landscape (positioned in bottom end)
-                if (tab == 0) {
-                    ExtendedFloatingActionButton(
-                        onClick = fabOnClick, // MODIFIED
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(16.dp),
-                        containerColor = if (Services.isActive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = if (Services.isActive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 12.dp
-                        )
-                    ) {
-                        Icon(
-                            if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                            contentDescription = if (Services.isActive) "停止服务" else "启动服务"
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (Services.isActive) "停止服务" else "启动服务",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-            }
-        }
-    } else {
-        // Portrait layout with NavigationBar at bottom
-        Scaffold(
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-            bottomBar = {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    tonalElevation = 3.dp
+        )
+
+        // UI内容层
+        if (useNavigationRail) {
+            Row(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // NavigationRail for landscape
+                NavigationRail(
+                    modifier = Modifier.fillMaxHeight(),
+                    containerColor = Color.Transparent
                 ) {
+                    Spacer(modifier = Modifier.height(16.dp))
                     navigationItems.forEachIndexed { idx, (label, icon) ->
-                        NavigationBarItem(
+                        NavigationRailItem(
                             selected = tab == idx,
                             onClick = { tab = idx },
                             icon = { Icon(icon, label) },
                             label = { Text(label) },
-                            colors = NavigationBarItemDefaults.colors(
+                            colors = NavigationRailItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                 selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer
+                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
                         )
                     }
                 }
-            },
-            floatingActionButton = {
-                if (tab == 0) {
-                    ExtendedFloatingActionButton(
-                        onClick = fabOnClick, // MODIFIED
-                        containerColor = if (Services.isActive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = if (Services.isActive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 12.dp
-                        )
-                    ) {
-                        Icon(
-                            if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                            contentDescription = if (Services.isActive) "停止服务" else "启动服务"
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (Services.isActive) "停止服务" else "启动服务",
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                
+                // Content area for landscape
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    SnackbarHost(
+                        hostState = snackbarHostState,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                    
+                    AnimatedContent(
+                        targetState = tab,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                        slideOutHorizontally { width -> -width } + fadeOut()
+                            } else {
+                                slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                        slideOutHorizontally { width -> width } + fadeOut()
+                            }
+                        },
+                        label = "tab"
+                    ) { t ->
+                        when (t) {
+                            0 -> MainDashboard()
+                            1 -> AccountPage()
+                            2 -> AboutPage()
+                            3 -> SettingsScreen()
+                        }
+                    }
+                    
+                    // FAB for landscape (positioned in bottom end)
+                    if (tab == 0) {
+                        ExtendedFloatingActionButton(
+                            onClick = fabOnClick, // MODIFIED
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(16.dp),
+                            containerColor = if (Services.isActive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (Services.isActive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                            elevation = FloatingActionButtonDefaults.elevation(
+                                defaultElevation = 6.dp,
+                                pressedElevation = 12.dp
+                            )
+                        ) {
+                            Icon(
+                                if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                contentDescription = if (Services.isActive) "停止服务" else "启动服务"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (Services.isActive) "停止服务" else "启动服务",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
                     }
                 }
             }
-        ) { inner ->
-            Box(Modifier.padding(inner)) {
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> -width } + fadeOut()
-                        } else {
-                            slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                    slideOutHorizontally { width -> width } + fadeOut()
+        } else {
+            // Portrait layout with NavigationBar at bottom
+            Scaffold(
+                snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                containerColor = Color.Transparent, // 透明背景使用底层混合背景
+                bottomBar = {
+                    NavigationBar(
+                        containerColor = Color.Transparent,
+                        tonalElevation = 0.dp
+                    ) {
+                        navigationItems.forEachIndexed { idx, (label, icon) ->
+                            NavigationBarItem(
+                                selected = tab == idx,
+                                onClick = { tab = idx },
+                                icon = { Icon(icon, label) },
+                                label = { Text(label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            )
                         }
-                    },
-                    label = "tab"
-                ) { t ->
-                    when (t) {
-                        0 -> MainDashboard()
-                        1 -> AccountPage()
-                        2 -> AboutPage()
-                        3 -> SettingsScreen()
+                    }
+                },
+                floatingActionButton = {
+                    if (tab == 0) {
+                        ExtendedFloatingActionButton(
+                            onClick = fabOnClick, // MODIFIED
+                            containerColor = if (Services.isActive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (Services.isActive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                            elevation = FloatingActionButtonDefaults.elevation(
+                                defaultElevation = 6.dp,
+                                pressedElevation = 12.dp
+                            )
+                        ) {
+                            Icon(
+                                if (Services.isActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                contentDescription = if (Services.isActive) "停止服务" else "启动服务"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (Services.isActive) "停止服务" else "启动服务",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
+                }
+            ) { inner ->
+                Box(Modifier.padding(inner)) {
+                    AnimatedContent(
+                        targetState = tab,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                        slideOutHorizontally { width -> -width } + fadeOut()
+                            } else {
+                                slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                        slideOutHorizontally { width -> width } + fadeOut()
+                            }
+                        },
+                        label = "tab"
+                    ) { t ->
+                        when (t) {
+                            0 -> MainDashboard()
+                            1 -> AccountPage()
+                            2 -> AboutPage()
+                            3 -> SettingsScreen()
+                        }
                     }
                 }
             }
@@ -466,7 +509,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         AlertDialog(
             onDismissRequest = { /* Disallow dismissing by clicking outside */ },
             title = { Text("启用实体按键绑定？") },
-            text = { Text("LuminaCN 可以使用无障碍服务来启用实体按键绑定功能（如音量键控制）。\n\n如果不需要，服务仍可正常启动，但无法使用实体按键绑定。") },
+            text = { Text("Kitasan 可以使用无障碍服务来启用实体按键绑定功能（如音量键控制）。\n\n如果不需要，服务仍可正常启动，但无法使用实体按键绑定。") },
             confirmButton = {
                 Row {
                     TextButton(
@@ -524,7 +567,9 @@ private fun MainDashboard() {
         AnimatedVisibility(AccountManager.currentAccount != null) {
             Card(
                 Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                colors = CardDefaults.cardColors(
+                    containerColor = colors.surface.copy(alpha = 0.9f) // 半透明卡片
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
@@ -549,14 +594,20 @@ private fun MainDashboard() {
 
         Card(
             Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+            colors = CardDefaults.cardColors(
+                containerColor = colors.surfaceVariant.copy(alpha = 0.9f) // 半透明卡片
+            ),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(Modifier.padding(16.dp), Arrangement.spacedBy(12.dp)) {
                 Text("服务器配置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 ServerConfigSection(vm, model)
                 AnimatedVisibility(model.serverHostName.isNotBlank()) {
-                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(8.dp), colors.surface) {
+                    Surface(
+                        Modifier.fillMaxWidth(), 
+                        RoundedCornerShape(8.dp), 
+                        colors.surface.copy(alpha = 0.8f)
+                    ) {
                         Column(Modifier.padding(12.dp)) {
                             Text("当前服务器", style = MaterialTheme.typography.bodySmall)
                             Text(model.serverHostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
@@ -573,7 +624,10 @@ private fun MainDashboard() {
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = if (Services.isActive) colors.tertiaryContainer else colors.errorContainer
+                containerColor = if (Services.isActive) 
+                    colors.tertiaryContainer.copy(alpha = 0.9f) 
+                else 
+                    colors.errorContainer.copy(alpha = 0.9f)
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -644,7 +698,9 @@ private fun AboutPage() {
     ) {
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = colors.surfaceContainerLow.copy(alpha = 0.9f) // 半透明卡片
+            )
         ) {
             Column(Modifier.padding(24.dp)) {
                 Text("实用工具", style = MaterialTheme.typography.headlineMedium, color = colors.primary)
@@ -661,7 +717,9 @@ private fun AboutPage() {
 
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.elevatedCardColors(containerColor = colors.surfaceContainerLow)
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = colors.surfaceContainerLow.copy(alpha = 0.9f) // 半透明卡片
+            )
         ) {
             Column(Modifier.padding(24.dp), Arrangement.spacedBy(16.dp)) {
                 Text(stringResource(R.string.about_lumina), style = MaterialTheme.typography.headlineMedium, color = colors.primary)
@@ -837,7 +895,9 @@ private fun ServerSelectorCard() {
 
     Card(
         Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+        colors = CardDefaults.cardColors(
+            containerColor = colors.surfaceVariant.copy(alpha = 0.9f) // 半透明卡片
+        ),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -892,7 +952,7 @@ private fun ServerSelectorCard() {
                 Surface(
                     Modifier.size(32.dp),
                     CircleShape,
-                    colors.secondaryContainer
+                    colors.secondaryContainer.copy(alpha = 0.8f)
                 ) {
                     val rotationAngle by animateFloatAsState(
                         targetValue = if (isExpanded) 180f else 0f,

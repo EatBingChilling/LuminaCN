@@ -1,6 +1,7 @@
 package com.phoenix.luminacn.overlay.kitsugui
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.view.WindowManager
@@ -11,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,11 +26,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -42,6 +49,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phoenix.luminacn.R
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.constructors.CheatCategory
 import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.overlay.manager.KitsuSettingsOverlay
@@ -61,18 +69,6 @@ class KitsuGUI : OverlayWindow() {
     val modernFont = FontFamily(
         Font(R.font.fredoka_light)
     )
-
-    // 定义本地颜色常量，避免依赖可能未初始化的 themeManager
-    private val LocalKitsuPrimary = Color(0xFF6200EE)
-    private val LocalKitsuSecondary = Color(0xFF03DAC6)
-    private val LocalKitsuSurface = Color(0xFFFFFBFE)
-    private val LocalKitsuSurfaceVariant = Color(0xFFF3F3F3)
-    private val LocalKitsuOnSurface = Color(0xFF1C1B1F)
-    private val LocalKitsuOnSurfaceVariant = Color(0xFF757575)
-    private val LocalKitsuBackground = Color(0xFFFFFBFE)
-    private val LocalKitsuSelected = Color(0xFF6200EE)
-    private val LocalKitsuUnselected = Color(0xFFE0E0E0)
-    private val LocalKitsuHover = Color(0xFFF5F5F5)
 
     private val _layoutParams by lazy {
         super.layoutParams.apply {
@@ -109,11 +105,15 @@ class KitsuGUI : OverlayWindow() {
         val configuration = LocalConfiguration.current
         val cardWidth = 660.dp
         val cardHeight = 500.dp
+        val context = LocalContext.current
+        var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
         var shouldAnimate by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
+        // 获取壁纸
         LaunchedEffect(Unit) {
+            wallpaperBitmap = WallpaperUtils.getWallpaperBitmap(context)
             delay(50)
             shouldAnimate = true
         }
@@ -171,7 +171,7 @@ class KitsuGUI : OverlayWindow() {
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = LocalKitsuSurface
+                    containerColor = Color.Transparent // 设置卡片背景为透明
                 ),
                 modifier = Modifier
                     .widthIn(max = cardWidth)
@@ -189,12 +189,43 @@ class KitsuGUI : OverlayWindow() {
                     defaultElevation = 12.dp
                 )
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Sidebar()
-                    VerticalDivider()
-                    MainUICard(dismissWithAnimation)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // 壁纸背景层 (80%)
+                    wallpaperBitmap?.let { bitmap ->
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop,
+                            colorFilter = ColorFilter.tint(
+                                color = Color.White.copy(alpha = 0.8f), // 80% 壁纸显示
+                                blendMode = BlendMode.Modulate
+                            )
+                        )
+                    }
+                    
+                    // 主题色叠加层 (20%)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.2f) // 20% 主题色
+                            )
+                    )
+                    
+                    // UI内容层
+                    Row(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Sidebar()
+                        VerticalDivider(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+                        MainUICard(dismissWithAnimation)
+                    }
                 }
             }
 
@@ -214,7 +245,7 @@ class KitsuGUI : OverlayWindow() {
                 .width(160.dp)
                 .fillMaxHeight()
                 .background(
-                    color = LocalKitsuSurface,
+                    color = Color.Transparent, // 透明背景使用底层混合背景
                     shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
                 )
                 .padding(12.dp),
@@ -231,7 +262,10 @@ class KitsuGUI : OverlayWindow() {
                         .clip(RoundedCornerShape(8.dp))
                         .background(
                             brush = Brush.linearGradient(
-                                colors = listOf(LocalKitsuPrimary, LocalKitsuSecondary)
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary, 
+                                    MaterialTheme.colorScheme.secondary
+                                )
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -239,7 +273,7 @@ class KitsuGUI : OverlayWindow() {
                     Icon(
                         painter = painterResource(id = R.drawable.moon_stars_24),
                         contentDescription = "Logo",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -252,7 +286,7 @@ class KitsuGUI : OverlayWindow() {
                         fontSize = 18.sp,
                         fontFamily = modernFont,
                         fontWeight = FontWeight.Bold,
-                        color = LocalKitsuOnSurface
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -298,8 +332,8 @@ class KitsuGUI : OverlayWindow() {
 
         val backgroundColor by animateColorAsState(
             targetValue = when {
-                isSelected -> LocalKitsuSelected.copy(alpha = 0.8f)
-                isHovered -> LocalKitsuHover.copy(alpha = 0.4f)
+                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                isHovered -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.4f)
                 else -> Color.Transparent
             },
             animationSpec = tween(durationMillis = 200),
@@ -307,13 +341,19 @@ class KitsuGUI : OverlayWindow() {
         )
 
         val textColor by animateColorAsState(
-            targetValue = if (isSelected) Color.White else LocalKitsuOnSurfaceVariant,
+            targetValue = if (isSelected) 
+                MaterialTheme.colorScheme.onPrimaryContainer 
+            else 
+                MaterialTheme.colorScheme.onSurfaceVariant,
             animationSpec = tween(durationMillis = 200),
             label = "textColor"
         )
 
         val iconColor by animateColorAsState(
-            targetValue = if (isSelected) Color.White else LocalKitsuOnSurfaceVariant,
+            targetValue = if (isSelected) 
+                MaterialTheme.colorScheme.onPrimaryContainer 
+            else 
+                MaterialTheme.colorScheme.onSurfaceVariant,
             animationSpec = tween(durationMillis = 200),
             label = "iconColor"
         )
@@ -363,7 +403,7 @@ class KitsuGUI : OverlayWindow() {
         Card(
             shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = LocalKitsuSurface
+                containerColor = Color.Transparent // 透明背景使用底层混合背景
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -396,7 +436,7 @@ class KitsuGUI : OverlayWindow() {
                                 fontSize = 24.sp,
                                 fontFamily = modernFont,
                                 fontWeight = FontWeight.Bold,
-                                color = LocalKitsuOnSurface
+                                color = MaterialTheme.colorScheme.onSurface
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -460,7 +500,7 @@ class KitsuGUI : OverlayWindow() {
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .background(
-                    color = LocalKitsuSurface,
+                    color = Color.Transparent, // 透明背景使用底层混合背景
                     shape = RoundedCornerShape(8.dp)
                 )
         ) {
@@ -491,10 +531,10 @@ class KitsuGUI : OverlayWindow() {
 
         val backgroundColor by animateColorAsState(
             targetValue = when {
-                isClose && isPressed -> Color(0xFFE81123)
-                isClose -> Color(0xFFE81123).copy(alpha = 0.9f)
-                isPressed -> LocalKitsuSurfaceVariant
-                else -> LocalKitsuSurfaceVariant.copy(alpha = 0.6f)
+                isClose && isPressed -> MaterialTheme.colorScheme.error
+                isClose -> MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                isPressed -> MaterialTheme.colorScheme.surfaceVariant
+                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
             },
             animationSpec = tween(durationMillis = 150),
             label = "buttonBackgroundColor"
@@ -524,7 +564,10 @@ class KitsuGUI : OverlayWindow() {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = if (isClose) Color.White else LocalKitsuOnSurfaceVariant,
+                tint = if (isClose) 
+                    MaterialTheme.colorScheme.onError 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp)
             )
         }

@@ -451,6 +451,16 @@ private fun <T : Enum<T>> EnumValueContent(value: EnumValue<T>) {
 
 @Composable
 private fun StringeValueContent(value: StringeValue) {
+    // 使用本地状态管理文本输入
+    var textFieldValue by remember(value.name) { mutableStateOf(value.value) }
+    
+    // 监听外部值变化，同步到本地状态
+    LaunchedEffect(value.value) {
+        if (textFieldValue != value.value) {
+            textFieldValue = value.value
+        }
+    }
+    
     Column(
         Modifier
             .padding(start = 12.dp, end = 12.dp, bottom = 6.dp)
@@ -461,15 +471,19 @@ private fun StringeValueContent(value: StringeValue) {
             color = Color.White
         )
         OutlinedTextField(
-            value = value.value,
-            onValueChange = { value.value = it },
+            value = textFieldValue,
+            onValueChange = { newText ->
+                textFieldValue = newText
+                value.value = newText
+            },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.White,
                 unfocusedBorderColor = Color.Gray,
                 focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                unfocusedTextColor = Color.White,
+                cursorColor = Color.White
             )
         )
     }

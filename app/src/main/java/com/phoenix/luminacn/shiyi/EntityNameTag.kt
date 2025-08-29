@@ -14,270 +14,168 @@ import java.util.regex.Pattern
 
 class EntityNameTag {
 
-
     private val minXTimer = TimerUtil()
-
     private var minXFloat = 0.0f
 
     private val minYTimer = TimerUtil()
-
     private var minYFloat = 0.0f
 
     private val maxXTimer = TimerUtil()
-
     private var maxXFloat = 0.0f
 
     private val maxYTimer = TimerUtil()
-
     private var maxYFloat = 0.0f
 
     fun draw(
-
         entity: Player,
-
         viewProjMatrix: Matrix4f,
-
         screenWidth: Int,
-
         screenHeight: Int,
-
         canvas: Canvas,
-
         m: NameTagElement
-
     ) {
-
         if (entity.username.isEmpty()) return
+        if (screenWidth <= 0 || screenHeight <= 0) return
 
         var minX = (entity.posX - 0.3).toDouble()
-
         val minZ = (entity.posZ - 0.3).toDouble()
-
         var maxX = (entity.posX + 0.3).toDouble()
-
         val maxZ = (entity.posZ + 0.3).toDouble()
-
         var minY = (entity.posY).toDouble()
-
         var maxY = (entity.posY + 1).toDouble()
 
         val boxVertices = if (entity is Player) {
-
             minY -= 1.62
-
             maxY -= 0.82
-
             arrayOf(
-
                 doubleArrayOf(minX, minY, minZ),
-
                 doubleArrayOf(minX, maxY, minZ),
-
                 doubleArrayOf(maxX, maxY, minZ),
-
                 doubleArrayOf(maxX, minY, minZ),
-
                 doubleArrayOf(minX, minY, maxZ),
-
                 doubleArrayOf(minX, maxY, maxZ),
-
                 doubleArrayOf(maxX, maxY, maxZ),
-
                 doubleArrayOf(maxX, minY, maxZ)
-
             )
-
         } else {
-
             arrayOf(
-
                 doubleArrayOf(minX, minY, minZ),
-
                 doubleArrayOf(minX, maxY, minZ),
-
                 doubleArrayOf(maxX, maxY, minZ),
-
                 doubleArrayOf(maxX, minY, minZ),
-
                 doubleArrayOf(minX, minY, maxZ),
-
                 doubleArrayOf(minX, maxY, maxZ),
-
                 doubleArrayOf(maxX, maxY, maxZ),
-
                 doubleArrayOf(maxX, minY, maxZ)
-
             )
-
         }
 
         minX = screenWidth.toDouble()
-
         minY = screenHeight.toDouble()
-
         maxX = .0
-
         maxY = .0
 
+        var validVertexCount = 0
         for (boxVertex in boxVertices) {
-
             val screenPos = m.worldToScreen(
-
                 boxVertex[0],
-
                 boxVertex[1],
-
                 boxVertex[2],
-
                 viewProjMatrix,
-
                 screenWidth,
-
                 screenHeight
-
             ) ?: continue
-
+            
+            validVertexCount++
             minX = screenPos.x.coerceAtMost(minX)
-
             minY = screenPos.y.coerceAtMost(minY)
-
             maxX = screenPos.x.coerceAtLeast(maxX)
-
             maxY = screenPos.y.coerceAtLeast(maxY)
-
         }
 
+        // 如果没有有效的顶点投影，直接返回
+        if (validVertexCount == 0) return
+
+        // 修复动画计时器重置错误
         if (this.minXTimer.elapsed(15L)) {
-
             this.minXFloat = AnimationUtils.animate(
-
                 minX,
-
                 this.minXFloat.toDouble(), 0.2
-
             ).toFloat()
-
-            this.minXTimer.reset();
-
+            this.minXTimer.reset()
         }
 
         if (this.minYTimer.elapsed(15L)) {
-
             this.minYFloat = AnimationUtils.animate(
-
                 minY,
-
                 this.minYFloat.toDouble(), 0.2
-
             ).toFloat()
-
-            this.minXTimer.reset();
-
+            this.minYTimer.reset() // 修复：之前错误地写成minXTimer.reset()
         }
 
         if (this.maxXTimer.elapsed(15L)) {
-
             this.maxXFloat = AnimationUtils.animate(
-
                 maxX,
-
                 this.maxXFloat.toDouble(), 0.2
-
             ).toFloat()
-
-            this.maxXTimer.reset();
-
+            this.maxXTimer.reset()
         }
 
         if (this.maxYTimer.elapsed(15L)) {
-
             this.maxYFloat = AnimationUtils.animate(
-
                 maxY,
-
                 this.maxYFloat.toDouble(), 0.2
-
             ).toFloat()
-
-            this.maxYTimer.reset();
-
+            this.maxYTimer.reset()
         }
 
-
-
-
+        // 检查是否在屏幕范围内
         if (!(minX >= screenWidth || minY >= screenHeight || maxX <= 0 || maxY <= 0)) {
-
             val width = this.maxXFloat - this.minXFloat
-
             val posX = this.minXFloat + (width / 2)
 
             font.textSize = 18f
-
             font.textAlign = Paint.Align.CENTER
-
             font.color = Color.argb(255, 255, 255, 255)
+            font.isAntiAlias = true
 
             buttonBackground.color = Color.argb(180, 0, 0, 0)
-
             buttonBackground.style = Paint.Style.FILL
-
             buttonBackground.maskFilter = BlurMaskFilter(25f, BlurMaskFilter.Blur.NORMAL)
 
+            val username = stripControlCodes(entity.username) ?: entity.username
+            val textWidth = font.measureText(username)
+
             canvas.drawRoundRect(
-
-                posX - (font.measureText(stripControlCodes(entity.username)) / 2) - 10,
-
+                posX - (textWidth / 2) - 10,
                 this.minYFloat - 45,
-
-                posX + (font.measureText(stripControlCodes(entity.username)) / 2) + 10,
-
+                posX + (textWidth / 2) + 10,
                 this.minYFloat - 10, 8f, 8f,
-
                 buttonBackground
-
             )
 
             buttonBackground.maskFilter = null
-
             canvas.drawRoundRect(
-
-                posX - (font.measureText(stripControlCodes(entity.username)) / 2) - 10,
-
+                posX - (textWidth / 2) - 10,
                 this.minYFloat - 45,
-
-                posX + (font.measureText(stripControlCodes(entity.username)) / 2) + 10,
-
+                posX + (textWidth / 2) + 10,
                 this.minYFloat - 10, 8f, 8f,
-
                 buttonBackground
-
             )
 
             canvas.drawText(
-
-                stripControlCodes(entity.username)!!,
-
-                posX - 0, this.minYFloat - 20f, font
-
+                username,
+                posX, this.minYFloat - 20f, font
             )
-
         }
-
-
     }
 
     private val patternControlCode: Pattern = Pattern.compile("(?i)\\u00A7[0-9A-FK-OR]")
 
-
     private fun stripControlCodes(p_76338_0_: String?): String? {
-
         return p_76338_0_?.let { patternControlCode.matcher(it).replaceAll("") }
-
     }
 
     private val font = Paint()
-
     private val buttonBackground = Paint()
-
 }

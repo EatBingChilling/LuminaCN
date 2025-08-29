@@ -206,7 +206,7 @@ class ClientOverlay : OverlayWindow() {
         if (!isOverlayEnabled()) return
 
         val unifontFamily = FontFamily(Font(R.font.unifont))
-        val text = "LuminaCN${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
+        val text = "Kitasan${if (watermarkText.isNotBlank()) "\n$watermarkText" else ""}"
 
         var rainbowColor by remember { mutableStateOf(ComposeColor.White) }
 

@@ -27,8 +27,8 @@ android {
         applicationId = "com.phoenix.luminacn"
         minSdk = 28
         targetSdk = 36
-        versionCode = 230
-        versionName = "B23"
+        versionCode = 1000
+        versionName = "B24"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

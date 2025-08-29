@@ -1,9 +1,11 @@
 package com.phoenix.luminacn.overlay.clickgui
 
+import android.graphics.Bitmap
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,13 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.constructors.CheatCategory
 import com.phoenix.luminacn.overlay.manager.OverlayManager
 import com.phoenix.luminacn.overlay.manager.OverlayWindow
@@ -52,9 +60,12 @@ class ClickGUI : OverlayWindow() {
     @Composable
     override fun Content() {
         var isVisible by remember { mutableStateOf(false) }
+        val context = LocalContext.current
+        var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-        
+        // 获取壁纸
         LaunchedEffect(Unit) {
+            wallpaperBitmap = WallpaperUtils.getWallpaperBitmap(context)
             isVisible = true
         }
 
@@ -68,14 +79,29 @@ class ClickGUI : OverlayWindow() {
                     OverlayManager.dismissOverlayWindow(this@ClickGUI)
                 }
         ) {
+            // 壁纸背景层
+            wallpaperBitmap?.let { bitmap ->
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    colorFilter = ColorFilter.tint(
+                        color = Color.White.copy(alpha = 0.8f), // 80% 壁纸显示
+                        blendMode = BlendMode.Modulate
+                    )
+                )
+            }
+            
+            // 主题色叠加层 (20%) + 渐变效果
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Transparent,
-                                Color(0xFF000000).copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.1f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
                             ),
                             startY = 0.66f * 1000f,
                             endY = 1000f
@@ -83,7 +109,7 @@ class ClickGUI : OverlayWindow() {
                     )
             )
 
-            
+            // UI内容层
             AnimatedVisibility(
                 visible = isVisible,
                 enter = scaleIn(
@@ -123,7 +149,7 @@ class ClickGUI : OverlayWindow() {
     private fun CategoryOverlay(category: CheatCategory) {
         var isPressed by remember { mutableStateOf(false) }
 
-        
+        // 按压动画
         val scale by animateFloatAsState(
             targetValue = if (isPressed) 0.95f else 1f,
             animationSpec = tween(durationMillis = 100),
@@ -137,7 +163,7 @@ class ClickGUI : OverlayWindow() {
                 .scale(scale),
             horizontalAlignment = Alignment.Start
         ) {
-            
+            // 分类标题
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -149,7 +175,7 @@ class ClickGUI : OverlayWindow() {
                     painterResource(category.iconResId),
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = Color(0xFFD3D3D3)
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
                 )
                 Text(
                     text = stringResource(category.labelResId),
@@ -157,11 +183,11 @@ class ClickGUI : OverlayWindow() {
                         fontSize = MaterialTheme.typography.titleSmall.fontSize * 0.9,
                         fontWeight = FontWeight.Bold
                     ),
-                    color = Color(0xFFD3D3D3)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
                 )
             }
 
-            
+            // 模块卡片
             Card(
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -177,14 +203,15 @@ class ClickGUI : OverlayWindow() {
                         indication = null
                     ) {
                         isPressed = true
-                        
-                        
                     }
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF101010).copy(0.8f))
+                        .background(
+                            // 卡片背景使用半透明的surface颜色
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                        )
                         .padding(6.dp)
                 ) {
                     ModuleContentA(category)
@@ -192,7 +219,7 @@ class ClickGUI : OverlayWindow() {
             }
         }
 
-        
+        // 重置按压状态
         LaunchedEffect(isPressed) {
             if (isPressed) {
                 kotlinx.coroutines.delay(100)

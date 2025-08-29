@@ -1,6 +1,8 @@
 package com.phoenix.luminacn.shiyi
 
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +28,9 @@ class RenderOverlay : OverlayWindow() {
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
+                    WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             
             // 全屏设置
             width = WindowManager.LayoutParams.MATCH_PARENT
@@ -34,6 +38,14 @@ class RenderOverlay : OverlayWindow() {
             gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
+            
+            // 确保窗口类型正确
+            type = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
         }
     }
 
@@ -87,11 +99,25 @@ class RenderOverlay : OverlayWindow() {
                 AndroidView(
                     factory = { ctx ->
                         RenderLayerView(ctx, session).apply {
-                            // 确保View透明
+                            // 确保View透明且全屏
                             setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            // 确保View完全可见
+                            systemUiVisibility = (
+                                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            )
                         }
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    update = { view ->
+                        // 强制重新布局以确保全屏
+                        view.requestLayout()
+                    }
                 )
             }
             
@@ -99,11 +125,25 @@ class RenderOverlay : OverlayWindow() {
             AndroidView(
                 factory = { ctx ->
                     RenderOverlayView(ctx).apply {
-                        // 确保View透明
+                        // 确保View透明且全屏
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        // 确保View完全可见
+                        systemUiVisibility = (
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        )
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                update = { view ->
+                    // 强制重新布局以确保全屏
+                    view.requestLayout()
+                }
             )
         }
 
