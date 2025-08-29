@@ -27,7 +27,7 @@ android {
         applicationId = "com.phoenix.luminacn"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1000
+        versionCode = 1024
         versionName = "B24"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -128,7 +128,7 @@ android {
 dependencies {
     // 添加对libs目录中JAR文件的支持
     implementation(fileTree(mapOf("dir" to "libs", "include" to arrayOf("*.jar"))))
-    implementation("com.github.skydoves:cloudy:2.0.3")
+    implementation("com.github.skydoves:cloudy:0.2.7")
     implementation(libs.leveldb)
     implementation(libs.ui.graphics)
     implementation(libs.androidx.compose.material)
