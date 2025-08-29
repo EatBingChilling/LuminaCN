@@ -14,16 +14,21 @@ import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
+import android.renderscript.Allocation
+import android.renderscript.Element
+import android.renderscript.RenderScript
+import android.renderscript.ScriptIntrinsicBlur
 import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.skydoves.cloudy.cloudy  // 修正import
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * 壁纸获取工具类
@@ -252,7 +257,7 @@ object WallpaperUtils {
         Thread {
             try {
                 Log.d("WallpaperUtils", "Processing selected wallpaper: $uri")
-                // 这里可以添加各种处理逻辑，比如Cloudy模糊等
+                // 这里可以添加各种处理逻辑，比如模糊等
                 val success = processAndSaveWallpaper(context, uri)
                 
                 // 回到主线程通知结果
@@ -408,8 +413,8 @@ object WallpaperUtils {
     }
     
     /**
-     * 应用壁纸效果（包含Cloudy模糊）
-     * 可以在这里添加Cloudy模糊、调色等效果
+     * 应用壁纸效果（包含模糊）
+     * 可以在这里添加模糊、调色等效果
      */
     private fun applyWallpaperEffects(context: Context, bitmap: Bitmap): Bitmap {
         var processedBitmap = bitmap
@@ -417,9 +422,9 @@ object WallpaperUtils {
         try {
             val config = getBlurConfig(context)
             
-            // 应用Cloudy模糊效果
+            // 应用模糊效果
             if (config.enableBlur) {
-                processedBitmap = applyCloudyBlur(context, processedBitmap, config)
+                processedBitmap = applyBlurEffect(context, processedBitmap, config)
             }
             
             // 可以在这里添加更多效果
@@ -437,36 +442,19 @@ object WallpaperUtils {
     }
     
     /**
-     * 应用Cloudy模糊效果（修正为0.2.7版本的API）
+     * 应用模糊效果
      */
-    private fun applyCloudyBlur(context: Context, bitmap: Bitmap, config: WallpaperEffectConfig): Bitmap {
-        return try {
-            // 使用Cloudy 0.2.7版本的API
-            val blurredBitmap = bitmap.cloudy(config.blurRadius.toInt())
-            
-            Log.d("WallpaperUtils", "Applied Cloudy blur: radius=${config.blurRadius}")
-            blurredBitmap ?: bitmap
-        } catch (e: Exception) {
-            Log.e("WallpaperUtils", "Failed to apply Cloudy blur", e)
-            // 如果Cloudy模糊失败，尝试使用原生模糊
-            applyNativeBlur(bitmap, config.blurRadius)
-        }
-    }
-    
-    /**
-     * 原生模糊处理（备用方案）
-     */
-    private fun applyNativeBlur(bitmap: Bitmap, radius: Float): Bitmap {
+    private fun applyBlurEffect(context: Context, bitmap: Bitmap, config: WallpaperEffectConfig): Bitmap {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
                 // 使用RenderScript模糊（API 17+）
-                applyRenderScriptBlur(bitmap, radius)
+                applyRenderScriptBlur(context, bitmap, config.blurRadius)
             } else {
-                // 对于旧版本，返回原始bitmap
-                bitmap
+                // 对于旧版本，使用简单模糊算法
+                applySimpleBlur(bitmap, config.blurRadius.toInt())
             }
         } catch (e: Exception) {
-            Log.e("WallpaperUtils", "Failed to apply native blur", e)
+            Log.e("WallpaperUtils", "Failed to apply blur effect", e)
             bitmap
         }
     }
@@ -475,15 +463,61 @@ object WallpaperUtils {
      * RenderScript模糊处理
      */
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-    private fun applyRenderScriptBlur(bitmap: Bitmap, radius: Float): Bitmap {
+    private fun applyRenderScriptBlur(context: Context, bitmap: Bitmap, radius: Float): Bitmap {
         return try {
-            // 这里可以实现RenderScript模糊
-            // 由于RenderScript较复杂且已被弃用，这里简单返回原始bitmap
-            // 实际项目中建议使用Cloudy或其他现代模糊库
-            Log.d("WallpaperUtils", "RenderScript blur not implemented, returning original bitmap")
-            bitmap
+            val rs = RenderScript.create(context)
+            val input = Allocation.createFromBitmap(rs, bitmap)
+            val output = Allocation.createTyped(rs, input.type)
+            val script = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs))
+            
+            script.setRadius(radius.coerceIn(0f, 25f))
+            script.setInput(input)
+            script.forEach(output)
+            
+            val blurredBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, bitmap.config ?: Bitmap.Config.ARGB_8888)
+            output.copyTo(blurredBitmap)
+            
+            input.destroy()
+            output.destroy()
+            script.destroy()
+            rs.destroy()
+            
+            Log.d("WallpaperUtils", "Applied RenderScript blur: radius=$radius")
+            blurredBitmap
         } catch (e: Exception) {
             Log.e("WallpaperUtils", "RenderScript blur failed", e)
+            bitmap
+        }
+    }
+    
+    /**
+     * 简单模糊算法（备用方案）
+     */
+    private fun applySimpleBlur(bitmap: Bitmap, radius: Int): Bitmap {
+        return try {
+            val width = bitmap.width
+            val height = bitmap.height
+            val config = bitmap.config ?: Bitmap.Config.ARGB_8888
+            val blurredBitmap = Bitmap.createBitmap(width, height, config)
+            
+            val canvas = Canvas(blurredBitmap)
+            val paint = Paint().apply {
+                flags = Paint.ANTI_ALIAS_FLAG
+                alpha = 180 // 稍微透明以产生模糊效果
+            }
+            
+            // 简单的多次绘制来模拟模糊
+            val offset = max(1, radius / 5)
+            for (i in -offset..offset) {
+                for (j in -offset..offset) {
+                    canvas.drawBitmap(bitmap, i.toFloat(), j.toFloat(), paint)
+                }
+            }
+            
+            Log.d("WallpaperUtils", "Applied simple blur: radius=$radius")
+            blurredBitmap
+        } catch (e: Exception) {
+            Log.e("WallpaperUtils", "Simple blur failed", e)
             bitmap
         }
     }
@@ -599,8 +633,7 @@ object WallpaperUtils {
                 colorFilter = ColorMatrixColorFilter(ColorMatrix().apply {
                     // 降低亮度，增加一点蓝色调
                     setScale(0.6f, 0.6f, 0.7f, 1.0f)
-                }
-                )
+                })
             }
             canvas.drawBitmap(bitmap, 0f, 0f, paint)
             filteredBitmap
