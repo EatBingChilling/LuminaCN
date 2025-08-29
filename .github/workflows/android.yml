@@ -38,4 +38,4 @@ jobs:
           name: apk-artifacts
           path: |
             app/build/outputs/apk/debug/*.apk
-          retention-days: 7  # 产物保留7天
+          retention-days: 2  # 产物保留2天

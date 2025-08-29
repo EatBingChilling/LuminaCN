@@ -10,18 +10,20 @@ import com.phoenix.luminacn.game.event.*
 
 class NameTagRenderView(context: Context) : View(context), Listenable {
 
-    private var session: NetBound? = null
+    private var _session: NetBound? = null
+    private val session: NetBound
+        get() = _session ?: GameManager.netBound ?: throw IllegalStateException("No session available")
 
     init {
         setWillNotDraw(false)
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
         
-        // 获取当前session
-        session = GameManager.netBound
+        // 尝试获取初始session
+        _session = GameManager.netBound
     }
 
     fun updateSession(newSession: NetBound?) {
-        this.session = newSession
+        this._session = newSession
         invalidate()
     }
 
@@ -29,12 +31,16 @@ class NameTagRenderView(context: Context) : View(context), Listenable {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        session?.let { currentSession ->
+        try {
+            val currentSession = session
             val event = EventNameTagRender(currentSession, canvas, context)
             currentSession.eventManager.emit(event)
             if (event.needRefresh) {
                 invalidate()
             }
+        } catch (e: IllegalStateException) {
+            // Session不可用，跳过本次绘制
+            android.util.Log.w("NameTagRenderView", "Session not available for rendering: ${e.message}")
         }
     }
 
@@ -42,8 +48,8 @@ class NameTagRenderView(context: Context) : View(context), Listenable {
         invalidate()
     }
 
-    override val eventManager: EventManager?
-        get() = session?.eventManager
+    override val eventManager: EventManager
+        get() = session.eventManager
 
     class EventNameTagRender(session: NetBound, val canvas: Canvas, val context: Context, var needRefresh: Boolean = false) : GameEvent(session, "nametag_render")
     class EventRefreshNameTagRender(session: NetBound) : GameEvent(session, "refresh_nametag_render")

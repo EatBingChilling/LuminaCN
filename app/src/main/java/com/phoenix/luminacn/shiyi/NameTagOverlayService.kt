@@ -98,7 +98,7 @@ class NameTagOverlay : OverlayWindow() {
 
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
-            gravity = Gravity.TOP or Gravity.Start
+            gravity = Gravity.TOP or Gravity.START // 修复: Start -> START
             x = 0
             y = 0
             format = PixelFormat.TRANSLUCENT
@@ -120,7 +120,6 @@ class NameTagOverlay : OverlayWindow() {
         val context = LocalContext.current
 
         Box(modifier = Modifier.fillMaxSize()) {
-            // 使用你的NameTagRenderView，就像RenderLayerView一样
             AndroidView(
                 factory = { ctx ->
                     NameTagRenderView(ctx).apply {
@@ -129,21 +128,17 @@ class NameTagOverlay : OverlayWindow() {
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        // 设置系统UI可见性
                         systemUiVisibility = (
                             View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                             View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                         )
-                        // 更新session
                         updateSession(GameManager.netBound)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
-                    // 确保session是最新的
                     view.updateSession(GameManager.netBound)
-                    // 强制重新布局
                     view.requestLayout()
                 }
             )
