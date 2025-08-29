@@ -2,9 +2,12 @@ package com.phoenix.luminacn.shiyi
 
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.IBinder
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.phoenix.luminacn.overlay.manager.OverlayWindow
 import com.phoenix.luminacn.overlay.manager.OverlayManager
+import com.phoenix.luminacn.constructors.GameManager
 
 class NameTagOverlayService : Service() {
 
@@ -94,7 +98,7 @@ class NameTagOverlay : OverlayWindow() {
 
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
-            gravity = Gravity.TOP or Gravity.START
+            gravity = Gravity.TOP or Gravity.Start
             x = 0
             y = 0
             format = PixelFormat.TRANSLUCENT
@@ -116,14 +120,32 @@ class NameTagOverlay : OverlayWindow() {
         val context = LocalContext.current
 
         Box(modifier = Modifier.fillMaxSize()) {
-            // NameTag专用渲染视图
+            // 使用你的NameTagRenderView，就像RenderLayerView一样
             AndroidView(
                 factory = { ctx ->
                     NameTagRenderView(ctx).apply {
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        setBackgroundColor(Color.TRANSPARENT)
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        // 设置系统UI可见性
+                        systemUiVisibility = (
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        )
+                        // 更新session
+                        updateSession(GameManager.netBound)
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                update = { view ->
+                    // 确保session是最新的
+                    view.updateSession(GameManager.netBound)
+                    // 强制重新布局
+                    view.requestLayout()
+                }
             )
         }
 
