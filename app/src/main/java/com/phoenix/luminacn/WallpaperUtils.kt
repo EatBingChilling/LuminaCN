@@ -20,7 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.skydoves.cloudy.Cloudy
+import com.skydoves.cloudy.cloudy  // 修正import
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -41,9 +41,9 @@ object WallpaperUtils {
     // 高版本SDK阈值，超过此版本需要用户手动设置壁纸
     private const val HIGH_SDK_THRESHOLD = Build.VERSION_CODES.TIRAMISU // Android 13
     
-    // 模糊配置
-    private const val DEFAULT_BLUR_RADIUS = 15f
-    private const val DEFAULT_BLUR_SAMPLING = 1f
+    // 模糊配置 - 修改默认值
+    private const val DEFAULT_BLUR_RADIUS = 20f
+    private const val DEFAULT_BLUR_SAMPLING = 1.0f
     private const val MAX_BLUR_RADIUS = 25f
     private const val MIN_BLUR_RADIUS = 1f
     
@@ -437,18 +437,14 @@ object WallpaperUtils {
     }
     
     /**
-     * 应用Cloudy模糊效果
+     * 应用Cloudy模糊效果（修正为0.2.7版本的API）
      */
     private fun applyCloudyBlur(context: Context, bitmap: Bitmap, config: WallpaperEffectConfig): Bitmap {
         return try {
-            // 使用Cloudy库进行模糊处理
-            val blurredBitmap = Cloudy.with(context)
-                .radius(config.blurRadius.toInt())
-                .sampling(config.blurSampling.toInt())
-                .animate(0) // 不使用动画
-                .bitmap(bitmap)
+            // 使用Cloudy 0.2.7版本的API
+            val blurredBitmap = bitmap.cloudy(config.blurRadius.toInt())
             
-            Log.d("WallpaperUtils", "Applied Cloudy blur: radius=${config.blurRadius}, sampling=${config.blurSampling}")
+            Log.d("WallpaperUtils", "Applied Cloudy blur: radius=${config.blurRadius}")
             blurredBitmap ?: bitmap
         } catch (e: Exception) {
             Log.e("WallpaperUtils", "Failed to apply Cloudy blur", e)
@@ -603,7 +599,8 @@ object WallpaperUtils {
                 colorFilter = ColorMatrixColorFilter(ColorMatrix().apply {
                     // 降低亮度，增加一点蓝色调
                     setScale(0.6f, 0.6f, 0.7f, 1.0f)
-                })
+                }
+                )
             }
             canvas.drawBitmap(bitmap, 0f, 0f, paint)
             filteredBitmap
