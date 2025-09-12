@@ -52,7 +52,8 @@ class MainScreenViewModel : ViewModel() {
     val selectedPage = _selectedPage.asStateFlow()
 
     private val _captureModeModel = MutableStateFlow(initialCaptureModeModel())
-    val captureModeModel = _captureMode_model.asStateFlow()
+    // ✅ 修正了这里的拼写错误：从 _captureMode_model 改回 _captureModeModel
+    val captureModeModel = _captureModeModel.asStateFlow()
 
     private val _packageInfos = MutableStateFlow<List<PackageInfo>>(emptyList())
     val packageInfos = _packageInfos.asStateFlow()
@@ -80,13 +81,9 @@ class MainScreenViewModel : ViewModel() {
         captureModeModel.to(gameSettingsSharedPreferences)
     }
 
-    // ✅ FIXED: Safely handle nullable packageName input.
     fun selectGame(packageName: String?) {
-        // If the incoming package name is null, fall back to the default.
-        // This makes the assignment to the non-nullable `_selectedGame.value` safe.
         _selectedGame.value = packageName ?: "com.mojang.minecraftpe"
         
-        // When saving to SharedPreferences, we can save the actual value (which could be null).
         gameSettingsSharedPreferences.edit {
             putString("selected_game", packageName)
         }
