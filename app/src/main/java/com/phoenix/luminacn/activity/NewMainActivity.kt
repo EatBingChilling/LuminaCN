@@ -36,6 +36,7 @@ import com.phoenix.luminacn.overlay.mods.PacketNotificationOverlay
 import com.phoenix.luminacn.overlay.mods.TargetHudOverlay
 import com.phoenix.luminacn.ui.theme.LuminaClientTheme
 import com.phoenix.luminacn.util.HashCat
+import com.phoenix.luminacn.music.MusicObserver
 import io.netty.util.internal.logging.InternalLoggerFactory
 import io.netty.util.internal.logging.JdkLoggerFactory
 
@@ -296,14 +297,18 @@ class NewMainActivity : ComponentActivity() {
     }
 
     private fun startMusicObserverIfNeeded() {
-        // 这里可以启动音乐观察服务或其他需要通知权限的服务
-        Log.d("NewMainActivity", "Ready to start music observer or other notification-dependent services")
+        val prefs = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
+        val musicModeEnabled = prefs.getBoolean("musicModeEnabled", true)
         
-        // 示例：如果有音乐观察器，可以在这里启动
-        try {
-            // MusicObserver.start(this) // 如果已实现音乐观察器
-        } catch (e: Exception) {
-            Log.e("NewMainActivity", "Failed to start music observer", e)
+        if (musicModeEnabled) {
+            MusicObserver.checkAndRequestPermissions(
+                activity = this,
+                notificationPermissionLauncher = notificationPermissionLauncher,
+                onPermissionsGranted = {
+                    MusicObserver.start(this)
+                    Log.d("NewMainActivity", "Music observer started successfully")
+                }
+            )
         }
     }
 

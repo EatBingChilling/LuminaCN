@@ -1,14 +1,17 @@
+@file:OptIn(ExperimentalAnimationApi::class, ExperimentalTextApi::class)
 package com.phoenix.luminacn.service
 
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +20,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
+import androidx.compose.text.ExperimentalTextApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
@@ -26,15 +30,15 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.phoenix.luminacn.phoenix.DynamicIslandState
+import com.phoenix.luminacn.phoenix.DynamicIslandView
+import com.phoenix.luminacn.phoenix.rememberCompatDynamicIslandState
+import com.phoenix.luminacn.music.MusicObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlin.math.roundToInt
-import com.phoenix.luminacn.phoenix.CompatDynamicIslandState
-import com.phoenix.luminacn.phoenix.EnhancedDynamicIslandView
-import com.phoenix.luminacn.phoenix.rememberCompatDynamicIslandState
-import com.phoenix.luminacn.music.MusicObserver
 
 class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -50,7 +54,7 @@ class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateReg
 class DynamicIslandService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var composeView: ComposeView
-    private var dynamicIslandState: CompatDynamicIslandState? = null
+    private var dynamicIslandState: DynamicIslandState? = null
     private lateinit var windowParams: WindowManager.LayoutParams
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lifecycleOwner = ServiceLifecycleOwner()
@@ -58,9 +62,8 @@ class DynamicIslandService : Service() {
     // 用于控制首次显示的透明度，实现预热
     private var isWarmedUp = mutableStateOf(false)
     
-    // 新增配置状态
+    // 音乐模式状态
     private var musicModeEnabled = mutableStateOf(true)
-    private var hideWhenNoTasks = mutableStateOf(false)
 
     companion object {
         // 保持原有的常量不变
@@ -91,11 +94,9 @@ class DynamicIslandService : Service() {
         const val EXTRA_IMAGE_DATA = "extra_image_data"
         const val EXTRA_ALBUM_ART_DATA = "extra_album_art_data"
         
-        // 新增配置相关常量
+        // 音乐模式控制
         const val ACTION_SET_MUSIC_MODE = "com.phoenix.luminacn.ACTION_SET_MUSIC_MODE"
-        const val ACTION_SET_HIDE_WHEN_NO_TASKS = "com.phoenix.luminacn.ACTION_SET_HIDE_WHEN_NO_TASKS"
         const val EXTRA_MUSIC_MODE_ENABLED = "extra_music_mode_enabled"
-        const val EXTRA_HIDE_WHEN_NO_TASKS = "extra_hide_when_no_tasks"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -121,11 +122,11 @@ class DynamicIslandService : Service() {
                 val alpha by animateFloatAsState(targetValue = if (isWarmedUp.value) 1.0f else 0.0f, label = "warmup")
 
                 MaterialTheme(colorScheme = colorScheme) {
-                    val state = rememberCompatDynamicIslandState(this@DynamicIslandService)
+                    val compatState = rememberCompatDynamicIslandState(this@DynamicIslandService)
+                    val state = compatState.getUnderlyingState()
                     
-                    // 监听Y位置变化，同步到WindowManager
-                    LaunchedEffect(state.yPosition) {
-                        windowParams.y = dpToPx(state.yPosition)
+                    LaunchedEffect(compatState.yPosition) {
+                        windowParams.y = dpToPx(compatState.yPosition)
                         windowManager.updateViewLayout(composeView, windowParams)
                     }
                     
@@ -133,10 +134,9 @@ class DynamicIslandService : Service() {
                         this@DynamicIslandService.dynamicIslandState = state 
                     }
                     
-                    // 使用新的DynamicIslandView，支持隐藏模式
-                    EnhancedDynamicIslandView(
+                    // 使用原来的DynamicIslandView
+                    DynamicIslandView(
                         state = state,
-                        hideWhenNoTasks = hideWhenNoTasks.value,
                         modifier = Modifier.alpha(alpha)
                     )
                 }
@@ -165,7 +165,6 @@ class DynamicIslandService : Service() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
         musicModeEnabled.value = prefs.getBoolean("musicModeEnabled", true)
-        hideWhenNoTasks.value = prefs.getBoolean("hideWhenNoTasks", false)
         
         // 如果音乐模式启用，启动音乐观察器
         if (musicModeEnabled.value) {
@@ -200,17 +199,18 @@ class DynamicIslandService : Service() {
         intent ?: return START_STICKY
         when (intent.action) {
             ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let { text -> 
-                dynamicIslandState?.updatePersistentText(text) 
+                dynamicIslandState?.updateConfig(dynamicIslandState?.scale ?: 1.0f, text)
             }
             
             ACTION_UPDATE_Y_OFFSET -> { 
                 val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 0f)
-                dynamicIslandState?.updateYPosition(yOffsetDp)
+                windowParams.y = dpToPx(yOffsetDp)
+                windowManager.updateViewLayout(composeView, windowParams)
             }
             
             ACTION_UPDATE_SCALE -> { 
                 val newScale = intent.getFloatExtra(EXTRA_SCALE, 1.0f)
-                dynamicIslandState?.updateScale(newScale)
+                dynamicIslandState?.updateConfig(newScale, dynamicIslandState?.persistentText ?: "")
             }
             
             ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name -> 
@@ -226,7 +226,7 @@ class DynamicIslandService : Service() {
                 dynamicIslandState?.removeTask(identifier)
             }
             
-            // 处理配置更新
+            // 音乐模式控制
             ACTION_SET_MUSIC_MODE -> {
                 val enabled = intent.getBooleanExtra(EXTRA_MUSIC_MODE_ENABLED, true)
                 musicModeEnabled.value = enabled
@@ -235,11 +235,6 @@ class DynamicIslandService : Service() {
                 } else {
                     stopMusicObserver()
                 }
-            }
-            
-            ACTION_SET_HIDE_WHEN_NO_TASKS -> {
-                val hide = intent.getBooleanExtra(EXTRA_HIDE_WHEN_NO_TASKS, false)
-                hideWhenNoTasks.value = hide
             }
         }
         return START_STICKY

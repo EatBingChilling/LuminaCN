@@ -7,13 +7,9 @@ import com.phoenix.luminacn.service.DynamicIslandService
 
 /**
  * 灵动岛控制器
- * 提供统一的API来控制灵动岛的各种功能
  */
 class DynamicIslandController(private val context: Context) {
     
-    /**
-     * 设置持久显示的文本（用户名）
-     */
     fun setPersistentText(text: String) {
         try {
             val intent = Intent(context, DynamicIslandService::class.java).apply {
@@ -27,9 +23,6 @@ class DynamicIslandController(private val context: Context) {
         }
     }
     
-    /**
-     * 更新Y轴偏移量
-     */
     fun updateYOffset(yOffset: Float) {
         try {
             val intent = Intent(context, DynamicIslandService::class.java).apply {
@@ -43,9 +36,6 @@ class DynamicIslandController(private val context: Context) {
         }
     }
     
-    /**
-     * 更新缩放比例
-     */
     fun updateScale(scale: Float) {
         try {
             val intent = Intent(context, DynamicIslandService::class.java).apply {
@@ -59,9 +49,7 @@ class DynamicIslandController(private val context: Context) {
         }
     }
     
-    /**
-     * 控制音乐模式的开启/关闭
-     */
+    // 🆕 音乐模式控制
     fun enableMusicMode(enabled: Boolean) {
         try {
             val intent = Intent(context, DynamicIslandService::class.java).apply {
@@ -75,25 +63,6 @@ class DynamicIslandController(private val context: Context) {
         }
     }
     
-    /**
-     * 控制无任务时是否隐藏灵动岛
-     */
-    fun setHideWhenNoTasks(hide: Boolean) {
-        try {
-            val intent = Intent(context, DynamicIslandService::class.java).apply {
-                action = DynamicIslandService.ACTION_SET_HIDE_WHEN_NO_TASKS
-                putExtra(DynamicIslandService.EXTRA_HIDE_WHEN_NO_TASKS, hide)
-            }
-            context.startService(intent)
-            Log.d("DynamicIslandController", "Hide when no tasks: $hide")
-        } catch (e: Exception) {
-            Log.e("DynamicIslandController", "Failed to set hide when no tasks", e)
-        }
-    }
-    
-    /**
-     * 显示开关通知
-     */
     fun showSwitchNotification(moduleName: String, isEnabled: Boolean) {
         try {
             val intent = Intent(context, DynamicIslandService::class.java).apply {
@@ -108,9 +77,6 @@ class DynamicIslandController(private val context: Context) {
         }
     }
     
-    /**
-     * 显示或更新进度任务
-     */
     fun showProgress(
         identifier: String,
         title: String,
@@ -136,9 +102,6 @@ class DynamicIslandController(private val context: Context) {
         }
     }
     
-    /**
-     * 移除指定的任务
-     */
     fun removeTask(identifier: String) {
         try {
             val intent = Intent(context, DynamicIslandService::class.java).apply {
@@ -149,46 +112,6 @@ class DynamicIslandController(private val context: Context) {
             Log.d("DynamicIslandController", "Removed task: $identifier")
         } catch (e: Exception) {
             Log.e("DynamicIslandController", "Failed to remove task", e)
-        }
-    }
-    
-    /**
-     * 检查灵动岛服务是否正在运行
-     */
-    fun isServiceRunning(): Boolean {
-        return try {
-            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val services = activityManager.getRunningServices(Integer.MAX_VALUE)
-            services.any { it.service.className == DynamicIslandService::class.java.name }
-        } catch (e: Exception) {
-            Log.e("DynamicIslandController", "Failed to check service status", e)
-            false
-        }
-    }
-    
-    /**
-     * 启动灵动岛服务
-     */
-    fun startService() {
-        try {
-            val intent = Intent(context, DynamicIslandService::class.java)
-            context.startService(intent)
-            Log.d("DynamicIslandController", "Started DynamicIslandService")
-        } catch (e: Exception) {
-            Log.e("DynamicIslandController", "Failed to start service", e)
-        }
-    }
-    
-    /**
-     * 停止灵动岛服务
-     */
-    fun stopService() {
-        try {
-            val intent = Intent(context, DynamicIslandService::class.java)
-            context.stopService(intent)
-            Log.d("DynamicIslandController", "Stopped DynamicIslandService")
-        } catch (e: Exception) {
-            Log.e("DynamicIslandController", "Failed to stop service", e)
         }
     }
 }

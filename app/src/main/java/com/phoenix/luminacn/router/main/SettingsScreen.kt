@@ -78,9 +78,8 @@ fun SettingsScreen() {
     var dynamicIslandYOffset     by remember { mutableStateOf(sp.getFloat("dynamicIslandYOffset", 20f)) }
     var dynamicIslandScale       by remember { mutableStateOf(sp.getFloat("dynamicIslandScale", 0.7f)) }
     
-    // 🆕 新增灵动岛功能状态
+    // 🆕 新增音乐模式状态
     var musicModeEnabled         by remember { mutableStateOf(sp.getBoolean("musicModeEnabled", true)) }
-    var hideWhenNoTasks         by remember { mutableStateOf(sp.getBoolean("hideWhenNoTasks", false)) }
 
     var showPermission           by remember { mutableStateOf(false) }
     var showServerDialog         by remember { mutableStateOf(false) }
@@ -120,13 +119,9 @@ fun SettingsScreen() {
         dynamicIslandController.updateScale(dynamicIslandScale)
     }
 
-    // 🆕 新增功能的LaunchedEffect
+    // 🆕 音乐模式控制
     LaunchedEffect(musicModeEnabled) {
         dynamicIslandController.enableMusicMode(musicModeEnabled)
-    }
-
-    LaunchedEffect(hideWhenNoTasks) {
-        dynamicIslandController.setHideWhenNoTasks(hideWhenNoTasks)
     }
 
     LaunchedEffect(Unit) {
@@ -319,15 +314,10 @@ fun SettingsScreen() {
                     )
                 }
 
-                // 🆕 新增功能开关
+                // 🆕 音乐模式开关
                 SettingToggle("音乐模式", "自动显示音乐播放信息", musicModeEnabled) {
                     musicModeEnabled = it
                     saveBool("musicModeEnabled", it)
-                }
-
-                SettingToggle("无任务时隐藏", "没有任务时自动隐藏灵动岛", hideWhenNoTasks) {
-                    hideWhenNoTasks = it
-                    saveBool("hideWhenNoTasks", it)
                 }
             }
         }

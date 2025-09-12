@@ -29,21 +29,6 @@ private const val MUSIC_IDENTIFIER = "global_music_player"
  * 负责检查权限和启动后台监听服务
  */
 object MusicObserver {
-    
-    private var isEnabled = true
-    
-    /**
-     * 设置音乐观察器是否启用
-     */
-    fun setEnabled(enabled: Boolean) {
-        isEnabled = enabled
-        Log.d(TAG, "Music observer enabled: $enabled")
-    }
-    
-    /**
-     * 检查音乐观察器是否启用
-     */
-    fun isEnabled(): Boolean = isEnabled
 
     fun checkAndRequestPermissions(
         activity: ComponentActivity,
@@ -142,6 +127,7 @@ object MusicObserver {
     }
 }
 
+
 /**
  * 后台服务，用于监听系统媒体会话变化
  */
@@ -218,21 +204,6 @@ class MusicObserverService : NotificationListenerService() {
     }
 
     private fun updateMusicInfo() {
-        // 🆕 检查音乐模式是否启用
-        val prefs = getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-        val musicModeEnabled = prefs.getBoolean("musicModeEnabled", true)
-        
-        if (!musicModeEnabled) {
-            Log.d(TAG, "Music mode disabled, stopping music info updates")
-            showDynamicIslandMusic(
-                identifier = MUSIC_IDENTIFIER,
-                title = "", subtitle = "", albumArt = null, progressText = "", progress = 0f,
-                action = MusicAction.STOP
-            )
-            stopProgressUpdater()
-            return
-        }
-        
         val controller = activeController
         val metadata = controller?.metadata
         val playbackState = controller?.playbackState
@@ -285,28 +256,14 @@ class MusicObserverService : NotificationListenerService() {
     }
     
     private fun startProgressUpdater(duration: Long) {
-        // 🆕 再次检查音乐模式状态，防止在进度更新过程中被禁用
-        val prefs = getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-        val musicModeEnabled = prefs.getBoolean("musicModeEnabled", true)
-        
-        if (!musicModeEnabled || duration <= 0) {
+        if (duration <= 0) {
             stopProgressUpdater()
             return
         }
-        
         if (progressJob?.isActive == true) return
 
         progressJob = serviceScope.launch {
             while (isActive) {
-                // 在循环中持续检查音乐模式状态
-                val currentPrefs = getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
-                val currentMusicModeEnabled = currentPrefs.getBoolean("musicModeEnabled", true)
-                
-                if (!currentMusicModeEnabled) {
-                    Log.d(TAG, "Music mode disabled during progress update, stopping")
-                    break
-                }
-                
                 activeController?.playbackState?.let { state ->
                     updateDynamicIslandMusicProgress(
                         identifier = MUSIC_IDENTIFIER,
@@ -317,7 +274,7 @@ class MusicObserverService : NotificationListenerService() {
                 delay(1000)
             }
         }
-        Log.d(TAG, "Progress updater started.")
+         Log.d(TAG, "Progress updater started.")
     }
 
     private fun stopProgressUpdater() {
