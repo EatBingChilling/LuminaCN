@@ -30,7 +30,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Lumina v4"
+rootProject.name = "LuminaCN"
 include(":app",
     ":Protocol:bedrock-codec",
     ":Protocol:bedrock-connection",

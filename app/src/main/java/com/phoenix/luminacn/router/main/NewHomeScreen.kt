@@ -1,5 +1,5 @@
 /*
- * © Project Lumina 2025 — Licensed under GNU GPLv3
+ * © Project LuminaCN 2025 — Licensed under GNU GPLv3
  * You are free to use, modify, and redistribute this code under the terms
  * of the GNU General Public License v3. See the LICENSE file for details.
  */
@@ -509,7 +509,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         AlertDialog(
             onDismissRequest = { /* Disallow dismissing by clicking outside */ },
             title = { Text("启用实体按键绑定？") },
-            text = { Text("Kitasan 可以使用无障碍服务来启用实体按键绑定功能（如音量键控制）。\n\n如果不需要，服务仍可正常启动，但无法使用实体按键绑定。") },
+            text = { Text("LuminaCN 可以使用无障碍服务来启用实体按键绑定功能（如音量键控制）。\n\n如果不需要，服务仍可正常启动，但无法使用实体按键绑定。") },
             confirmButton = {
                 Row {
                     TextButton(

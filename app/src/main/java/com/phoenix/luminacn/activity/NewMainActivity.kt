@@ -157,6 +157,23 @@ class NewMainActivity : ComponentActivity() {
         }
     }
 
+    // ====================== 【新增：通知权限申请】 ======================
+    
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("NewMainActivity", "Notification permission granted")
+            Toast.makeText(this, "通知权限已授予", Toast.LENGTH_SHORT).show()
+            
+            // 权限授予后，启动音乐观察服务（如果需要的话）
+            startMusicObserverIfNeeded()
+        } else {
+            Log.w("NewMainActivity", "Notification permission denied")
+            showNotificationPermissionDeniedDialog()
+        }
+    }
+
     val importConfigLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -207,6 +224,86 @@ class NewMainActivity : ComponentActivity() {
                 )
                 overlayPermissionLauncher.launch(intent)
             }
+        }
+    }
+
+    // ====================== 【新增：通知权限相关方法】 ======================
+    
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    Log.d("NewMainActivity", "Notification permission already granted")
+                    startMusicObserverIfNeeded()
+                }
+                
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                    showNotificationPermissionRationaleDialog()
+                }
+                
+                else -> {
+                    Log.d("NewMainActivity", "Requesting notification permission")
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        } else {
+            // Android 13 以下不需要POST_NOTIFICATIONS权限
+            Log.d("NewMainActivity", "Notification permission not required on this Android version")
+            startMusicObserverIfNeeded()
+        }
+    }
+
+    private fun showNotificationPermissionRationaleDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("需要通知权限")
+            .setMessage("LuminaCN需要通知权限来显示音乐播放信息和系统状态。请授予通知权限以获得完整功能。")
+            .setPositiveButton("授予权限") { _, _ ->
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            .setNegativeButton("稍后设置") { _, _ ->
+                Log.d("NewMainActivity", "User chose to grant notification permission later")
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun showNotificationPermissionDeniedDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("通知权限被拒绝")
+            .setMessage("没有通知权限，音乐播放信息等功能将无法正常工作。您可以稍后在设置中手动授予权限。")
+            .setPositiveButton("前往设置") { _, _ ->
+                openAppSettings()
+            }
+            .setNegativeButton("确定") { _, _ ->
+                Log.d("NewMainActivity", "User acknowledged notification permission denial")
+            }
+            .show()
+    }
+
+    private fun openAppSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e("NewMainActivity", "Failed to open app settings", e)
+            Toast.makeText(this, "无法打开设置页面", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startMusicObserverIfNeeded() {
+        // 这里可以启动音乐观察服务或其他需要通知权限的服务
+        Log.d("NewMainActivity", "Ready to start music observer or other notification-dependent services")
+        
+        // 示例：如果有音乐观察器，可以在这里启动
+        try {
+            // MusicObserver.start(this) // 如果已实现音乐观察器
+        } catch (e: Exception) {
+            Log.e("NewMainActivity", "Failed to start music observer", e)
         }
     }
 
@@ -366,6 +463,9 @@ class NewMainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestStoragePermissions()
         requestOverlayPermission()
+        
+        // 🆕 新增：请求通知权限
+        requestNotificationPermission()
         
         // 设置壁纸状态监听器
         setupWallpaperStatusListener()

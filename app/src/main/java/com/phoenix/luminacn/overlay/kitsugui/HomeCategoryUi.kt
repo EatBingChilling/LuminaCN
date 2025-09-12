@@ -357,7 +357,7 @@ fun HomeCategoryUi() {
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "Kitasan Client",
+                        text = "LuminaCN Client",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )

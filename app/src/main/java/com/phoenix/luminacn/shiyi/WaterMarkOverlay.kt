@@ -66,7 +66,7 @@ class WaterMarkOverlay : OverlayWindow() {
     override val layoutParams: WindowManager.LayoutParams
         get() = _layoutParams
 
-    private var customText by mutableStateOf("Kitasan")
+    private var customText by mutableStateOf("LuminaCN")
     private var showVersion by mutableStateOf(true)
     private var showTime by mutableStateOf(false)
     private var position by mutableStateOf(WaterMarkShiyiElement.Position.TOP_LEFT)

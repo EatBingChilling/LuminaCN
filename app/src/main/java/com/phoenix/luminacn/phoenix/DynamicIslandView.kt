@@ -315,7 +315,7 @@ public fun DynamicIslandView(
         derivedStateOf {
             val textStyle = TextStyle(fontSize = 13.sp * actualScale, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium)
 
-            val lumiWidth = textMeasurer.measure(AnnotatedString("Kitasan"), style = textStyle).size.width
+            val lumiWidth = textMeasurer.measure(AnnotatedString("LuminaCN"), style = textStyle).size.width
             val fpsWidth = textMeasurer.measure(AnnotatedString("999 FPS"), style = textStyle.copy(fontFamily = FontFamily.Monospace)).size.width
             val persistentWidth = textMeasurer.measure(AnnotatedString(state.persistentText), style = textStyle).size.width
             val separatorWidth = textMeasurer.measure(AnnotatedString(" • "), style = textStyle).size.width * 2
@@ -599,7 +599,7 @@ private fun CollapsedContent(persistentText: String, scale: Float) {
     ) {
         val textStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale, fontWeight = FontWeight.Medium)
 
-        Text(text = "Kitasan", style = textStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = "LuminaCN", style = textStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Separator(scale)
 
         AnimatedContent(

@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalAnimationApi::class, ExperimentalTextApi::class)
 package com.phoenix.luminacn.service
 
 import android.app.Service
@@ -6,8 +7,10 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -16,10 +19,10 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
+import androidx.compose.text.ExperimentalTextApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.*
 import androidx.savedstate.SavedStateRegistry
@@ -31,9 +34,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlin.math.roundToInt
-import com.phoenix.luminacn.phoenix.DynamicIslandView
-import com.phoenix.luminacn.phoenix.DynamicIslandState
-import com.phoenix.luminacn.phoenix.rememberDynamicIslandState
+import com.hud.test.modules.dynamicisland.DynamicIslandView
+import com.phoenix.luminacn.phoenix.CompatDynamicIslandState
+import com.phoenix.luminacn.phoenix.rememberCompatDynamicIslandState
+import com.phoenix.luminacn.music.MusicObserver
 
 class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -49,17 +53,20 @@ class ServiceLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateReg
 class DynamicIslandService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var composeView: ComposeView
-    private var dynamicIslandState: DynamicIslandState? = null
+    private var dynamicIslandState: CompatDynamicIslandState? = null
     private lateinit var windowParams: WindowManager.LayoutParams
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lifecycleOwner = ServiceLifecycleOwner()
     
-    // ✨ 移除了 _scale，现在由 DynamicIslandState 管理
-
-    //用于控制首次显示的透明度，实现预热
+    // 用于控制首次显示的透明度，实现预热
     private var isWarmedUp = mutableStateOf(false)
+    
+    // 🆕 新增配置状态
+    private var musicModeEnabled = mutableStateOf(true)
+    private var hideWhenNoTasks = mutableStateOf(false)
 
     companion object {
+        // 保持原有的常量不变
         const val ACTION_UPDATE_TEXT = "com.phoenix.luminacn.ACTION_UPDATE_TEXT"
         const val ACTION_UPDATE_Y_OFFSET = "com.phoenix.luminacn.ACTION_UPDATE_Y_OFFSET"
         const val ACTION_UPDATE_SCALE = "com.phoenix.luminacn.ACTION_UPDATE_SCALE"
@@ -76,6 +83,22 @@ class DynamicIslandService : Service() {
         const val EXTRA_ICON_RES_ID = "extra_icon_res_id"
         const val EXTRA_DURATION_MS = "extra_duration_ms"
         const val EXTRA_PROGRESS_VALUE = "extra_progress_value"
+        
+        // 音乐相关的常量
+        const val ACTION_SHOW_OR_UPDATE_MUSIC = "com.phoenix.luminacn.ACTION_SHOW_OR_UPDATE_MUSIC"
+        const val ACTION_REMOVE_TASK = "com.phoenix.luminacn.ACTION_REMOVE_TASK"
+        const val EXTRA_PROGRESS_TEXT = "extra_progress_text"
+        const val EXTRA_IS_MAJOR_UPDATE = "extra_is_major_update"
+        
+        // 图像数据的常量
+        const val EXTRA_IMAGE_DATA = "extra_image_data"
+        const val EXTRA_ALBUM_ART_DATA = "extra_album_art_data"
+        
+        // 🆕 新增配置相关常量
+        const val ACTION_SET_MUSIC_MODE = "com.phoenix.luminacn.ACTION_SET_MUSIC_MODE"
+        const val ACTION_SET_HIDE_WHEN_NO_TASKS = "com.phoenix.luminacn.ACTION_SET_HIDE_WHEN_NO_TASKS"
+        const val EXTRA_MUSIC_MODE_ENABLED = "extra_music_mode_enabled"
+        const val EXTRA_HIDE_WHEN_NO_TASKS = "extra_hide_when_no_tasks"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -92,18 +115,18 @@ class DynamicIslandService : Service() {
             setContent {
                 val isDarkTheme = isSystemInDarkTheme()
                 val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { 
-                    if (isDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) 
+                    if (isDarkTheme) dynamicDarkColorScheme(this@DynamicIslandService) else dynamicLightColorScheme(this@DynamicIslandService) 
                 } else { 
                     if (isDarkTheme) darkColorScheme() else lightColorScheme() 
                 }
                 
-                //动画化透明度，用于预热
-                val alpha by animateFloatAsState(targetValue = if (isWarmedUp.value) 1.0f else 0.0f)
+                // 动画化透明度，用于预热
+                val alpha by animateFloatAsState(targetValue = if (isWarmedUp.value) 1.0f else 0.0f, label = "warmup")
 
                 MaterialTheme(colorScheme = colorScheme) {
-                    val state = rememberDynamicIslandState()
+                    val state = rememberCompatDynamicIslandState(this@DynamicIslandService)
                     
-                    // ✨ 监听状态变化，同步Y位置到WindowManager
+                    // 监听Y位置变化，同步到WindowManager
                     LaunchedEffect(state.yPosition) {
                         windowParams.y = dpToPx(state.yPosition)
                         windowManager.updateViewLayout(composeView, windowParams)
@@ -113,11 +136,11 @@ class DynamicIslandService : Service() {
                         this@DynamicIslandService.dynamicIslandState = state 
                     }
                     
-                    // ✨ 修复：使用新的API
-                    DynamicIslandView(
-                        state = state, 
-                        useStoredScale = true, // 使用存储的缩放值
-                        modifier = Modifier.alpha(alpha) //应用透明度
+                    // 🆕 使用新的DynamicIslandView，支持隐藏模式
+                    EnhancedDynamicIslandView(
+                        state = state.getUnderlyingState(),
+                        hideWhenNoTasks = hideWhenNoTasks.value,
+                        modifier = Modifier.alpha(alpha)
                     )
                 }
             }
@@ -137,29 +160,57 @@ class DynamicIslandService : Service() {
         }
         windowManager.addView(composeView, windowParams)
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        
+        // 从SharedPreferences读取配置
+        loadSettings()
+    }
+    
+    private fun loadSettings() {
+        val prefs = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
+        musicModeEnabled.value = prefs.getBoolean("musicModeEnabled", true)
+        hideWhenNoTasks.value = prefs.getBoolean("hideWhenNoTasks", false)
+        
+        // 如果音乐模式启用，启动音乐观察器
+        if (musicModeEnabled.value) {
+            startMusicObserver()
+        }
+    }
+    
+    private fun startMusicObserver() {
+        try {
+            MusicObserver.start(this)
+            Log.d("DynamicIslandService", "Music observer started")
+        } catch (e: Exception) {
+            Log.e("DynamicIslandService", "Failed to start music observer", e)
+        }
+    }
+    
+    private fun stopMusicObserver() {
+        try {
+            MusicObserver.stop(this)
+            Log.d("DynamicIslandService", "Music observer stopped")
+        } catch (e: Exception) {
+            Log.e("DynamicIslandService", "Failed to stop music observer", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        //接收到任何指令后，将isWarmedUp设为true，让灵动岛可见
+        // 接收到任何指令后，将isWarmedUp设为true，让灵动岛可见
         if (!isWarmedUp.value) {
             isWarmedUp.value = true
         }
 
         intent ?: return START_STICKY
         when (intent.action) {
-            // ✨ 修复：使用新的更新方法
             ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let { text -> 
                 dynamicIslandState?.updatePersistentText(text) 
             }
             
-            // ✨ 修复：使用新的更新方法，自动保存到SharedPreferences
             ACTION_UPDATE_Y_OFFSET -> { 
                 val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 0f)
                 dynamicIslandState?.updateYPosition(yOffsetDp)
-                // 注意：WindowManager的更新现在在LaunchedEffect中自动处理
             }
             
-            // ✨ 修复：使用新的更新方法
             ACTION_UPDATE_SCALE -> { 
                 val newScale = intent.getFloatExtra(EXTRA_SCALE, 1.0f)
                 dynamicIslandState?.updateScale(newScale)
@@ -167,10 +218,32 @@ class DynamicIslandService : Service() {
             
             ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name -> 
                 val state = intent.getBooleanExtra(EXTRA_MODULE_STATE, false)
-                dynamicIslandState?.addSwitch(name, state) 
+                dynamicIslandState?.addSwitch(name, name, state) 
             }
             
             ACTION_SHOW_OR_UPDATE_PROGRESS -> handleShowOrUpdateProgress(intent)
+            
+            ACTION_SHOW_OR_UPDATE_MUSIC -> handleShowOrUpdateMusic(intent)
+            
+            ACTION_REMOVE_TASK -> intent.getStringExtra(EXTRA_IDENTIFIER)?.let { identifier ->
+                dynamicIslandState?.removeTask(identifier)
+            }
+            
+            // 🆕 新增：处理配置更新
+            ACTION_SET_MUSIC_MODE -> {
+                val enabled = intent.getBooleanExtra(EXTRA_MUSIC_MODE_ENABLED, true)
+                musicModeEnabled.value = enabled
+                if (enabled) {
+                    startMusicObserver()
+                } else {
+                    stopMusicObserver()
+                }
+            }
+            
+            ACTION_SET_HIDE_WHEN_NO_TASKS -> {
+                val hide = intent.getBooleanExtra(EXTRA_HIDE_WHEN_NO_TASKS, false)
+                hideWhenNoTasks.value = hide
+            }
         }
         return START_STICKY
     }
@@ -178,6 +251,7 @@ class DynamicIslandService : Service() {
     override fun onDestroy() { 
         super.onDestroy()
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        stopMusicObserver()
         windowManager.removeView(composeView)
         serviceScope.cancel() 
     }
@@ -194,9 +268,64 @@ class DynamicIslandService : Service() {
         } else { 
             null 
         }
-        val iconDrawable = intent.getIntExtra(EXTRA_ICON_RES_ID, -1).takeIf { it != -1 }?.let { resId -> 
-            runCatching { ContextCompat.getDrawable(this, resId) }.getOrNull() 
+        
+        // 优先使用传递的图像数据，然后是资源ID
+        val iconDrawable = when {
+            intent.hasExtra(EXTRA_IMAGE_DATA) -> {
+                intent.getByteArrayExtra(EXTRA_IMAGE_DATA)?.let { imageData ->
+                    createDrawableFromByteArray(imageData)
+                }
+            }
+            intent.getIntExtra(EXTRA_ICON_RES_ID, -1) != -1 -> {
+                val resId = intent.getIntExtra(EXTRA_ICON_RES_ID, -1)
+                runCatching { ContextCompat.getDrawable(this, resId) }.getOrNull()
+            }
+            else -> null
         }
+        
         dynamicIslandState?.addOrUpdateProgress(identifier, title, subtitle, iconDrawable, progress, duration) 
+    }
+    
+    private fun handleShowOrUpdateMusic(intent: Intent) {
+        // 只有在音乐模式启用时才处理音乐任务
+        if (!musicModeEnabled.value) {
+            Log.d("DynamicIslandService", "Music mode disabled, ignoring music task")
+            return
+        }
+        
+        val identifier = intent.getStringExtra(EXTRA_IDENTIFIER) ?: return
+        val title = intent.getStringExtra(EXTRA_TITLE) ?: ""
+        val subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: ""
+        val progressText = intent.getStringExtra(EXTRA_PROGRESS_TEXT) ?: ""
+        val progress = intent.getFloatExtra(EXTRA_PROGRESS_VALUE, 0f)
+        val isMajorUpdate = intent.getBooleanExtra(EXTRA_IS_MAJOR_UPDATE, true)
+        
+        // 处理专辑封面数据
+        val albumArt = intent.getByteArrayExtra(EXTRA_ALBUM_ART_DATA)?.let { albumArtData ->
+            createDrawableFromByteArray(albumArtData)
+        }
+        
+        dynamicIslandState?.addOrUpdateMusic(
+            identifier = identifier,
+            text = title,
+            subtitle = subtitle,
+            albumArt = albumArt,
+            progressText = progressText,
+            progress = progress,
+            isMajorUpdate = isMajorUpdate
+        )
+    }
+    
+    /**
+     * 将字节数组转换为BitmapDrawable
+     */
+    private fun createDrawableFromByteArray(byteArray: ByteArray): android.graphics.drawable.BitmapDrawable? {
+        return try {
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+            bitmap?.let { android.graphics.drawable.BitmapDrawable(resources, it) }
+        } catch (e: Exception) {
+            Log.e("DynamicIslandService", "Failed to decode image data", e)
+            null
+        }
     }
 }

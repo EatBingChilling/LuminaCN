@@ -14,7 +14,7 @@ class TextSpoofElement(iconResId: Int = AssetManager.getAsset("ic_script")) : El
 ) {
 
     private var oldTextValue: String = "steve"
-    private var newTextValue: String = "Kitasan User"
+    private var newTextValue: String = "LuminaCN User"
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
         if (!isEnabled) return
