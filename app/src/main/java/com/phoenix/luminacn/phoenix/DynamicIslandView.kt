@@ -1,9 +1,7 @@
 @file:OptIn(ExperimentalAnimationApi::class, ExperimentalTextApi::class)
-
 package com.phoenix.luminacn.phoenix
 
 import android.animation.TimeInterpolator
-import android.content.Context
 import android.graphics.BlurMaskFilter
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
@@ -15,6 +13,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -22,46 +26,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import kotlinx.coroutines.*
 import kotlin.math.max
 
-// region Constants
+// --- Constants (Unchanged) ---
 private const val VALUE_PROGRESS_TIMEOUT_MS = 3000L
 private const val TIME_PROGRESS_GRACE_PERIOD_MS = 1000L
-private val COLLAPSED_HEIGHT = 34.dp
+private const val MUSIC_VISIBILITY_TIMEOUT_MS = 5000L
+private val COLLAPSED_HEIGHT = 36.dp
 private val EXPANDED_CORNER_RADIUS = 28.dp
-private val ITEM_HEIGHT = 60.dp
+private val ITEM_HEIGHT = 52.dp
 private val VIEW_PADDING = 12.dp
-private val HORIZONTAL_ITEM_PADDING = 20.dp
+private val HORIZONTAL_ITEM_PADDING = 24.dp
 private val ICON_SIZE = 40.dp
-private val ICON_SPACING = 16.dp
+private val ICON_SPACING = 12.dp
+private val PROGRESS_BAR_HEIGHT = 8.dp
+private val PROGRESS_AREA_TOTAL_VERTICAL_PADDING = 12.dp
+private val PROGRESS_AREA_EXTRA_HEIGHT = PROGRESS_BAR_HEIGHT + PROGRESS_AREA_TOTAL_VERTICAL_PADDING
+private val GLOW_BLUR_RADIUS = 12.dp
+private val GLOW_SPREAD_RADIUS = 4.dp
+private val MUSIC_ART_CORNER_RADIUS = 15.dp
 
-// SharedPreferences keys
-private const val PREFS_NAME = "dynamic_island_prefs"
-private const val KEY_Y_POSITION = "y_position"
-private const val KEY_SCALE = "scale"
-private const val KEY_PERSISTENT_TEXT = "persistent_text"
-// endregion
-
-// region Data Class and Helpers
+// --- Data Classes and State (With Animation Fixes) ---
 public data class TaskItem(
     val type: Type,
     val identifier: String,
@@ -75,39 +76,39 @@ public data class TaskItem(
     val removing: Boolean = false,
     val duration: Long = 0,
     val progressJob: Job? = null,
-    val displayProgress: Animatable<Float, AnimationVector1D> = Animatable(1.0f)
+    val displayProgress: Animatable<Float, AnimationVector1D> = Animatable(1.0f),
+    val progressText: String? = null,
+    val isVisuallyHidden: Boolean = false,
+    val hideJob: Job? = null
 ) {
-    public enum class Type { SWITCH, PROGRESS }
+    public enum class Type { SWITCH, PROGRESS, MUSIC }
 }
 
 public fun TimeInterpolator.toEasing(): Easing = Easing { x -> getInterpolation(x) }
-// endregion
 
-// region State Holder: DynamicIslandState
 @Stable
-public class DynamicIslandState(
-    private val scope: CoroutineScope,
-    private val textMeasurer: TextMeasurer,
-    private val density: Density,
-    private val context: Context
-) {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+public class DynamicIslandState(private var scope: CoroutineScope, private val textMeasurer: TextMeasurer, initialScale: Float, initialPersistentText: String) {
+    var scale by mutableStateOf(initialScale)
+    var persistentText by mutableStateOf(initialPersistentText)
+    val tasks = mutableStateListOf<TaskItem>()
+    val isExpanded by derivedStateOf { tasks.any { !it.removing && !it.isVisuallyHidden } }
+    private var updateJob: Job? = null
 
-    // ✨ 持久化的状态
-    public var yPosition by mutableStateOf(prefs.getFloat(KEY_Y_POSITION, 100f))
-        private set
+    private val slowAnimationSpec: AnimationSpec<Float> = tween(800, easing = FastOutSlowInEasing)
+    private val fastAnimationSpec: AnimationSpec<Float> = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
 
-    public var scale by mutableStateOf(prefs.getFloat(KEY_SCALE, 1.0f))
-        private set
+    init { startUpdateLoop() }
 
-    public var persistentText by mutableStateOf(prefs.getString(KEY_PERSISTENT_TEXT, "Phoen1x") ?: "Phoen1x")
-        private set
+    fun updateScope(newScope: CoroutineScope) {
+        if (scope != newScope) {
+            updateJob?.cancel()
+            scope = newScope
+            startUpdateLoop()
+        }
+    }
 
-    public val tasks = mutableStateListOf<TaskItem>()
-    public val isExpanded by derivedStateOf { tasks.any { !it.removing } }
-
-    init {
-        scope.launch {
+    private fun startUpdateLoop() {
+        updateJob = scope.launch {
             while (isActive) {
                 updateTasks()
                 delay(250)
@@ -115,51 +116,25 @@ public class DynamicIslandState(
         }
     }
 
-    // ✨ 公开的更新方法，自动保存到SharedPreferences
-    public fun updateYPosition(newY: Float) {
-        yPosition = newY
-        prefs.edit().putFloat(KEY_Y_POSITION, newY).apply()
+    fun updateConfig(newScale: Float, newText: String) {
+        this.scale = newScale.coerceIn(0.5f, 2.0f)
+        this.persistentText = newText
     }
 
-    public fun updateScale(newScale: Float) {
-        scale = newScale.coerceIn(0.5f, 2.0f) // 限制缩放范围
-        prefs.edit().putFloat(KEY_SCALE, scale).apply()
-    }
-
-    public fun updatePersistentText(newText: String) {
-        persistentText = newText
-        prefs.edit().putString(KEY_PERSISTENT_TEXT, newText).apply()
-    }
-
-    public fun addSwitch(moduleName: String, state: Boolean) {
-        val subtitle = if (state) "已开启" else "已关闭"
-        val duration = 2000L
-        val taskIndex = tasks.indexOfFirst { it.identifier == moduleName }
+    public fun addSwitch(identifier: String, text: String, state: Boolean) {
+        val mainTitle = "功能开关"
+        val subTitle = "$text|已被${if (state) "开启" else "关闭"}"
+        val duration = 1500L
+        val taskIndex = tasks.indexOfFirst { it.identifier == identifier }
 
         if (taskIndex != -1) {
-            val existingTask = tasks[taskIndex]
-            val updatedTask = existingTask.copy(
-                text = moduleName,
-                subtitle = subtitle,
-                switchState = state,
-                lastUpdateTime = System.currentTimeMillis(),
-                duration = duration,
-                removing = false
-            )
+            val updatedTask = tasks[taskIndex].copy(text = mainTitle, subtitle = subTitle, switchState = state, lastUpdateTime = System.currentTimeMillis(), duration = duration, removing = false, isTimeBased = true)
             tasks[taskIndex] = updatedTask
             startTimeBasedAnimation(updatedTask)
         } else {
-            val newTask = TaskItem(
-                type = TaskItem.Type.SWITCH,
-                identifier = moduleName,
-                text = moduleName,
-                subtitle = subtitle,
-                switchState = state,
-                duration = duration,
-                isTimeBased = true
-            )
-            tasks.add(0, newTask)
+            val newTask = TaskItem(type = TaskItem.Type.SWITCH, identifier = identifier, text = mainTitle, subtitle = subTitle, switchState = state, duration = duration, isTimeBased = true)
             startTimeBasedAnimation(newTask)
+            tasks.add(0, newTask)
         }
     }
 
@@ -172,18 +147,77 @@ public class DynamicIslandState(
         }
     }
 
+    public fun addOrUpdateMusic(
+        identifier: String, text: String, subtitle: String, albumArt: Drawable?,
+        progressText: String, progress: Float, isMajorUpdate: Boolean
+    ) {
+        val taskIndex = tasks.indexOfFirst { it.identifier == identifier }
+        val existingTask = if (taskIndex != -1) tasks[taskIndex] else null
+
+        if (isMajorUpdate) {
+            existingTask?.hideJob?.cancel()
+        }
+
+        val progressAnimatable = existingTask?.displayProgress ?: Animatable(progress)
+        val shouldBeHidden = if (isMajorUpdate) false else existingTask?.isVisuallyHidden ?: false
+        val musicTask = (existingTask ?: TaskItem(type = TaskItem.Type.MUSIC, identifier = identifier, text = "", subtitle = null))
+            .copy(
+                text = text,
+                subtitle = subtitle,
+                icon = albumArt?.mutate() ?: existingTask?.icon,
+                progressText = progressText,
+                isVisuallyHidden = shouldBeHidden,
+                lastUpdateTime = System.currentTimeMillis(),
+                removing = false,
+                displayProgress = progressAnimatable
+            )
+
+        var finalTask = musicTask
+        if (isMajorUpdate) {
+            val hideJob = scope.launch {
+                delay(MUSIC_VISIBILITY_TIMEOUT_MS)
+                val currentIndex = tasks.indexOfFirst { it.identifier == identifier }
+                if (currentIndex != -1) {
+                    tasks[currentIndex] = tasks[currentIndex].copy(isVisuallyHidden = true)
+                }
+            }
+            finalTask = musicTask.copy(hideJob = hideJob)
+        }
+
+        val animSpec = if (isMajorUpdate) slowAnimationSpec else fastAnimationSpec
+        animateProgressTo(finalTask, progress, animationSpec = animSpec, instant = existingTask == null)
+
+        if (taskIndex != -1) {
+            tasks[taskIndex] = finalTask
+        } else {
+            tasks.add(0, finalTask)
+        }
+    }
+
+    public fun removeTask(identifier: String) {
+        val taskIndex = tasks.indexOfFirst { it.identifier == identifier }
+        if (taskIndex != -1) {
+            tasks[taskIndex] = tasks[taskIndex].copy(removing = true)
+        }
+    }
+
     public fun hide() {
-        tasks.forEach { it.progressJob?.cancel() }
+        tasks.forEach { it.progressJob?.cancel(); it.hideJob?.cancel() }
         tasks.clear()
+    }
+
+    fun cancelScope() {
+        updateJob?.cancel()
+        scope.cancel()
     }
 
     private fun updateTasks() {
         if (tasks.isEmpty()) return
-
         val currentTime = System.currentTimeMillis()
         val updates = mutableMapOf<Int, TaskItem>()
-
         tasks.toList().forEachIndexed { index, task ->
+            if (task.type == TaskItem.Type.MUSIC) return@forEachIndexed
+
             if (!task.removing) {
                 var updatedTask = task
                 val shouldBeRemoved = when {
@@ -197,32 +231,19 @@ public class DynamicIslandState(
                     task.type == TaskItem.Type.PROGRESS -> currentTime - task.lastUpdateTime > VALUE_PROGRESS_TIMEOUT_MS
                     else -> false
                 }
-
                 if (shouldBeRemoved) {
                     updates[index] = updatedTask.copy(removing = true)
                 }
             }
         }
-
         if (updates.isNotEmpty()) {
-            updates.forEach { (index, updatedTask) ->
-                if (index < tasks.size) {
-                    tasks[index] = updatedTask
-                }
-            }
+            updates.forEach { (index, updatedTask) -> if (index < tasks.size) { tasks[index] = updatedTask } }
         }
-
         tasks.removeAll { it.removing && !it.displayProgress.isRunning }
     }
 
     private fun addProgressInternal(identifier: String, text: String, subtitle: String?, icon: Drawable?, progressValue: Float?, duration: Long?) {
-        val newTask = TaskItem(
-            type = TaskItem.Type.PROGRESS,
-            identifier = identifier,
-            text = text,
-            subtitle = subtitle,
-            icon = icon?.mutate()
-        )
+        val newTask = TaskItem(type = TaskItem.Type.PROGRESS, identifier = identifier, text = text, subtitle = subtitle, icon = icon?.mutate())
         if (progressValue != null) {
             val taskWithProgress = newTask.copy(isTimeBased = false)
             scope.launch { taskWithProgress.displayProgress.snapTo(0f) }
@@ -236,14 +257,7 @@ public class DynamicIslandState(
     }
 
     private fun updateProgressInternal(task: TaskItem, index: Int, text: String, subtitle: String?, progressValue: Float?, duration: Long?) {
-        var updatedTask = task.copy(
-            text = text,
-            subtitle = subtitle,
-            lastUpdateTime = System.currentTimeMillis(),
-            isAwaitingData = false,
-            removing = false
-        )
-
+        var updatedTask = task.copy(text = text, subtitle = subtitle, lastUpdateTime = System.currentTimeMillis(), isAwaitingData = false, removing = false)
         if (progressValue != null) {
             updatedTask = updatedTask.copy(isTimeBased = false)
             animateProgressTo(updatedTask, progressValue)
@@ -254,319 +268,72 @@ public class DynamicIslandState(
         tasks[index] = updatedTask
     }
 
-    private fun animateProgressTo(task: TaskItem, newProgressValue: Float) {
+    private fun animateProgressTo(
+        task: TaskItem,
+        newProgressValue: Float,
+        animationSpec: AnimationSpec<Float> = slowAnimationSpec,
+        instant: Boolean = false
+    ) {
         task.progressJob?.cancel()
         val newTask = task.copy(
             progressJob = scope.launch {
-                task.displayProgress.animateTo(
-                    targetValue = newProgressValue.coerceIn(0f, 1f),
-                    animationSpec = tween(800, easing = FastOutSlowInEasing)
-                )
+                val coercedValue = newProgressValue.coerceIn(0f, 1f)
+                if (instant || task.displayProgress.value == coercedValue) {
+                    task.displayProgress.snapTo(coercedValue)
+                } else {
+                    task.displayProgress.animateTo(
+                        targetValue = coercedValue,
+                        animationSpec = animationSpec
+                    )
+                }
             }
         )
-        val index = tasks.indexOfFirst { it.identifier == task.identifier }
-        if (index != -1) tasks[index] = newTask
+        val index = tasks.indexOfFirst { it.identifier == task.identifier }; if (index != -1) tasks[index] = newTask
     }
 
     private fun startTimeBasedAnimation(task: TaskItem) {
         task.progressJob?.cancel()
-        val newTask = task.copy(
-            progressJob = scope.launch {
-                if (task.displayProgress.value < 1.0f) {
-                    task.displayProgress.animateTo(1.0f, tween(500, easing = DecelerateInterpolator().toEasing()))
-                }
-                task.displayProgress.animateTo(0f, tween(task.duration.toInt(), easing = LinearEasing))
-            }
-        )
-        val index = tasks.indexOfFirst { it.identifier == task.identifier }
-        if (index != -1) tasks[index] = newTask
+        val newTask = task.copy(progressJob = scope.launch {
+            if (task.displayProgress.value < 1.0f) {
+                task.displayProgress.animateTo(1.0f, tween(500, easing = DecelerateInterpolator().toEasing()))
+            }; task.displayProgress.animateTo(0f, tween(task.duration.toInt(), easing = LinearEasing))
+        })
+        val index = tasks.indexOfFirst { it.identifier == task.identifier }; if (index != -1) tasks[index] = newTask
+    }
+}
+
+
+// --- Composable UI ---
+
+fun Modifier.softGlow(color: Color, borderRadius: Dp, blurRadius: Dp, spread: Dp) = this.drawBehind {
+    val paint = Paint()
+    val frameworkPaint = paint.asFrameworkPaint()
+    if (blurRadius > 0.dp) {
+        frameworkPaint.maskFilter = (BlurMaskFilter(blurRadius.toPx(), BlurMaskFilter.Blur.NORMAL))
+    }
+    frameworkPaint.color = color.toArgb()
+    val spreadPx = spread.toPx()
+    val left = -spreadPx
+    val top = -spreadPx
+    val right = size.width + spreadPx
+    val bottom = size.height + spreadPx
+    drawIntoCanvas {
+        it.drawRoundRect(left, top, right, bottom, borderRadius.toPx(), borderRadius.toPx(), paint)
     }
 }
 
 @Composable
-public fun rememberDynamicIslandState(): DynamicIslandState {
-    val scope = rememberCoroutineScope()
-    val textMeasurer = rememberTextMeasurer()
+public fun DynamicIslandView(state: DynamicIslandState, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
-    val context = LocalContext.current
-    return remember { DynamicIslandState(scope, textMeasurer, density, context) }
-}
-// endregion
-
-// region Composables
-@Composable
-public fun DynamicIslandView(
-    state: DynamicIslandState,
-    modifier: Modifier = Modifier,
-    useStoredScale: Boolean = true // 是否使用存储的缩放值
-) {
-    val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
-    val actualScale = if (useStoredScale) state.scale else 1.0f
-
-    val collapsedHeight = COLLAPSED_HEIGHT * actualScale
-    val collapsedCornerRadius = collapsedHeight / 2
-    val expandedCornerRadius = EXPANDED_CORNER_RADIUS * actualScale
-    val itemHeight = ITEM_HEIGHT * actualScale
-    val viewPadding = VIEW_PADDING * actualScale
-
-    // ✨ 实时计算收起状态所需宽度 - 使用存储的persistentText
-    val collapsedWidth by remember(state.persistentText, density, actualScale) {
-        derivedStateOf {
-            val textStyle = TextStyle(fontSize = 13.sp * actualScale, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium)
-
-            val lumiWidth = textMeasurer.measure(AnnotatedString("LuminaCN"), style = textStyle).size.width
-            val fpsWidth = textMeasurer.measure(AnnotatedString("999 FPS"), style = textStyle.copy(fontFamily = FontFamily.Monospace)).size.width
-            val persistentWidth = textMeasurer.measure(AnnotatedString(state.persistentText), style = textStyle).size.width
-            val separatorWidth = textMeasurer.measure(AnnotatedString(" • "), style = textStyle).size.width * 2
-            val paddingWidth = with(density) { (16.dp * 2 * actualScale).toPx() }
-
-            val totalContentWidth = lumiWidth + fpsWidth + persistentWidth + separatorWidth + paddingWidth
-            val extraBuffer = with(density) { (32.dp * actualScale).toPx() }
-
-            with(density) { 
-                (totalContentWidth + extraBuffer).toDp()
-            }
-        }
-    }
-
-    // ✨ 实时计算展开状态所需宽度
-    val expandedWidth by remember(state.tasks, density, actualScale) {
-        derivedStateOf {
-            if (state.tasks.isEmpty()) {
-                280.dp * actualScale
-            } else {
-                val requiredWidthInPixels = state.tasks.maxOfOrNull { task ->
-                    val iconWidthPx = with(density) { 
-                        (if (task.type == TaskItem.Type.SWITCH) 64.dp else ICON_SIZE).toPx() * actualScale
-                    }
-                    val spacingPx = with(density) { ICON_SPACING.toPx() * actualScale }
-                    val sidePaddingPx = with(density) { (HORIZONTAL_ITEM_PADDING * 2).toPx() * actualScale }
-
-                    val mainTextWidth = textMeasurer.measure(
-                        AnnotatedString(task.text), 
-                        style = TextStyle(fontSize = 15.sp * actualScale, fontWeight = FontWeight.Bold)
-                    ).size.width.toFloat()
-
-                    val subtitleWidth = task.subtitle?.let { subtitle ->
-                        textMeasurer.measure(
-                            AnnotatedString(subtitle), 
-                            style = TextStyle(fontSize = 12.sp * actualScale)
-                        ).size.width.toFloat()
-                    } ?: 0f
-
-                    val maxTextWidth = max(mainTextWidth, subtitleWidth)
-                    val extraBuffer = with(density) { (24.dp * actualScale).toPx() }
-
-                    sidePaddingPx + iconWidthPx + spacingPx + maxTextWidth + extraBuffer
-                } ?: with(density) { (280.dp * actualScale).toPx() }
-
-                with(density) { 
-                    requiredWidthInPixels.toDp().coerceAtLeast(280.dp * actualScale)
-                }
-            }
-        }
-    }
-
-    val expandedHeight by remember(state.tasks.size, actualScale) { 
-        derivedStateOf { 
-            (state.tasks.count { !it.removing } * itemHeight.value + viewPadding.value * 2).dp.coerceAtMost(400.dp * actualScale) 
-        } 
-    }
-
-    val targetWidth = if (state.isExpanded) expandedWidth else collapsedWidth
-    val targetHeight = if (state.isExpanded) expandedHeight else collapsedHeight
-    val targetCorner = if (state.isExpanded) expandedCornerRadius else collapsedCornerRadius
-
-    val springSpec = spring<Dp>(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium)
-    val animatedWidth by animateDpAsState(targetValue = targetWidth, animationSpec = springSpec, label = "width")
-    val animatedHeight by animateDpAsState(targetValue = targetHeight, animationSpec = springSpec, label = "height")
-    val animatedCorner by animateDpAsState(targetValue = targetCorner, animationSpec = springSpec, label = "corner")
-
-    val glowPulse = remember { Animatable(0f) }
-    LaunchedEffect(state.isExpanded) {
-        if (state.isExpanded) {
-            glowPulse.snapTo(1f)
-            glowPulse.animateTo(0f, animationSpec = tween(1000, easing = LinearEasing))
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "sheen")
-    val sheenTranslate by infiniteTransition.animateFloat(
-        initialValue = -1.0f,
-        targetValue = 2.0f,
-        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing, delayMillis = 500), RepeatMode.Restart),
-        label = "sheenTranslate"
-    )
-
-    Box(
-        modifier = modifier
-            .size(width = animatedWidth, height = animatedHeight)
-            .clip(RoundedCornerShape(animatedCorner))
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                    )
-                )
-            )
-            .drawWithContent {
-                drawContent()
-                val gradientWidth = size.width * 0.5f
-                val gradientStart = size.width * sheenTranslate
-                drawRect(
-                    brush = Brush.linearGradient(
-                        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.08f), Color.Transparent),
-                        start = Offset(gradientStart - gradientWidth, 0f),
-                        end = Offset(gradientStart, size.height)
-                    )
-                )
-            }
-            .glow(pulse = glowPulse.value, cornerRadius = with(LocalDensity.current) { animatedCorner.toPx() }, scale = actualScale),
-        // ✨ 修复：始终居中对齐
-        contentAlignment = Alignment.Center
-    ) {
-        AnimatedContent(
-            targetState = state.isExpanded,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(400, 100)) + scaleIn(initialScale = 0.9f, animationSpec = tween(400, 100))) with
-                        (fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.9f))
-            },
-            label = "content"
-        ) { isExpanded ->
-            if (isExpanded) {
-                ExpandedContent(state, actualScale)
-            } else {
-                CollapsedContent(state.persistentText, actualScale)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExpandedContent(state: DynamicIslandState, scale: Float) {
-    Column(modifier = Modifier.fillMaxSize().padding(vertical = (VIEW_PADDING / 2) * scale)) {
-        state.tasks.forEachIndexed { index, task ->
-            val isVisible = !task.removing
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = index * 120)) +
-                        expandVertically(animationSpec = tween(durationMillis = 500, delayMillis = index * 120, easing = FastOutSlowInEasing)),
-                exit = fadeOut(animationSpec = tween(durationMillis = 300)) +
-                        slideOutVertically(targetOffsetY = { -it / 2 }) +
-                        shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
-            ) {
-                TaskItemRow(task = task, scale = scale)
-            }
-        }
-    }
-}
-
-@Composable
-private fun TaskItemRow(task: TaskItem, scale: Float) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(ITEM_HEIGHT * scale)
-            .padding(horizontal = HORIZONTAL_ITEM_PADDING * scale),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(ICON_SIZE * scale),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                task.type == TaskItem.Type.SWITCH -> {
-                    Switch(checked = task.switchState, onCheckedChange = null, modifier = Modifier.scale(scale * 0.8f))
-                }
-                task.icon != null -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(14.dp * scale))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = rememberDrawablePainter(drawable = task.icon),
-                            contentDescription = task.text,
-                            modifier = Modifier.size(24.dp * scale),
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer)
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.width(ICON_SPACING * scale))
-
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text(
-                text = task.text,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp * scale, fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            task.subtitle?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp * scale),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            if (task.type == TaskItem.Type.PROGRESS || task.type == TaskItem.Type.SWITCH) {
-                Spacer(modifier = Modifier.height(5.dp * scale))
-                ProgressBarWithSheen(progress = task.displayProgress.value, scale = scale)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProgressBarWithSheen(progress: Float, scale: Float) {
-    val infiniteTransition = rememberInfiniteTransition(label = "progressSheen")
-    val sheenTranslate by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2f,
-        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart), label = "progressSheen"
-    )
-
-    Box(
-        modifier = Modifier
-            .height(4.dp * scale)
-            .fillMaxWidth()
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-    ) {
-        Box(
-            modifier = Modifier
-                .height(4.dp * scale)
-                .fillMaxWidth(fraction = progress)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-                .drawWithContent {
-                    drawContent()
-                    val gradientWidth = size.width * 0.3f
-                    val gradientStart = size.width * (sheenTranslate - 1f)
-                    drawRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.3f), Color.Transparent),
-                            start = Offset(gradientStart, 0f),
-                            end = Offset(gradientStart + gradientWidth, 0f)
-                        )
-                    )
-                }
-        )
-    }
-}
-
-@Composable
-private fun CollapsedContent(persistentText: String, scale: Float) {
+    val actualScale = state.scale.coerceAtLeast(0.6f)
     var currentFps by remember { mutableStateOf(0) }
+    val musicTask by remember {
+        derivedStateOf { state.tasks.find { it.type == TaskItem.Type.MUSIC && !it.removing } }
+    }
+    val visibleTasks by remember {
+        derivedStateOf { state.tasks.filter { !it.removing && !it.isVisuallyHidden } }
+    }
 
     DisposableEffect(Unit) {
         var frameCount = 0
@@ -585,84 +352,383 @@ private fun CollapsedContent(persistentText: String, scale: Float) {
         }
         val choreographer = Choreographer.getInstance()
         choreographer.postFrameCallback(callback)
+        onDispose { choreographer.removeFrameCallback(callback) }
+    }
 
-        onDispose {
-            choreographer.removeFrameCallback(callback)
+    val collapsedHeight = COLLAPSED_HEIGHT * actualScale
+    val collapsedCornerRadius = collapsedHeight / 2
+    val expandedCornerRadius = EXPANDED_CORNER_RADIUS * actualScale
+    val itemHeight = ITEM_HEIGHT * actualScale
+    val viewPadding = VIEW_PADDING * actualScale
+
+    val collapsedWidth by derivedStateOf {
+        with(density) {
+            val textStyle = TextStyle(fontSize = (13.sp.value * actualScale).coerceAtLeast(9f).sp, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium)
+            val iconSize = 16.dp * actualScale
+            val iconSpacing = 4.dp * actualScale
+            val separatorHorizontalPadding = 4.dp * actualScale
+            val outerHorizontalPadding = 16.dp * actualScale
+
+            fun measure(text: String) = textMeasurer.measure(AnnotatedString(text), style = textStyle).size.width.toDp()
+            val separatorWidth = measure(" • ") + separatorHorizontalPadding * 2
+
+            // 计算必须显示的固定部分宽度
+            val kitasanWidth = iconSize + iconSpacing + measure("Kitasan")
+            val persistentWidth = iconSize + iconSpacing + measure(state.persistentText)
+            val fpsWidth = iconSize + iconSpacing + measure("999 FPS") // 使用最大可能的FPS宽度
+            
+            // 基础宽度：固定部分 + 分隔符 + 边距
+            val baseWidth = kitasanWidth + separatorWidth + 
+                           persistentWidth + separatorWidth + 
+                           fpsWidth + outerHorizontalPadding * 2
+
+            val totalWidth = if (musicTask != null) {
+                // 音乐部分：图标 + 间距 + 最多12个字符的文本
+                val musicIconWidth = iconSize + iconSpacing
+                val maxMusicText = "A".repeat(12) // 假设最多12个字符
+                val musicTextWidth = measure(maxMusicText)
+                val musicWidth = musicIconWidth + musicTextWidth + separatorWidth
+                
+                baseWidth + musicWidth
+            } else {
+                baseWidth
+            }
+            
+            // Add extra padding to prevent text cutoff
+            totalWidth + (8.dp * actualScale)
         }
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .wrapContentWidth()
-            .padding(horizontal = 16.dp * scale)
-    ) {
-        val textStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale, fontWeight = FontWeight.Medium)
-
-        Text(text = "LuminaCN", style = textStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Separator(scale)
-
-        AnimatedContent(
-            targetState = currentFps,
-            transitionSpec = {
-                (slideInVertically { it / 2 } + fadeIn()) with (slideOutVertically { -it / 2 } + fadeOut())
-            },
-            label = "fps_animation"
-        ) { fps ->
-            Text(
-                text = "$fps FPS",
-                style = textStyle.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    val expandedWidth by derivedStateOf {
+        if (visibleTasks.isEmpty()) {
+            280.dp * actualScale
+        } else {
+            with(density) {
+                val requiredWidthInPixels = visibleTasks.maxOfOrNull { task ->
+                    val iconWidthPx = (if (task.type == TaskItem.Type.SWITCH || task.icon != null) if (task.type == TaskItem.Type.SWITCH) 64.dp else ICON_SIZE else 0.dp).toPx() * actualScale
+                    val spacingPx = (if (task.type == TaskItem.Type.SWITCH || task.icon != null) ICON_SPACING else 0.dp).toPx() * actualScale
+                    val sidePaddingPx = (HORIZONTAL_ITEM_PADDING * 2).toPx() * actualScale
+                    val mainTextWidth = textMeasurer.measure(AnnotatedString(task.text), style = TextStyle(fontSize = (15.sp.value * actualScale).sp, fontWeight = FontWeight.Bold)).size.width.toFloat()
+                    val subtitleWidth = task.subtitle?.let { textMeasurer.measure(AnnotatedString(it.replace("|", " ")), style = TextStyle(fontSize = (12.sp.value * actualScale).sp)).size.width.toFloat() } ?: 0f
+                    sidePaddingPx + iconWidthPx + spacingPx + max(mainTextWidth, subtitleWidth) + (16.dp * actualScale).toPx()
+                } ?: (280.dp * actualScale).toPx()
+                maxOf(requiredWidthInPixels.toDp(), 280.dp * actualScale)
+            }
         }
-        Separator(scale)
-        Text(
-            text = persistentText,
-            style = textStyle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+    }
+    val expandedHeight by derivedStateOf {
+        var totalHeight = 0.dp
+        visibleTasks.forEach { task ->
+            totalHeight += itemHeight
+            if (task.type == TaskItem.Type.PROGRESS) totalHeight += PROGRESS_AREA_EXTRA_HEIGHT * actualScale
+            if (task.type == TaskItem.Type.MUSIC) totalHeight += (PROGRESS_AREA_EXTRA_HEIGHT + 10.dp) * actualScale
+        }
+        (totalHeight + viewPadding * 2).coerceAtMost(400.dp * actualScale)
+    }
+
+    val targetWidth = if (state.isExpanded) expandedWidth else collapsedWidth
+    val targetHeight = if (state.isExpanded) expandedHeight else collapsedHeight
+    val targetCorner = if (state.isExpanded) expandedCornerRadius else collapsedCornerRadius
+
+    val springSpec = spring<Dp>(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium)
+    val animatedWidth by animateDpAsState(targetValue = targetWidth, animationSpec = springSpec, label = "width")
+    val animatedHeight by animateDpAsState(targetValue = targetHeight, animationSpec = springSpec, label = "height")
+    val animatedCorner by animateDpAsState(targetValue = targetCorner, animationSpec = springSpec, label = "corner")
+
+    val infiniteTransition = rememberInfiniteTransition(label = "sheen")
+    val sheenTranslate by infiniteTransition.animateFloat(initialValue = -1.0f, targetValue = 2.0f, animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing, delayMillis = 500), repeatMode = RepeatMode.Restart), label = "sheenTranslate")
+
+    Box(
+        modifier = modifier.layout { measurable, constraints ->
+            val widthPx = animatedWidth.roundToPx()
+            val heightPx = animatedHeight.roundToPx()
+            val finalWidthPx = widthPx.coerceAtMost(constraints.maxWidth)
+            // Fix 1: Scale the glow room calculation
+            val glowRoomPx = ((GLOW_BLUR_RADIUS + GLOW_SPREAD_RADIUS) * actualScale).roundToPx()
+            val placeable = measurable.measure(Constraints.fixed(finalWidthPx, heightPx))
+            val x = (constraints.maxWidth - finalWidthPx) / 2
+            val y = glowRoomPx
+            layout(constraints.maxWidth, heightPx + glowRoomPx * 2) { placeable.placeRelative(x, y) }
+        }
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+                .softGlow(color = Color.Black.copy(alpha = 0.4f), borderRadius = animatedCorner, blurRadius = GLOW_BLUR_RADIUS * actualScale, spread = GLOW_SPREAD_RADIUS * actualScale)
+                .clip(RoundedCornerShape(animatedCorner))
+                .background(Color.Black.copy(alpha = 0.75f))
+                .drawWithContent {
+                    drawContent()
+                    val gradientWidth = size.width * 0.5f
+                    val gradientStart = size.width * sheenTranslate
+                    drawRect(brush = Brush.linearGradient(colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.08f), Color.Transparent), start = Offset(gradientStart - gradientWidth, 0f), end = Offset(gradientStart, size.height)))
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedContent(
+                targetState = state.isExpanded,
+                transitionSpec = { fadeIn(animationSpec = tween(400, 100)) + scaleIn(initialScale = 0.9f, animationSpec = tween(400, 100)) with fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.9f, animationSpec = tween(200)) },
+                label = "content"
+            ) { isExpanded ->
+                if (isExpanded) {
+                    ExpandedContent(visibleTasks, actualScale)
+                } else {
+                    CollapsedContent(state.persistentText, currentFps, musicTask, actualScale)
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun ExpandedContent(tasks: List<TaskItem>, scale: Float) {
+    Column(modifier = Modifier.fillMaxSize().padding(vertical = VIEW_PADDING * scale)) {
+        tasks.forEachIndexed { index, task ->
+            AnimatedVisibility(
+                visible = true, // Already filtered, so always visible within this scope
+                enter = fadeIn(animationSpec = tween(500, index * 120)) + expandVertically(animationSpec = tween(500, index * 120, easing = FastOutSlowInEasing)),
+                exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(targetOffsetY = { -it / 2 }) + shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing))
+            ) { TaskItemRow(task = task, scale = scale) }
+        }
+    }
+}
+
+@Composable private fun TaskItemRow(task: TaskItem, scale: Float) {
+    when (task.type) {
+        TaskItem.Type.MUSIC -> MusicItemRow(task, scale)
+        TaskItem.Type.SWITCH -> SwitchItemRow(task, scale)
+        TaskItem.Type.PROGRESS -> ProgressItemRow(task, scale)
     }
 }
 
 @Composable
-private fun Separator(scale: Float) {
+private fun ScalableText(text: String, color: Color, baseSize: TextUnit, baseLineHeight: TextUnit, scale: Float, fontWeight: FontWeight? = null, maxLines: Int = 1, overflow: TextOverflow = TextOverflow.Ellipsis) {
+    val finalSize = (baseSize.value * scale).coerceAtLeast(8f).sp
+    val finalLineHeight = (baseLineHeight.value * scale).coerceAtLeast(10f).sp
     Text(
-        text = " • ",
-        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp * scale),
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        text = text,
+        color = color,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            fontSize = finalSize,
+            lineHeight = finalLineHeight,
+            fontWeight = fontWeight
+        ),
+        maxLines = maxLines,
+        overflow = overflow
+    )
+}
+
+@Composable
+private fun SwitchItemRow(task: TaskItem, scale: Float) {
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = ITEM_HEIGHT * scale).padding(horizontal = HORIZONTAL_ITEM_PADDING * scale), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.sizeIn(minWidth = ICON_SIZE * scale), contentAlignment = Alignment.Center) {
+            Switch(checked = task.switchState, onCheckedChange = null, modifier = Modifier.scale(scale * 1.1f))
+        }
+        Spacer(modifier = Modifier.width(ICON_SPACING * scale))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            ScalableText(text = task.text, color = Color.White, baseSize = 15.sp, baseLineHeight = 17.sp, scale = scale, fontWeight = FontWeight.Bold)
+            task.subtitle?.let { subtitle ->
+                if (subtitle.contains("|")) {
+                    val parts = subtitle.split("|", limit = 2)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ScalableText(text = parts[0], color = MaterialTheme.colorScheme.primary, baseSize = 12.sp, baseLineHeight = 14.sp, scale = scale, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.width(4.dp * scale))
+                        ScalableText(text = parts[1], color = Color.White.copy(alpha = 0.7f), baseSize = 12.sp, baseLineHeight = 14.sp, scale = scale, fontWeight = FontWeight.Medium)
+                    }
+                } else {
+                    ScalableText(text = subtitle, color = Color.White.copy(alpha = 0.7f), baseSize = 12.sp, baseLineHeight = 14.sp, scale = scale)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressItemRow(task: TaskItem, scale: Float) {
+    Column {
+        Row(modifier = Modifier.fillMaxWidth().heightIn(min = ITEM_HEIGHT * scale).padding(horizontal = HORIZONTAL_ITEM_PADDING * scale), verticalAlignment = Alignment.CenterVertically) {
+            task.icon?.let {
+                Box(modifier = Modifier.size(ICON_SIZE * scale).clip(RoundedCornerShape(14.dp * scale)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                    Image(painter = rememberDrawablePainter(drawable = it), contentDescription = task.text, modifier = Modifier.size(24.dp * scale), colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer))
+                }
+                Spacer(modifier = Modifier.width(ICON_SPACING * scale))
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                ScalableText(text = task.text, color = Color.White, baseSize = 15.sp, baseLineHeight = 17.sp, scale = scale, fontWeight = FontWeight.Bold)
+                task.subtitle?.let {
+                    ScalableText(text = it, color = Color.White.copy(alpha = 0.7f), baseSize = 12.sp, baseLineHeight = 14.sp, scale = scale)
+                }
+            }
+        }
+        val topPadding = PROGRESS_AREA_TOTAL_VERTICAL_PADDING / 2; val bottomPadding = PROGRESS_AREA_TOTAL_VERTICAL_PADDING - topPadding
+        Spacer(modifier = Modifier.height(topPadding * scale))
+        Box(modifier = Modifier.padding(horizontal = HORIZONTAL_ITEM_PADDING * scale)) { ProgressBarWithSheen(progress = task.displayProgress.value, scale = scale) }
+        Spacer(modifier = Modifier.height(bottomPadding * scale))
+    }
+}
+
+@Composable
+private fun MusicItemRow(task: TaskItem, scale: Float) {
+    val totalMinHeight = (ITEM_HEIGHT + PROGRESS_AREA_EXTRA_HEIGHT + 10.dp) * scale
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = totalMinHeight).padding(horizontal = HORIZONTAL_ITEM_PADDING / 2 * scale, vertical = VIEW_PADDING / 2 * scale), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.height(totalMinHeight).aspectRatio(1f).clip(RoundedCornerShape(MUSIC_ART_CORNER_RADIUS * scale)).background(Color.DarkGray)) {
+            if (task.icon != null) {
+                Image(painter = rememberDrawablePainter(drawable = task.icon), contentDescription = "Album Art", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            } else {
+                Icon(Icons.Default.MusicNote, contentDescription = "Music Icon", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxSize(0.6f).align(Alignment.Center))
+            }
+        }
+        Spacer(modifier = Modifier.width(ICON_SPACING * scale))
+        Column(modifier = Modifier.weight(1f).height(totalMinHeight), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                ScalableText(text = task.text, color = Color.White, baseSize = 15.sp, baseLineHeight = 17.sp, scale = scale, fontWeight = FontWeight.Bold)
+                task.subtitle?.let {
+                    ScalableText(text = it, color = Color.White.copy(alpha = 0.7f), baseSize = 12.sp, baseLineHeight = 14.sp, scale = scale)
+                }
+            }
+            Column {
+                task.progressText?.let {
+                    val fontSize = (11.sp.value * scale).coerceAtLeast(8f).sp
+                    Text(text = it, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize), maxLines = 1, modifier = Modifier.padding(bottom = 4.dp * scale))
+                }
+                ProgressBarWithSheen(progress = task.displayProgress.value, scale = scale)
+            }
+        }
+    }
+}
+
+@Composable private fun ProgressBarWithSheen(progress: Float, scale: Float) {
+    val infiniteTransition = rememberInfiniteTransition(label = "progressSheen")
+    val sheenTranslate by infiniteTransition.animateFloat(initialValue = 0f, targetValue = 2f, animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Restart), label = "progressSheen")
+    val progressHeight = PROGRESS_BAR_HEIGHT * scale
+    Box(modifier = Modifier.height(progressHeight).fillMaxWidth().clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))) {
+        Box(modifier = Modifier.height(progressHeight).fillMaxWidth(fraction = progress.coerceIn(0.001f, 1f)).clip(CircleShape).background(MaterialTheme.colorScheme.primary).drawWithContent {
+            drawContent()
+            val gradientWidth = size.width * 0.3f
+            val gradientStart = size.width * (sheenTranslate - 1f)
+            drawRect(brush = Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.3f), Color.Transparent), start = Offset(gradientStart, 0f), end = Offset(gradientStart + gradientWidth, 0f)))
+        })
+    }
+}
+
+@Composable 
+private fun CollapsedContent(
+    persistentText: String, 
+    currentFps: Int, 
+    musicTask: TaskItem?, 
+    scale: Float
+) {
+    val textStyle = MaterialTheme.typography.labelLarge.copy(
+        fontSize = (13.sp.value * scale).coerceAtLeast(9f).sp,
+        lineHeight = (15.sp.value * scale).coerceAtLeast(11f).sp,
+        fontWeight = FontWeight.Medium
+    )
+    val iconSize = 16.dp * scale
+
+    // 简化的音乐文本截断逻辑
+    val truncatedMusicText = remember(musicTask?.text) {
+        musicTask?.let { task ->
+            // 简单截断：最多12个字符
+            if (task.text.length <= 12) {
+                task.text
+            } else {
+                // 尝试在空格处截断
+                val words = task.text.split(" ")
+                var result = ""
+                for (word in words) {
+                    val potential = if (result.isEmpty()) word else "$result $word"
+                    if (potential.length <= 11) { // 留1个字符给省略号
+                        result = potential
+                    } else {
+                        break
+                    }
+                }
+                
+                if (result.isEmpty()) {
+                    // 如果没有合适的单词边界，直接按字符截断
+                    "${task.text.take(11)}…"
+                } else if (result.length < task.text.length) {
+                    "$result…"
+                } else {
+                    result
+                }
+            }
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp * scale), 
+        verticalAlignment = Alignment.CenterVertically, 
+        horizontalArrangement = Arrangement.Center
+    ) {
+        AnimatedVisibility(
+            visible = musicTask != null, 
+            enter = fadeIn() + expandHorizontally(), 
+            exit = fadeOut() + shrinkHorizontally()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(iconSize))
+                Spacer(Modifier.width(4.dp * scale))
+                Text(
+                    text = truncatedMusicText ?: "", 
+                    style = textStyle, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    maxLines = 1, 
+                    softWrap = false
+                )
+                Separator(scale)
+            }
+        }
+        
+        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(iconSize))
+        Spacer(Modifier.width(4.dp * scale))
+        Text("Kitasan", style = textStyle, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
+        Separator(scale)
+        
+        Icon(Icons.Default.AccountCircle, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(iconSize))
+        Spacer(Modifier.width(4.dp * scale))
+        Text(persistentText, style = textStyle, color = Color.White.copy(alpha = 0.7f), maxLines = 1, softWrap = false)
+        Separator(scale)
+        
+        Icon(Icons.Default.Settings, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(iconSize))
+        Spacer(Modifier.width(4.dp * scale))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AnimatedContent(
+                targetState = currentFps, 
+                transitionSpec = { 
+                    (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium)) { it } + fadeIn()) with 
+                    (slideOutVertically(animationSpec = tween(200)) { -it } + fadeOut(animationSpec = tween(200))) 
+                }, 
+                label = "fps_animation"
+            ) { fpsValue -> 
+                Text(
+                    text = fpsValue.toString(), 
+                    style = textStyle, 
+                    color = Color.White.copy(alpha = 0.7f), 
+                    maxLines = 1, 
+                    softWrap = false
+                ) 
+            }
+            Text(
+                text = " FPS", 
+                style = textStyle, 
+                color = Color.White.copy(alpha = 0.7f), 
+                maxLines = 1, 
+                softWrap = false
+            )
+        }
+    }
+}
+
+@Composable private fun Separator(scale: Float) {
+    Text(
+        " • ", 
+        style = MaterialTheme.typography.labelLarge.copy(fontSize = (13.sp.value * scale).sp), 
+        color = Color.White.copy(alpha = 0.4f), 
         modifier = Modifier.padding(horizontal = 4.dp * scale)
     )
 }
 
-private fun Modifier.glow(pulse: Float, cornerRadius: Float, scale: Float) = this.drawWithContent {
-    drawContent()
-    val pulseAlpha = (pulse * 255).toInt()
-    if (pulseAlpha <= 0) return@drawWithContent
 
-    val frameworkPaint = android.graphics.Paint().apply {
-        style = android.graphics.Paint.Style.STROKE
-        strokeWidth = (2.dp * scale).toPx() + (pulse * (4.dp * scale).toPx())
-        maskFilter = BlurMaskFilter((6.dp * scale).toPx() + (pulse * (8.dp * scale).toPx()), BlurMaskFilter.Blur.NORMAL)
-    }
 
-    drawIntoCanvas { canvas ->
-        val drawSize = this.size
-        val rect = Rect(Offset.Zero, drawSize)
-        val path = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(rect, CornerRadius(cornerRadius))) }
 
-        val colors = listOf(
-            Color(0xFF80DEEA),
-            Color(0xFFF48FB1),
-            Color(0xFFFFF59D),
-            Color(0xFF80DEEA)
-        ).map { it.toArgb() }.toIntArray()
-
-        val shader = android.graphics.LinearGradient(0f, 0f, drawSize.width, drawSize.height, colors, null, android.graphics.Shader.TileMode.CLAMP)
-        frameworkPaint.shader = shader
-        frameworkPaint.alpha = pulseAlpha
-        canvas.nativeCanvas.drawPath(path.asAndroidPath(), frameworkPaint)
-    }
-}
-// endregion
