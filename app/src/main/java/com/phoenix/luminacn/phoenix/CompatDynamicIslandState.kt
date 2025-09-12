@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.rememberTextMeasurer
+import com.hud.test.modules.dynamicisland.DynamicIslandState
 import kotlinx.coroutines.CoroutineScope
 
 private const val PREFS_NAME = "dynamic_island_prefs"
@@ -11,42 +12,43 @@ private const val KEY_SCALE = "scale"
 private const val KEY_Y_POSITION = "y_position"
 private const val KEY_PERSISTENT_TEXT = "persistent_text"
 
-/**
- * 兼容的灵动岛状态管理器
- * 管理所有灵动岛相关的状态和配置
- */
 class CompatDynamicIslandState(
-    private val context: Context
+    private val context: Context,
+    scope: CoroutineScope,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
     // 从SharedPreferences读取初始值
-    var scale by mutableStateOf(prefs.getFloat(KEY_SCALE, 1.0f))
+    private val initialScale = prefs.getFloat(KEY_SCALE, 1.0f)
+    private val initialPersistentText = prefs.getString(KEY_PERSISTENT_TEXT, "LuminaCN") ?: "LuminaCN"
+    private val initialYPosition = prefs.getFloat(KEY_Y_POSITION, 0f)
+    
+    // 创建底层的DynamicIslandState - 使用原来的实现
+    private val underlyingState = DynamicIslandState(scope, textMeasurer, initialScale, initialPersistentText)
+    
+    // 暴露所需的属性
+    val scale: Float get() = underlyingState.scale
+    val persistentText: String get() = underlyingState.persistentText
+    val tasks: List<com.hud.test.modules.dynamicisland.TaskItem> get() = underlyingState.tasks
+    val isExpanded: Boolean get() = underlyingState.isExpanded
+    
+    // Y位置状态（新API中的DynamicIslandState没有这个，所以我们自己管理）
+    var yPosition by mutableStateOf(initialYPosition)
         private set
     
-    var persistentText by mutableStateOf(prefs.getString(KEY_PERSISTENT_TEXT, "LuminaCN") ?: "LuminaCN")
-        private set
-    
-    var yPosition by mutableStateOf(prefs.getFloat(KEY_Y_POSITION, 0f))
-        private set
-    
-    // 任务列表
-    private val _tasks = mutableStateListOf<DynamicIslandTask>()
-    val tasks: List<DynamicIslandTask> get() = _tasks
-    
-    // 是否有任务正在显示
-    val isExpanded: Boolean by derivedStateOf { 
-        _tasks.any { !it.removing && !it.isVisuallyHidden } 
+    fun updateScope(newScope: CoroutineScope) {
+        underlyingState.updateScope(newScope)
     }
     
     fun updateScale(newScale: Float) {
         val clampedScale = newScale.coerceIn(0.5f, 2.0f)
-        scale = clampedScale
+        underlyingState.updateConfig(clampedScale, persistentText)
         prefs.edit().putFloat(KEY_SCALE, clampedScale).apply()
     }
     
     fun updatePersistentText(newText: String) {
-        persistentText = newText
+        underlyingState.updateConfig(scale, newText)
         prefs.edit().putString(KEY_PERSISTENT_TEXT, newText).apply()
     }
     
@@ -55,25 +57,9 @@ class CompatDynamicIslandState(
         prefs.edit().putFloat(KEY_Y_POSITION, newYPosition).apply()
     }
     
-    fun addSwitch(identifier: String, moduleName: String, state: Boolean) {
-        val existingIndex = _tasks.indexOfFirst { it.identifier == identifier }
-        val mainTitle = "功能开关"
-        val subTitle = "$moduleName|已被${if (state) "开启" else "关闭"}"
-        
-        val task = DynamicIslandTask(
-            type = DynamicIslandTask.Type.SWITCH,
-            identifier = identifier,
-            title = mainTitle,
-            subtitle = subTitle,
-            switchState = state,
-            lastUpdateTime = System.currentTimeMillis()
-        )
-        
-        if (existingIndex != -1) {
-            _tasks[existingIndex] = task
-        } else {
-            _tasks.add(0, task)
-        }
+    // 代理方法到底层状态
+    fun addSwitch(identifier: String, text: String, state: Boolean) {
+        underlyingState.addSwitch(identifier, text, state)
     }
     
     fun addOrUpdateProgress(
@@ -84,24 +70,7 @@ class CompatDynamicIslandState(
         progress: Float?,
         duration: Long?
     ) {
-        val existingIndex = _tasks.indexOfFirst { it.identifier == identifier }
-        
-        val task = DynamicIslandTask(
-            type = DynamicIslandTask.Type.PROGRESS,
-            identifier = identifier,
-            title = text,
-            subtitle = subtitle,
-            icon = icon,
-            progress = progress ?: 0f,
-            duration = duration ?: 5000L,
-            lastUpdateTime = System.currentTimeMillis()
-        )
-        
-        if (existingIndex != -1) {
-            _tasks[existingIndex] = task
-        } else {
-            _tasks.add(0, task)
-        }
+        underlyingState.addOrUpdateProgress(identifier, text, subtitle, icon, progress, duration)
     }
     
     fun addOrUpdateMusic(
@@ -113,60 +82,31 @@ class CompatDynamicIslandState(
         progress: Float,
         isMajorUpdate: Boolean
     ) {
-        val existingIndex = _tasks.indexOfFirst { it.identifier == identifier }
-        
-        val task = DynamicIslandTask(
-            type = DynamicIslandTask.Type.MUSIC,
-            identifier = identifier,
-            title = text,
-            subtitle = subtitle,
-            icon = albumArt,
-            progress = progress,
-            progressText = progressText,
-            isMajorUpdate = isMajorUpdate,
-            lastUpdateTime = System.currentTimeMillis()
-        )
-        
-        if (existingIndex != -1) {
-            _tasks[existingIndex] = task
-        } else {
-            _tasks.add(0, task)
-        }
+        underlyingState.addOrUpdateMusic(identifier, text, subtitle, albumArt, progressText, progress, isMajorUpdate)
     }
     
     fun removeTask(identifier: String) {
-        _tasks.removeAll { it.identifier == identifier }
+        underlyingState.removeTask(identifier)
     }
     
     fun hide() {
-        _tasks.clear()
+        underlyingState.hide()
     }
-}
-
-/**
- * 灵动岛任务数据类
- */
-data class DynamicIslandTask(
-    val type: Type,
-    val identifier: String,
-    val title: String,
-    val subtitle: String? = null,
-    val switchState: Boolean = false,
-    val icon: android.graphics.drawable.Drawable? = null,
-    val progress: Float = 0f,
-    val progressText: String? = null,
-    val duration: Long = 0,
-    val lastUpdateTime: Long = System.currentTimeMillis(),
-    val removing: Boolean = false,
-    val isVisuallyHidden: Boolean = false,
-    val isMajorUpdate: Boolean = false
-) {
-    enum class Type { SWITCH, PROGRESS, MUSIC }
+    
+    fun cancelScope() {
+        underlyingState.cancelScope()
+    }
+    
+    // 获取底层状态用于传递给DynamicIslandView - 返回原来的DynamicIslandState
+    fun getUnderlyingState(): DynamicIslandState = underlyingState
 }
 
 @Composable
 fun rememberCompatDynamicIslandState(context: Context): CompatDynamicIslandState {
+    val scope = rememberCoroutineScope()
+    val textMeasurer = rememberTextMeasurer()
+    
     return remember(context) {
-        CompatDynamicIslandState(context)
+        CompatDynamicIslandState(context, scope, textMeasurer)
     }
 }
