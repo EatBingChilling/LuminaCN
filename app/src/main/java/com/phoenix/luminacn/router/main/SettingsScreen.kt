@@ -1,4 +1,4 @@
-// File: com/phoenix/luminacn/router/main/SettingsScreen.kt
+// com/phoenix/luminacn/router/main/SettingsScreen.kt
 
 /*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
@@ -12,7 +12,11 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.res.Configuration
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.util.DynamicIslandController
 import com.phoenix.luminacn.util.NetworkOptimizer
 import com.phoenix.luminacn.viewmodel.MainScreenViewModel
@@ -54,7 +60,6 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
 
     // Get the single ViewModel instance. All data is already loaded.
@@ -76,6 +81,29 @@ fun SettingsScreen() {
     /* ---------- Server IP/Port (derived from CaptureModeModel) ---------- */
     val serverIp by remember(captureModeModel) { mutableStateOf(captureModeModel.serverHostName) }
     val serverPort by remember(captureModeModel) { mutableStateOf(captureModeModel.serverPort.toString()) }
+
+    /* ---------- [新增] 壁纸选择器 ---------- */
+    val wallpaperLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                Toast.makeText(context, "正在处理壁纸...", Toast.LENGTH_SHORT).show()
+                WallpaperUtils.handleSelectedWallpaper(context, uri, object : WallpaperUtils.WallpaperSelectorCallback {
+                    override fun onWallpaperSelected() {
+                        scope.launch {
+                            Toast.makeText(context, "壁纸设置成功", Toast.LENGTH_SHORT).show()
+                            mainScreenViewModel.onWallpaperSelected()
+                        }
+                    }
+                    override fun onWallpaperSelectionCancelled() {
+                        scope.launch { Toast.makeText(context, "壁纸设置取消", Toast.LENGTH_SHORT).show() }
+                    }
+                })
+            } else {
+                Toast.makeText(context, "未选择图片", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
 
     /* ---------- Utility Functions ---------- */
     fun appIcon(pkg: String): Drawable? = try {
@@ -190,6 +218,88 @@ fun SettingsScreen() {
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
 
+                // ========================= [新增] 壁纸设置 =========================
+                Text(
+                    text = "壁纸设置",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Button(
+                    onClick = { wallpaperLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = "选择图片", modifier = Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("选择新壁纸")
+                }
+
+                val solidBackgroundColor = MaterialTheme.colorScheme.surface.toArgb()
+                SettingToggle(
+                    title = "启用背景壁纸",
+                    desc = "使用自定义图片作为背景",
+                    checked = settingsState.wallpaperEnabled,
+                    onChange = { enabled ->
+                        mainScreenViewModel.updateWallpaperEnabled(enabled, solidBackgroundColor)
+                        if (!enabled) {
+                            Toast.makeText(context, "壁纸已禁用，将使用纯色背景", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+
+                // 模糊效果设置 (仅在启用壁纸时可用)
+                Column(modifier = Modifier.alpha(if (settingsState.wallpaperEnabled) 1f else 0.5f)) {
+                    SettingToggle(
+                        title = "启用模糊效果",
+                        desc = "对背景壁纸应用高斯模糊",
+                        checked = settingsState.wallpaperBlurEnabled,
+                        onChange = { enabled ->
+                            if (settingsState.wallpaperEnabled) {
+                                mainScreenViewModel.updateWallpaperConfig(blurEnabled = enabled)
+                            } else {
+                                Toast.makeText(context, "请先启用背景壁纸", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+
+                    // 模糊半径滑块 (仅在启用壁纸和模糊时可用)
+                    Column(modifier = Modifier.alpha(if (settingsState.wallpaperEnabled && settingsState.wallpaperBlurEnabled) 1f else 0.5f)) {
+                         Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "模糊半径",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${settingsState.wallpaperBlurRadius.roundToInt()}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Slider(
+                            value = settingsState.wallpaperBlurRadius,
+                            onValueChange = { newRadius ->
+                                if (settingsState.wallpaperEnabled && settingsState.wallpaperBlurEnabled) {
+                                    mainScreenViewModel.updateWallpaperConfig(blurRadius = newRadius)
+                                }
+                            },
+                            valueRange = WallpaperUtils.MIN_BLUR_RADIUS..WallpaperUtils.MAX_BLUR_RADIUS,
+                            steps = (WallpaperUtils.MAX_BLUR_RADIUS - WallpaperUtils.MIN_BLUR_RADIUS).toInt() - 1
+                        )
+                    }
+                }
+                
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                )
+                // ========================= [新增] 壁纸设置结束 =========================
+
                 Text(
                     text = "灵动岛设置",
                     style = MaterialTheme.typography.titleMedium,
@@ -269,6 +379,7 @@ fun SettingsScreen() {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val screenWidthDp = configuration.screenWidthDp
+    val scrollState = rememberScrollState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isPortrait || screenWidthDp < 800) {

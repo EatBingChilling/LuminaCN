@@ -1,4 +1,4 @@
-// File: com/phoenix/luminacn/viewmodel/MainScreenViewModel.kt
+// com/phoenix/luminacn/viewmodel/MainScreenViewModel.kt
 
 package com.phoenix.luminacn.viewmodel
 
@@ -9,6 +9,7 @@ import androidx.compose.ui.util.fastFilter
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.phoenix.luminacn.WallpaperUtils
 import com.phoenix.luminacn.application.AppContext
 import com.phoenix.luminacn.model.CaptureModeModel
 import com.phoenix.luminacn.router.main.MainScreenPages
@@ -29,7 +30,11 @@ data class SettingsState(
     val dynamicIslandUsername: String = "User",
     val dynamicIslandYOffset: Float = 20f,
     val dynamicIslandScale: Float = 0.7f,
-    val musicModeEnabled: Boolean = true
+    val musicModeEnabled: Boolean = true,
+    // [新增] 壁纸设置状态
+    val wallpaperEnabled: Boolean = false,
+    val wallpaperBlurEnabled: Boolean = true,
+    val wallpaperBlurRadius: Float = 20f
 )
 
 class MainScreenViewModel : ViewModel() {
@@ -52,7 +57,6 @@ class MainScreenViewModel : ViewModel() {
     val selectedPage = _selectedPage.asStateFlow()
 
     private val _captureModeModel = MutableStateFlow(initialCaptureModeModel())
-    // ✅ 修正了这里的拼写错误：从 _captureMode_model 改回 _captureModeModel
     val captureModeModel = _captureModeModel.asStateFlow()
 
     private val _packageInfos = MutableStateFlow<List<PackageInfo>>(emptyList())
@@ -118,6 +122,10 @@ class MainScreenViewModel : ViewModel() {
     } catch (e: Exception) { "?" }
 
     private fun loadSettingsFromPrefs() {
+        val context = AppContext.instance
+        // [修改] 从WallpaperUtils加载壁纸配置
+        val wallpaperConfig = WallpaperUtils.getBlurConfig(context)
+
         _settingsState.update {
             it.copy(
                 optimizeNetworkEnabled = settingsPrefs.getBoolean("optimizeNetworkEnabled", false),
@@ -129,7 +137,11 @@ class MainScreenViewModel : ViewModel() {
                 dynamicIslandUsername = settingsPrefs.getString("dynamicIslandUsername", "User") ?: "User",
                 dynamicIslandYOffset = settingsPrefs.getFloat("dynamicIslandYOffset", 20f),
                 dynamicIslandScale = settingsPrefs.getFloat("dynamicIslandScale", 0.7f),
-                musicModeEnabled = settingsPrefs.getBoolean("musicModeEnabled", true)
+                musicModeEnabled = settingsPrefs.getBoolean("musicModeEnabled", true),
+                // [新增] 初始化壁纸状态
+                wallpaperEnabled = settingsPrefs.getBoolean("wallpaperEnabled", WallpaperUtils.hasCustomWallpaper(context)),
+                wallpaperBlurEnabled = wallpaperConfig.enableBlur,
+                wallpaperBlurRadius = wallpaperConfig.blurRadius
             )
         }
     }
@@ -191,7 +203,58 @@ class MainScreenViewModel : ViewModel() {
         settingsPrefs.edit().putBoolean("musicModeEnabled", enabled).apply()
         _settingsState.update { it.copy(musicModeEnabled = enabled) }
     }
+
+    // --- [新增] 壁纸设置更新方法 ---
+    /**
+     * 更新是否启用壁纸
+     * @param enabled 是否启用
+     * @param solidBackgroundColor 禁用时使用的纯色背景颜色
+     */
+    fun updateWallpaperEnabled(enabled: Boolean, solidBackgroundColor: Int) {
+        settingsPrefs.edit().putBoolean("wallpaperEnabled", enabled).apply()
+        _settingsState.update { it.copy(wallpaperEnabled = enabled) }
+
+        if (!enabled) {
+            // 如果禁用壁纸，则设置一个纯色背景
+            WallpaperUtils.setSolidColorWallpaper(AppContext.instance, solidBackgroundColor)
+        }
+        // 如果启用，用户需要通过UI选择一张图片。如果之前已有图片则会自动显示。
+    }
     
+    /**
+     * 当用户成功选择新壁纸后调用
+     */
+    fun onWallpaperSelected() {
+        // 确保启用状态为true
+        if (!_settingsState.value.wallpaperEnabled) {
+            settingsPrefs.edit().putBoolean("wallpaperEnabled", true).apply()
+            _settingsState.update { it.copy(wallpaperEnabled = true) }
+        }
+    }
+
+    /**
+     * 更新壁纸模糊配置
+     * @param blurEnabled 是否启用模糊
+     * @param blurRadius 模糊半径
+     */
+    fun updateWallpaperConfig(blurEnabled: Boolean? = null, blurRadius: Float? = null) {
+        val currentState = _settingsState.value
+        val newBlurEnabled = blurEnabled ?: currentState.wallpaperBlurEnabled
+        val newBlurRadius = blurRadius ?: currentState.wallpaperBlurRadius
+
+        _settingsState.update { it.copy(
+            wallpaperBlurEnabled = newBlurEnabled,
+            wallpaperBlurRadius = newBlurRadius
+        )}
+        
+        // 调用工具类更新实际配置
+        WallpaperUtils.setBlurConfig(
+            context = AppContext.instance,
+            enableBlur = newBlurEnabled,
+            blurRadius = newBlurRadius
+        )
+    }
+
     // --- Initializers ---
     private fun initialCaptureModeModel(): CaptureModeModel {
         return CaptureModeModel.from(gameSettingsSharedPreferences)

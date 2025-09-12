@@ -1,3 +1,5 @@
+// com/phoenix/luminacn/WallpaperUtils.kt
+
 package com.phoenix.luminacn
 
 import android.app.Activity
@@ -8,6 +10,7 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -49,8 +52,8 @@ object WallpaperUtils {
     // 模糊配置 - 修改默认值
     private const val DEFAULT_BLUR_RADIUS = 20f
     private const val DEFAULT_BLUR_SAMPLING = 1.0f
-    private const val MAX_BLUR_RADIUS = 25f
-    private const val MIN_BLUR_RADIUS = 1f
+    const val MAX_BLUR_RADIUS = 25f // 公开给设置页使用
+    const val MIN_BLUR_RADIUS = 1f  // 公开给设置页使用
     
     /**
      * 壁纸类型枚举
@@ -330,8 +333,53 @@ object WallpaperUtils {
         }
         prefs.edit().remove(KEY_CUSTOM_WALLPAPER_PATH).apply()
     }
+
+    /**
+     * [新增] 设置纯色壁纸
+     * 用于在禁用壁纸时提供一个主题色背景
+     */
+    fun setSolidColorWallpaper(context: Context, color: Int) {
+        Thread {
+            try {
+                // 创建一个1x1的纯色bitmap
+                val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+                canvas.drawColor(color)
+
+                // 使用现有的保存机制来保存这个纯色图片
+                saveProcessedBitmap(context, bitmap)
+                Log.d("WallpaperUtils", "Set solid color wallpaper with color: $color")
+            } catch (e: Exception) {
+                Log.e("WallpaperUtils", "Failed to set solid color wallpaper", e)
+            }
+        }.start()
+    }
     
-    // =========================== 私有方法 ===========================
+    // =========================== 内部/私有方法 ===========================
+
+    internal fun saveProcessedBitmap(context: Context, bitmap: Bitmap): Boolean {
+        return try {
+            val internalDir = File(context.filesDir, "wallpapers")
+            if (!internalDir.exists()) {
+                internalDir.mkdirs()
+            }
+
+            val wallpaperFile = File(internalDir, CUSTOM_WALLPAPER_FILENAME)
+            FileOutputStream(wallpaperFile).use { output ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output)
+            }
+
+            // 保存路径到SharedPreferences
+            val prefs = getSharedPreferences(context)
+            prefs.edit().putString(KEY_CUSTOM_WALLPAPER_PATH, wallpaperFile.absolutePath).apply()
+
+            Log.d("WallpaperUtils", "Processed wallpaper saved: ${wallpaperFile.absolutePath}")
+            true
+        } catch (e: Exception) {
+            Log.e("WallpaperUtils", "Failed to save processed bitmap", e)
+            false
+        }
+    }
     
     private fun isHighSdkVersion(): Boolean {
         return Build.VERSION.SDK_INT >= HIGH_SDK_THRESHOLD
@@ -521,34 +569,7 @@ object WallpaperUtils {
             bitmap
         }
     }
-    
-    /**
-     * 保存处理后的bitmap
-     */
-    private fun saveProcessedBitmap(context: Context, bitmap: Bitmap): Boolean {
-        return try {
-            val internalDir = File(context.filesDir, "wallpapers")
-            if (!internalDir.exists()) {
-                internalDir.mkdirs()
-            }
-            
-            val wallpaperFile = File(internalDir, CUSTOM_WALLPAPER_FILENAME)
-            FileOutputStream(wallpaperFile).use { output ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output)
-            }
-            
-            // 保存路径到SharedPreferences
-            val prefs = getSharedPreferences(context)
-            prefs.edit().putString(KEY_CUSTOM_WALLPAPER_PATH, wallpaperFile.absolutePath).apply()
-            
-            Log.d("WallpaperUtils", "Processed wallpaper saved: ${wallpaperFile.absolutePath}")
-            true
-        } catch (e: Exception) {
-            Log.e("WallpaperUtils", "Failed to save processed bitmap", e)
-            false
-        }
-    }
-    
+
     private fun showWallpaperSetupDialog(activity: Activity) {
         if (activity !is AppCompatActivity) return
         

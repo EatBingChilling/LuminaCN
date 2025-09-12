@@ -102,8 +102,6 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
     private val slowAnimationSpec: AnimationSpec<Float> = tween(800, easing = FastOutSlowInEasing)
     private val fastAnimationSpec: AnimationSpec<Float> = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
 
-    // 【新增】增加一个私有变量，用于存储当前音乐的唯一标识。
-    // 我们将使用“歌手 - 总时长”作为唯一标识，因为它在单曲播放期间是稳定的。
     private var currentMusicIdentity: String? = null
 
     init { startUpdateLoop() }
@@ -150,6 +148,9 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
         }
     }
 
+    // =======================================================================================
+    // =================================== BUG FIX HERE ======================================
+    // =======================================================================================
     public fun addOrUpdateMusic(
         identifier: String, text: String, subtitle: String, albumArt: Drawable?,
         progressText: String, progress: Float,
@@ -159,24 +160,33 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
         val taskIndex = tasks.indexOfFirst { it.identifier == identifier }
         val existingTask = if (taskIndex != -1) tasks[taskIndex] else null
 
+        // --- 关键修复逻辑 Part 1: 确定最终要使用的数据 ---
+        // 如果是次要更新 (isMajorUpdate = false)，则保留现有的标题、副标题和图标。
+        // 只有在主要更新时，才使用新传入的值。这样可以防止进度更新时传入的空字符串覆盖掉正确的信息。
+        val finalTitle = if (isMajorUpdate) text else existingTask?.text ?: text
+        val finalSubtitle = if (isMajorUpdate) subtitle else existingTask?.subtitle ?: subtitle
+        val finalAlbumArt = if (isMajorUpdate) albumArt?.mutate() else existingTask?.icon
+
+        // --- 关键修复逻辑 Part 2: 使用最终确定的数据来判断是否是新歌 ---
         // 【最终修复】创建当前歌曲的稳定标识 (ID)。
         // 我们从 "0:15 / 3:45" 这样的字符串中提取出 "/ 3:45" 这部分，它代表了歌曲总长，是稳定的。
-        // 然后结合歌手名(subtitle)，生成一个在歌曲播放期间不会改变的唯一ID。
+        // 然后结合歌手名(finalSubtitle)，生成一个在歌曲播放期间不会改变的唯一ID。
         val songDurationIdentifier = progressText.substringAfterLast('/', "").trim()
-        val newMusicIdentity = "$subtitle - $songDurationIdentifier"
+        val newMusicIdentity = "$finalSubtitle - $songDurationIdentifier"
 
         // 现在，只有当这个稳定的ID改变时，我们才认为这是一首新歌。
-        // 这就完美解决了歌词滚动导致进度条重置的问题。
-        val isNewSong = currentMusicIdentity != newMusicIdentity
+        // 并且，新歌的判断只应该在“主要更新”时发生，防止意外重置。
+        val isNewSong = isMajorUpdate && (currentMusicIdentity != newMusicIdentity)
 
         if (isNewSong) {
             // 如果是新歌，更新我们内部存储的ID
             currentMusicIdentity = newMusicIdentity
         }
-        
+
         var shouldBeHidden = existingTask?.isVisuallyHidden ?: false
         var hideJobToSet = existingTask?.hideJob
 
+        // 只有主要更新才会重置“自动隐藏”的计时器
         if (isMajorUpdate) {
             existingTask?.hideJob?.cancel()
             shouldBeHidden = false
@@ -193,9 +203,9 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
 
         val musicTask = (existingTask ?: TaskItem(type = TaskItem.Type.MUSIC, identifier = identifier, text = "", subtitle = null))
             .copy(
-                text = text,
-                subtitle = subtitle,
-                icon = albumArt?.mutate() ?: existingTask?.icon, // 防止图标闪烁
+                text = finalTitle, // 使用修复后的 finalTitle
+                subtitle = finalSubtitle, // 使用修复后的 finalSubtitle
+                icon = finalAlbumArt ?: existingTask?.icon, // 使用修复后的 finalAlbumArt, 并提供回退
                 progressText = progressText,
                 isVisuallyHidden = shouldBeHidden,
                 lastUpdateTime = System.currentTimeMillis(),
@@ -204,7 +214,7 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
                 hideJob = hideJobToSet
             )
 
-        // 只有当确认为新歌且不是用户拖动进度条时，才重置进度
+        // 只有当确认为新歌且不是用户拖动进度条时，才重置进度动画
         if (isNewSong && !isSeek) {
             scope.launch {
                 progressAnimatable.snapTo(0f)
@@ -220,6 +230,9 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
             tasks.add(0, musicTask)
         }
     }
+    // =======================================================================================
+    // ================================ END OF BUG FIX =======================================
+    // =======================================================================================
 
 
     public fun removeTask(identifier: String) {
