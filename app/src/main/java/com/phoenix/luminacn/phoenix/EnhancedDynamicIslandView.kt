@@ -1,9 +1,12 @@
+@file:OptIn(ExperimentalAnimationApi::class)
 package com.phoenix.luminacn.phoenix
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -94,9 +97,9 @@ private fun DynamicIslandContent(
     val isExpanded = state.isExpanded
     val scale = state.scale
     
-    // 动画尺寸
+    // 动画尺寸 - 修正 Dp 乘法
     val targetWidth by animateDpAsState(
-        targetValue = if (isExpanded) 280.dp * scale else 120.dp * scale,
+        targetValue = if (isExpanded) (280 * scale).dp else (120 * scale).dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMedium
@@ -106,9 +109,9 @@ private fun DynamicIslandContent(
     
     val targetHeight by animateDpAsState(
         targetValue = if (isExpanded) {
-            (36.dp + (state.tasks.size * 60.dp)).coerceAtMost(300.dp) * scale
+            ((36 + (state.tasks.size * 60)).coerceAtMost(300) * scale).dp
         } else {
-            36.dp * scale
+            (36 * scale).dp
         },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
@@ -118,7 +121,7 @@ private fun DynamicIslandContent(
     )
     
     val targetCornerRadius by animateDpAsState(
-        targetValue = if (isExpanded) 28.dp * scale else 18.dp * scale,
+        targetValue = if (isExpanded) (28 * scale).dp else (18 * scale).dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMedium
@@ -163,11 +166,10 @@ private fun ExpandedContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp * scale),
-        verticalArrangement = Arrangement.spacedBy(8.dp * scale)
+            .padding((12 * scale).dp),
+        verticalArrangement = Arrangement.spacedBy((8 * scale).dp)
     ) {
-        items(state.tasks.size) { index ->
-            val task = state.tasks[index]
+        itemsIndexed(state.tasks) { index, task ->
             AnimatedVisibility(
                 visible = !task.removing && !task.isVisuallyHidden,
                 enter = fadeIn(animationSpec = tween(500, index * 120)) + expandVertically(
@@ -191,7 +193,7 @@ private fun CollapsedContent(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp * scale),
+            .padding(horizontal = (16 * scale).dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
@@ -213,21 +215,21 @@ private fun TaskItemView(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp * scale),
+            .padding(vertical = (4 * scale).dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp * scale)
+        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
     ) {
         // 任务图标区域
         Box(
-            modifier = Modifier.size(24.dp * scale),
+            modifier = Modifier.size((24 * scale).dp),
             contentAlignment = Alignment.Center
         ) {
             when (task.type) {
                 DynamicIslandTask.Type.SWITCH -> {
                     Box(
                         modifier = Modifier
-                            .size(16.dp * scale)
-                            .clip(RoundedCornerShape(2.dp * scale))
+                            .size((16 * scale).dp)
+                            .clip(RoundedCornerShape((2 * scale).dp))
                             .background(
                                 if (task.switchState) 
                                     MaterialTheme.colorScheme.primary 
@@ -239,16 +241,16 @@ private fun TaskItemView(
                 DynamicIslandTask.Type.PROGRESS -> {
                     Box(
                         modifier = Modifier
-                            .size(16.dp * scale)
-                            .clip(RoundedCornerShape(8.dp * scale))
+                            .size((16 * scale).dp)
+                            .clip(RoundedCornerShape((8 * scale).dp))
                             .background(MaterialTheme.colorScheme.primary)
                     )
                 }
                 DynamicIslandTask.Type.MUSIC -> {
                     Box(
                         modifier = Modifier
-                            .size(24.dp * scale)
-                            .clip(RoundedCornerShape(4.dp * scale))
+                            .size((24 * scale).dp)
+                            .clip(RoundedCornerShape((4 * scale).dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
                     )
                 }
@@ -258,7 +260,7 @@ private fun TaskItemView(
         // 任务文本
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp * scale)
+            verticalArrangement = Arrangement.spacedBy((2 * scale).dp)
         ) {
             Text(
                 text = task.title,
@@ -277,31 +279,34 @@ private fun TaskItemView(
                 )
             }
         }
-    }
-}
-
-// LazyColumn的简化替代
-@Composable
-private fun LazyColumn(
-    modifier: Modifier = Modifier,
-    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
-    content: LazyListScope.() -> Unit
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = verticalArrangement
-    ) {
-        val scope = object : LazyListScope {
-            override fun items(count: Int, itemContent: @Composable (Int) -> Unit) {
-                repeat(count) { index ->
-                    itemContent(index)
-                }
+        
+        // 进度指示器（如果是进度任务）
+        if (task.type == DynamicIslandTask.Type.PROGRESS) {
+            Box(
+                modifier = Modifier
+                    .width((40 * scale).dp)
+                    .height((4 * scale).dp)
+                    .clip(RoundedCornerShape((2 * scale).dp))
+                    .background(Color.Gray.copy(alpha = 0.3f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(task.progress.coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape((2 * scale).dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
             }
         }
-        scope.content()
+        
+        // 音乐进度文本
+        if (task.type == DynamicIslandTask.Type.MUSIC && task.progressText != null) {
+            Text(
+                text = task.progressText,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = (9.sp.value * scale).coerceAtLeast(6f).sp,
+                maxLines = 1
+            )
+        }
     }
-}
-
-private interface LazyListScope {
-    fun items(count: Int, itemContent: @Composable (Int) -> Unit)
 }
