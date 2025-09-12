@@ -1,3 +1,5 @@
+// File: com/phoenix/luminacn/router/main/SettingsScreen.kt
+
 /*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
  * You are free to use, modify, and redistribute this code under the terms
@@ -7,7 +9,6 @@
 package com.phoenix.luminacn.router.main
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.res.Configuration
 import android.graphics.drawable.Drawable
@@ -55,100 +56,59 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
+
+    // Get the single ViewModel instance. All data is already loaded.
     val mainScreenViewModel: MainScreenViewModel = viewModel()
+
+    // Collect all state from the ViewModel.
+    val settingsState by mainScreenViewModel.settingsState.collectAsState()
+    val installedApps by mainScreenViewModel.packageInfos.collectAsState()
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
+    val selectedAppPackage by mainScreenViewModel.selectedGame.collectAsState()
 
     val dynamicIslandController = remember { DynamicIslandController(context) }
-    val sp = context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
 
-    /* ---------- 状态 ---------- */
-    var optimizeNetworkEnabled   by remember { mutableStateOf(sp.getBoolean("optimizeNetworkEnabled", false)) }
-    var priorityThreadsEnabled   by remember { mutableStateOf(sp.getBoolean("priorityThreadsEnabled", false)) }
-    var fastDnsEnabled           by remember { mutableStateOf(sp.getBoolean("fastDnsEnabled", false)) }
-    var injectNekoPackEnabled    by remember { mutableStateOf(sp.getBoolean("injectNekoPackEnabled", false)) }
-    var disableOverlay           by remember { mutableStateOf(sp.getBoolean("disableConnectionInfoOverlay", false)) }
-    var selectedGUI              by remember { mutableStateOf(sp.getString("selectedGUI", "ProtohaxUi") ?: "ProtohaxUi") }
-    var selectedAppPackage       by remember { mutableStateOf(sp.getString("selectedAppPackage", "com.mojang.minecraftpe") ?: "com.mojang.minecraftpe") }
+    /* ---------- Local UI State (Popups) ---------- */
+    var showPermission by remember { mutableStateOf(false) }
+    var showServerDialog by remember { mutableStateOf(false) }
+    var showAppDialog by remember { mutableStateOf(false) }
 
-    var serverIp                 by remember { mutableStateOf(captureModeModel.serverHostName) }
-    var serverPort               by remember { mutableStateOf(captureModeModel.serverPort.toString()) }
+    /* ---------- Server IP/Port (derived from CaptureModeModel) ---------- */
+    val serverIp by remember(captureModeModel) { mutableStateOf(captureModeModel.serverHostName) }
+    val serverPort by remember(captureModeModel) { mutableStateOf(captureModeModel.serverPort.toString()) }
 
-    // 灵动岛状态
-    var dynamicIslandUsername    by remember { mutableStateOf(sp.getString("dynamicIslandUsername", "User") ?: "User") }
-    var dynamicIslandYOffset     by remember { mutableStateOf(sp.getFloat("dynamicIslandYOffset", 20f)) }
-    var dynamicIslandScale       by remember { mutableStateOf(sp.getFloat("dynamicIslandScale", 0.7f)) }
-    
-    // 🆕 新增音乐模式状态
-    var musicModeEnabled         by remember { mutableStateOf(sp.getBoolean("musicModeEnabled", true)) }
-
-    var showPermission           by remember { mutableStateOf(false) }
-    var showServerDialog         by remember { mutableStateOf(false) }
-    var showAppDialog            by remember { mutableStateOf(false) }
-
-    var installedApps            by remember { mutableStateOf<List<PackageInfo>>(emptyList()) }
-
-    /* ---------- 工具函数 ---------- */
-    fun saveBool(key: String, value: Boolean) = sp.edit().putBoolean(key, value).apply()
-    fun saveStr(key: String, value: String)   = sp.edit().putString(key, value).apply()
-    fun saveFloat(key: String, value: Float)  = sp.edit().putFloat(key, value).apply()
-
-    fun appName(pkg: String): String = try {
-        val pm = context.packageManager
-        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
-    } catch (e: Exception) { pkg }
-
-    fun appVer(pkg: String): String = try {
-        context.packageManager.getPackageInfo(pkg, 0).versionName ?: "?"
-    } catch (e: Exception) { "?" }
-
+    /* ---------- Utility Functions ---------- */
     fun appIcon(pkg: String): Drawable? = try {
         context.packageManager.getApplicationIcon(pkg)
     } catch (e: Exception) { null }
 
-    /* ---------- 初始化 & 效果 ---------- */
-    LaunchedEffect(dynamicIslandUsername) {
-        delay(300) // 防抖
-        dynamicIslandController.setPersistentText(dynamicIslandUsername)
+    /* ---------- Side Effects ---------- */
+    LaunchedEffect(settingsState.dynamicIslandUsername) {
+        delay(300) // Debounce
+        dynamicIslandController.setPersistentText(settingsState.dynamicIslandUsername)
     }
 
-    LaunchedEffect(dynamicIslandYOffset) {
-        dynamicIslandController.updateYOffset(dynamicIslandYOffset)
+    LaunchedEffect(settingsState.dynamicIslandYOffset) {
+        dynamicIslandController.updateYOffset(settingsState.dynamicIslandYOffset)
     }
 
-    LaunchedEffect(dynamicIslandScale) {
-        dynamicIslandController.updateScale(dynamicIslandScale)
+    LaunchedEffect(settingsState.dynamicIslandScale) {
+        dynamicIslandController.updateScale(settingsState.dynamicIslandScale)
     }
 
-    // 🆕 音乐模式控制
-    LaunchedEffect(musicModeEnabled) {
-        dynamicIslandController.enableMusicMode(musicModeEnabled)
+    LaunchedEffect(settingsState.musicModeEnabled) {
+        dynamicIslandController.enableMusicMode(settingsState.musicModeEnabled)
     }
 
-    LaunchedEffect(Unit) {
-        mainScreenViewModel.selectGame(selectedAppPackage)
-        scope.launch(Dispatchers.IO) {
-            installedApps = context.packageManager.getInstalledPackages(0)
-                .filter { packageInfo ->
-                    packageInfo.applicationInfo?.let { appInfo ->
-                        (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
-                                context.packageManager.getLaunchIntentForPackage(packageInfo.packageName) != null
-                    } ?: false
-                }
-                .sortedBy { appName(it.packageName) }
-        }
-    }
-
-    /* ---------- 内部组合 ---------- */
+    /* ---------- Internal Composables ---------- */
     @Composable
     fun Content() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f) // 半透明背景
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f)
             ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = 0.dp // 移除阴影
-            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
@@ -164,11 +124,8 @@ fun SettingsScreen() {
                 
                 DropdownMenu(
                     options = listOf("GraceGUI", "KitsuGUI", "ProtohaxUi", "ClickGUI"),
-                    selected = selectedGUI,
-                    onSelect = {
-                        selectedGUI = it
-                        saveStr("selectedGUI", it)
-                    }
+                    selected = settingsState.selectedGUI,
+                    onSelect = { mainScreenViewModel.updateSelectedGui(it) }
                 )
                 
                 HorizontalDivider(
@@ -183,33 +140,29 @@ fun SettingsScreen() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                SettingToggle("增强网络", "提高网络性能", optimizeNetworkEnabled) {
-                    optimizeNetworkEnabled = it
-                    if (it) {
+                SettingToggle("增强网络", "提高网络性能", settingsState.optimizeNetworkEnabled) { enabled ->
+                    if (enabled) {
                         scope.launch(Dispatchers.IO) {
                             if (NetworkOptimizer.init(context)) {
-                                saveBool("optimizeNetworkEnabled", true)
+                                mainScreenViewModel.updateOptimizeNetwork(true)
                                 NetworkOptimizer.optimizeSocket(Socket())
                             } else {
-                                scope.launch(Dispatchers.Main) {
-                                    showPermission = true
-                                    optimizeNetworkEnabled = false
-                                }
+                                scope.launch(Dispatchers.Main) { showPermission = true }
                             }
                         }
-                    } else saveBool("optimizeNetworkEnabled", false)
+                    } else {
+                        mainScreenViewModel.updateOptimizeNetwork(false)
+                    }
                 }
                 
-                SettingToggle("高优先级线程", "提升线程优先级", priorityThreadsEnabled) {
-                    priorityThreadsEnabled = it
-                    saveBool("priorityThreadsEnabled", it)
-                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.setThreadPriority() }
+                SettingToggle("高优先级线程", "提升线程优先级", settingsState.priorityThreadsEnabled) { enabled ->
+                    mainScreenViewModel.updatePriorityThreads(enabled)
+                    if (enabled) scope.launch(Dispatchers.IO) { NetworkOptimizer.setThreadPriority() }
                 }
                 
-                SettingToggle("使用最快的 DNS", "使用 Google DNS", fastDnsEnabled) {
-                    fastDnsEnabled = it
-                    saveBool("fastDnsEnabled", it)
-                    if (it) scope.launch(Dispatchers.IO) { NetworkOptimizer.useFastDNS() }
+                SettingToggle("使用最快的 DNS", "使用 Google DNS", settingsState.fastDnsEnabled) { enabled ->
+                    mainScreenViewModel.updateFastDns(enabled)
+                    if (enabled) scope.launch(Dispatchers.IO) { NetworkOptimizer.useFastDNS() }
                 }
                 
                 HorizontalDivider(
@@ -224,14 +177,12 @@ fun SettingsScreen() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                SettingToggle("注入 Neko Pack", "增强功能", injectNekoPackEnabled) {
-                    injectNekoPackEnabled = it
-                    saveBool("injectNekoPackEnabled", it)
+                SettingToggle("注入 Neko Pack", "增强功能", settingsState.injectNekoPackEnabled) {
+                    mainScreenViewModel.updateInjectNekoPack(it)
                 }
                 
-                SettingToggle("禁用连接信息覆盖", "启动时不显示连接信息", disableOverlay) {
-                    disableOverlay = it
-                    saveBool("disableConnectionInfoOverlay", it)
+                SettingToggle("禁用连接信息覆盖", "启动时不显示连接信息", settingsState.disableOverlay) {
+                    mainScreenViewModel.updateDisableOverlay(it)
                 }
                 
                 HorizontalDivider(
@@ -247,11 +198,8 @@ fun SettingsScreen() {
                 )
                 
                 OutlinedTextField(
-                    value = dynamicIslandUsername,
-                    onValueChange = {
-                        dynamicIslandUsername = it
-                        saveStr("dynamicIslandUsername", it)
-                    },
+                    value = settingsState.dynamicIslandUsername,
+                    onValueChange = { mainScreenViewModel.updateDynamicIslandUsername(it) },
                     label = { Text("用户名") },
                     placeholder = { Text("在灵动岛上显示的文本") },
                     modifier = Modifier.fillMaxWidth(),
@@ -270,19 +218,17 @@ fun SettingsScreen() {
                              color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${dynamicIslandYOffset.roundToInt()} dp",
+                            text = "${settingsState.dynamicIslandYOffset.roundToInt()} dp",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
                     }
                     Slider(
-                        value = dynamicIslandYOffset,
-                        onValueChange = { dynamicIslandYOffset = it },
+                        value = settingsState.dynamicIslandYOffset,
+                        onValueChange = { mainScreenViewModel.updateDynamicIslandYOffset(it) },
                         valueRange = -100f..100f,
                         steps = 199,
-                        onValueChangeFinished = {
-                            saveFloat("dynamicIslandYOffset", dynamicIslandYOffset)
-                        }
+                        onValueChangeFinished = { mainScreenViewModel.saveDynamicIslandYOffset() }
                     )
                 }
 
@@ -298,26 +244,22 @@ fun SettingsScreen() {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "x${"%.1f".format(dynamicIslandScale)}", // 格式化为一位小数
+                            text = "x${"%.1f".format(settingsState.dynamicIslandScale)}", // 格式化为一位小数
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
                     }
                     Slider(
-                        value = dynamicIslandScale,
-                        onValueChange = { dynamicIslandScale = it },
+                        value = settingsState.dynamicIslandScale,
+                        onValueChange = { mainScreenViewModel.updateDynamicIslandScale(it) },
                         valueRange = 0.5f..2.0f, // 允许从 50% 缩放到 200%
                         steps = 14, // (2.0-0.5)/0.1 = 15 段, 即 14 个步进点
-                        onValueChangeFinished = {
-                            saveFloat("dynamicIslandScale", dynamicIslandScale)
-                        }
+                        onValueChangeFinished = { mainScreenViewModel.saveDynamicIslandScale() }
                     )
                 }
 
-                // 🆕 音乐模式开关
-                SettingToggle("音乐模式", "自动显示音乐播放信息", musicModeEnabled) {
-                    musicModeEnabled = it
-                    saveBool("musicModeEnabled", it)
+                SettingToggle("音乐模式", "自动显示音乐播放信息", settingsState.musicModeEnabled) {
+                    mainScreenViewModel.updateMusicMode(it)
                 }
             }
         }
@@ -328,10 +270,7 @@ fun SettingsScreen() {
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val screenWidthDp = configuration.screenWidthDp
 
-    // 移除 Surface，使用透明背景
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         if (isPortrait || screenWidthDp < 800) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -358,7 +297,11 @@ fun SettingsScreen() {
                     )
                 }
                 item { ServerConfigCard(serverIp, serverPort) { showServerDialog = true } }
-                item { AppManagerCard(selectedAppPackage, { showAppDialog = true }, ::appName, ::appVer, ::appIcon) }
+                item {
+                    selectedAppPackage?.let { pkg ->
+                        AppManagerCard(pkg, { showAppDialog = true }, mainScreenViewModel::appName, mainScreenViewModel::appVer, ::appIcon)
+                    }
+                }
             }
         } else {
             Row(
@@ -391,21 +334,20 @@ fun SettingsScreen() {
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     ServerConfigCard(serverIp, serverPort) { showServerDialog = true }
-                    AppManagerCard(selectedAppPackage, { showAppDialog = true }, ::appName, ::appVer, ::appIcon)
+                     selectedAppPackage?.let { pkg ->
+                        AppManagerCard(pkg, { showAppDialog = true }, mainScreenViewModel::appName, mainScreenViewModel::appVer, ::appIcon)
+                    }
                 }
             }
         }
     }
 
-    /* ---------- 弹窗 ---------- */
+    /* ---------- Dialogs ---------- */
     if (showPermission) {
-        PermissionDialog(
-            onDismiss = { showPermission = false },
-            onRequest = {
-                NetworkOptimizer.openWriteSettingsPermissionPage(context)
-                showPermission = false
-            }
-        )
+        PermissionDialog(onDismiss = { showPermission = false }, onRequest = {
+            NetworkOptimizer.openWriteSettingsPermissionPage(context)
+            showPermission = false
+        })
     }
 
     if (showServerDialog) {
@@ -414,13 +356,10 @@ fun SettingsScreen() {
             initialPort = serverPort,
             onDismiss = { showServerDialog = false },
             onSave = { ip, port ->
-                serverIp = ip
-                serverPort = port
                 showServerDialog = false
                 try {
-                    val portInt = port.toInt()
                     mainScreenViewModel.selectCaptureModeModel(
-                        captureModeModel.copy(serverHostName = ip, serverPort = portInt)
+                        captureModeModel.copy(serverHostName = ip, serverPort = port.toInt())
                     )
                     Toast.makeText(context, "服务器配置更新", Toast.LENGTH_SHORT).show()
                 } catch (e: NumberFormatException) {
@@ -433,24 +372,21 @@ fun SettingsScreen() {
     if (showAppDialog) {
         AppSelectionDialog(
             installedApps = installedApps,
-            selectedPkg = selectedAppPackage,
+            selectedPkg = selectedAppPackage ?: "",
             onDismiss = { showAppDialog = false },
-            onSelect = {
-                selectedAppPackage = it
-                saveStr("selectedAppPackage", it)
-                mainScreenViewModel.selectGame(it)
+            onSelect = { pkg ->
+                mainScreenViewModel.selectGame(pkg)
                 showAppDialog = false
-                Toast.makeText(context, "已选择：${appName(it)}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "已选择：${mainScreenViewModel.appName(pkg)}", Toast.LENGTH_SHORT).show()
             },
-            ::appName,
-            ::appVer,
+            mainScreenViewModel::appName,
+            mainScreenViewModel::appVer,
             ::appIcon
         )
     }
 }
 
-/* =========================  内嵌组件  ========================= */
-
+/* =========================  Unchanged Private Composables  ========================= */
 @Composable
 private fun SettingToggle(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) = Row(
     Modifier.fillMaxWidth(),
@@ -497,10 +433,10 @@ private fun ServerConfigCard(ip: String, port: String, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f) // 半透明背景
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f)
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 0.dp, // 移除阴影
+            defaultElevation = 0.dp,
             pressedElevation = 0.dp
         ),
         shape = RoundedCornerShape(16.dp)
@@ -513,7 +449,7 @@ private fun ServerConfigCard(ip: String, port: String, onClick: () -> Unit) {
             Surface(
                 modifier = Modifier.size(48.dp), 
                 shape = CircleShape, 
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) // 半透明背景
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
             ) {
                 Icon(
                     Icons.Filled.Storage,
@@ -538,10 +474,10 @@ private fun AppManagerCard(pkg: String, onClick: () -> Unit, name: (String) -> S
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f) // 半透明背景
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f)
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 0.dp, // 移除阴影
+            defaultElevation = 0.dp,
             pressedElevation = 0.dp
         ),
         shape = RoundedCornerShape(16.dp)
@@ -551,7 +487,7 @@ private fun AppManagerCard(pkg: String, onClick: () -> Unit, name: (String) -> S
                 Surface(
                     modifier = Modifier.size(24.dp), 
                     shape = CircleShape, 
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f) // 半透明背景
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
                 ) {
                     Icon(Icons.Filled.Apps, null, modifier = Modifier.padding(4.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
@@ -559,13 +495,13 @@ private fun AppManagerCard(pkg: String, onClick: () -> Unit, name: (String) -> S
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 icon(pkg)?.let {
-                    Surface(modifier = Modifier.size(56.dp), shape = RoundedCornerShape(12.dp), shadowElevation = 0.dp) { // 移除阴影
+                    Surface(modifier = Modifier.size(56.dp), shape = RoundedCornerShape(12.dp), shadowElevation = 0.dp) {
                         Image(it.toBitmap(112, 112).asImageBitmap(), null, modifier = Modifier.fillMaxSize())
                     }
                 } ?: Surface(
                     modifier = Modifier.size(56.dp), 
                     shape = RoundedCornerShape(12.dp), 
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) // 半透明背景
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                 ) {
                     Icon(Icons.Filled.Android, null, modifier = Modifier.padding(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

@@ -1,3 +1,5 @@
+// File: com/phoenix/luminacn/activity/NewMainActivity.kt
+
 package com.phoenix.luminacn.activity
 
 import android.Manifest
@@ -19,6 +21,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
@@ -37,10 +40,15 @@ import com.phoenix.luminacn.overlay.mods.TargetHudOverlay
 import com.phoenix.luminacn.ui.theme.LuminaClientTheme
 import com.phoenix.luminacn.util.HashCat
 import com.phoenix.luminacn.music.MusicObserver
+import com.phoenix.luminacn.viewmodel.MainScreenViewModel
 import io.netty.util.internal.logging.InternalLoggerFactory
 import io.netty.util.internal.logging.JdkLoggerFactory
 
 class NewMainActivity : ComponentActivity() {
+
+    // This line instantiates the ViewModel, causing its `init` block to execute
+    // and load all application data and settings at launch.
+    private val mainScreenViewModel: MainScreenViewModel by viewModels()
 
     companion object {
         private var currentInstance: NewMainActivity? = null
@@ -89,7 +97,7 @@ class NewMainActivity : ComponentActivity() {
         /**
          * 检查当前是否有Activity实例可用
          */
-        fun isAvailable(): Boolean = currentInstance != null && 
+        fun isAvailable(): Boolean = currentInstance != null &&
             !currentInstance!!.isFinishing && !currentInstance!!.isDestroyed
     }
 
@@ -431,9 +439,6 @@ class NewMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // MODIFIED: Removed mandatory accessibility check from onCreate
-        // ensureAccessibilityPermission() <-- REMOVED
-
         OverlayNotification.init(applicationContext)
         PacketNotificationOverlay.init(applicationContext)
         TargetHudOverlay.init(applicationContext)
@@ -469,10 +474,8 @@ class NewMainActivity : ComponentActivity() {
         requestStoragePermissions()
         requestOverlayPermission()
         
-        // 🆕 新增：请求通知权限
         requestNotificationPermission()
         
-        // 设置壁纸状态监听器
         setupWallpaperStatusListener()
 
         setContent {
@@ -486,22 +489,10 @@ class NewMainActivity : ComponentActivity() {
         }
     }
     
-    // MODIFIED: Removed onResume override which forced accessibility check
-    /*
-    override fun onResume() {
-        super.onResume()
-        if (!isAccessibilityEnabled()) {
-            Toast.makeText(this, "LuminaCN 需要无障碍权限才能正常工作", Toast.LENGTH_LONG).show()
-            ensureAccessibilityPermission()
-        }
-    }
-    */
-
     override fun onDestroy() {
         super.onDestroy()
         ArrayListManager.releaseSounds()
         
-        // 移除壁纸状态监听器
         if (::wallpaperCallback.isInitialized) {
             AppContext.instance.removeWallpaperStatusCallback(wallpaperCallback)
         }

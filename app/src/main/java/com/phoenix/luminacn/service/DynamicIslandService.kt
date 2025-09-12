@@ -11,7 +11,6 @@ import android.os.IBinder
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
-import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +56,7 @@ class DynamicIslandService : Service() {
     private lateinit var windowParams: WindowManager.LayoutParams
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lifecycleOwner = ServiceLifecycleOwner()
-    
+
     private var isWarmedUp = mutableStateOf(false)
     private var musicModeEnabled = mutableStateOf(true)
 
@@ -95,32 +94,32 @@ class DynamicIslandService : Service() {
         lifecycleOwner.performRestore(null)
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        
+
         // 读取Y轴初始位置
         val prefs = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
         val initialYOffset = prefs.getFloat("dynamicIslandYOffset", 20f)
-        
+
         composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeViewModelStoreOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             setContent {
                 val isDarkTheme = isSystemInDarkTheme()
-                val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { 
-                    if (isDarkTheme) dynamicDarkColorScheme(this@DynamicIslandService) else dynamicLightColorScheme(this@DynamicIslandService) 
-                } else { 
-                    if (isDarkTheme) darkColorScheme() else lightColorScheme() 
+                val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (isDarkTheme) dynamicDarkColorScheme(this@DynamicIslandService) else dynamicLightColorScheme(this@DynamicIslandService)
+                } else {
+                    if (isDarkTheme) darkColorScheme() else lightColorScheme()
                 }
-                
+
                 val alpha by animateFloatAsState(targetValue = if (isWarmedUp.value) 1.0f else 0.0f, label = "warmup")
 
                 MaterialTheme(colorScheme = colorScheme) {
                     val state = rememberDynamicIslandState()
-                    
-                    LaunchedEffect(state) { 
-                        this@DynamicIslandService.dynamicIslandState = state 
+
+                    LaunchedEffect(state) {
+                        this@DynamicIslandService.dynamicIslandState = state
                     }
-                    
+
                     DynamicIslandView(
                         state = state,
                         modifier = Modifier.alpha(alpha)
@@ -128,25 +127,32 @@ class DynamicIslandService : Service() {
                 }
             }
         }
+
+        // --- 关键修复 ---
+        // 参考 HUDService.kt 的实现，将窗口宽度设置为 MATCH_PARENT。
+        // 这会创建一个与屏幕等宽的透明“舞台”，让灵动岛UI在内部自由地进行宽度动画，
+        // 而不会因为窗口大小的限制而被裁剪。
+        // 高度保持 WRAP_CONTENT，这样窗口只会占据内容所需的垂直空间。
+        // gravity 保持 TOP or CENTER_HORIZONTAL，确保内容在顶部水平居中。
         windowParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, 
-            WindowManager.LayoutParams.WRAP_CONTENT, 
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, 
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or 
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or 
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, 
+            WindowManager.LayoutParams.MATCH_PARENT, // <-- 从 WRAP_CONTENT 修改为此
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
-        ).apply { 
+        ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = dpToPx(initialYOffset) // 设置初始Y位置
         }
         windowManager.addView(composeView, windowParams)
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        
+
         loadSettings()
     }
-    
+
     private fun loadSettings() {
         val prefs = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
         musicModeEnabled.value = prefs.getBoolean("musicModeEnabled", true)
@@ -154,7 +160,7 @@ class DynamicIslandService : Service() {
             startMusicObserver()
         }
     }
-    
+
     private fun startMusicObserver() {
         try {
             MusicObserver.start(this)
@@ -163,7 +169,7 @@ class DynamicIslandService : Service() {
             Log.e("DynamicIslandService", "Failed to start music observer", e)
         }
     }
-    
+
     private fun stopMusicObserver() {
         try {
             MusicObserver.stop(this)
@@ -180,30 +186,30 @@ class DynamicIslandService : Service() {
 
         intent ?: return START_STICKY
         when (intent.action) {
-            ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let { text -> 
+            ACTION_UPDATE_TEXT -> intent.getStringExtra(EXTRA_TEXT)?.let { text ->
                 dynamicIslandState?.updateConfig(dynamicIslandState?.scale ?: 1.0f, text)
             }
-            
-            ACTION_UPDATE_Y_OFFSET -> { 
+
+            ACTION_UPDATE_Y_OFFSET -> {
                 val yOffsetDp = intent.getFloatExtra(EXTRA_Y_OFFSET_DP, 0f)
                 windowParams.y = dpToPx(yOffsetDp)
                 windowManager.updateViewLayout(composeView, windowParams)
             }
-            
-            ACTION_UPDATE_SCALE -> { 
+
+            ACTION_UPDATE_SCALE -> {
                 val newScale = intent.getFloatExtra(EXTRA_SCALE, 1.0f)
                 dynamicIslandState?.updateConfig(newScale, dynamicIslandState?.persistentText ?: "User")
             }
-            
-            ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name -> 
+
+            ACTION_SHOW_NOTIFICATION_SWITCH -> intent.getStringExtra(EXTRA_MODULE_NAME)?.let { name ->
                 val state = intent.getBooleanExtra(EXTRA_MODULE_STATE, false)
-                dynamicIslandState?.addSwitch(name, name, state) 
+                dynamicIslandState?.addSwitch(name, name, state)
             }
-            
+
             ACTION_SHOW_OR_UPDATE_PROGRESS -> handleShowOrUpdateProgress(intent)
             ACTION_SHOW_OR_UPDATE_MUSIC -> handleShowOrUpdateMusic(intent)
             ACTION_REMOVE_TASK -> intent.getStringExtra(EXTRA_IDENTIFIER)?.let { dynamicIslandState?.removeTask(it) }
-            
+
             ACTION_SET_MUSIC_MODE -> {
                 val enabled = intent.getBooleanExtra(EXTRA_MUSIC_MODE_ENABLED, true)
                 musicModeEnabled.value = enabled
@@ -213,27 +219,27 @@ class DynamicIslandService : Service() {
         return START_STICKY
     }
 
-    override fun onDestroy() { 
+    override fun onDestroy() {
         super.onDestroy()
         lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         stopMusicObserver()
         windowManager.removeView(composeView)
-        serviceScope.cancel() 
+        serviceScope.cancel()
     }
-    
+
     private fun dpToPx(dp: Float): Int = (dp * resources.displayMetrics.density).roundToInt()
-    
-    private fun handleShowOrUpdateProgress(intent: Intent) { 
+
+    private fun handleShowOrUpdateProgress(intent: Intent) {
         val identifier = intent.getStringExtra(EXTRA_IDENTIFIER) ?: return
         val title = intent.getStringExtra(EXTRA_TITLE) ?: return
         val subtitle = intent.getStringExtra(EXTRA_SUBTITLE)
         val progress = intent.takeIf { it.hasExtra(EXTRA_PROGRESS_VALUE) }?.getFloatExtra(EXTRA_PROGRESS_VALUE, 0f)
-        val duration = if (progress == null && intent.hasExtra(EXTRA_DURATION_MS)) { 
-            intent.getLongExtra(EXTRA_DURATION_MS, 5000L) 
-        } else { 
-            null 
+        val duration = if (progress == null && intent.hasExtra(EXTRA_DURATION_MS)) {
+            intent.getLongExtra(EXTRA_DURATION_MS, 5000L)
+        } else {
+            null
         }
-        
+
         val iconDrawable = when {
             intent.hasExtra(EXTRA_IMAGE_DATA) -> intent.getByteArrayExtra(EXTRA_IMAGE_DATA)?.let { createDrawableFromByteArray(it) }
             intent.getIntExtra(EXTRA_ICON_RES_ID, -1) != -1 -> {
@@ -242,25 +248,25 @@ class DynamicIslandService : Service() {
             }
             else -> null
         }
-        
-        dynamicIslandState?.addOrUpdateProgress(identifier, title, subtitle, iconDrawable, progress, duration) 
+
+        dynamicIslandState?.addOrUpdateProgress(identifier, title, subtitle, iconDrawable, progress, duration)
     }
-    
+
     private fun handleShowOrUpdateMusic(intent: Intent) {
         if (!musicModeEnabled.value) return
-        
+
         val identifier = intent.getStringExtra(EXTRA_IDENTIFIER) ?: return
         val title = intent.getStringExtra(EXTRA_TITLE) ?: ""
         val subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: ""
         val progressText = intent.getStringExtra(EXTRA_PROGRESS_TEXT) ?: ""
         val progress = intent.getFloatExtra(EXTRA_PROGRESS_VALUE, 0f)
         val isMajorUpdate = intent.getBooleanExtra(EXTRA_IS_MAJOR_UPDATE, true)
-        
+
         val albumArt = intent.getByteArrayExtra(EXTRA_ALBUM_ART_DATA)?.let { createDrawableFromByteArray(it) }
-        
+
         dynamicIslandState?.addOrUpdateMusic(identifier, title, subtitle, albumArt, progressText, progress, isMajorUpdate)
     }
-    
+
     private fun createDrawableFromByteArray(byteArray: ByteArray): Drawable? {
         return try {
             val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
