@@ -38,24 +38,21 @@ class MainScreenViewModel : ViewModel() {
         Loading, Done
     }
 
-    // Existing SharedPreferences
     private val gameSettingsSharedPreferences by lazy {
         AppContext.instance.getSharedPreferences("game_settings", Context.MODE_PRIVATE)
     }
 
-    // Add SharedPreferences for the settings page.
     private val settingsPrefs by lazy {
         AppContext.instance.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE)
     }
 
     private val packageManager by lazy { AppContext.instance.packageManager }
 
-    // --- StateFlows ---
     private val _selectedPage = MutableStateFlow(MainScreenPages.HomePage)
     val selectedPage = _selectedPage.asStateFlow()
 
     private val _captureModeModel = MutableStateFlow(initialCaptureModeModel())
-    val captureModeModel = _captureModeModel.asStateFlow()
+    val captureModeModel = _captureMode_model.asStateFlow()
 
     private val _packageInfos = MutableStateFlow<List<PackageInfo>>(emptyList())
     val packageInfos = _packageInfos.asStateFlow()
@@ -66,17 +63,14 @@ class MainScreenViewModel : ViewModel() {
     private val _selectedGame = MutableStateFlow(initialSelectedGame())
     val selectedGame = _selectedGame.asStateFlow()
 
-    // Add new StateFlow for the SettingsState data class.
     private val _settingsState = MutableStateFlow(SettingsState())
     val settingsState = _settingsState.asStateFlow()
 
-    // Load EVERYTHING in the init block.
     init {
         loadSettingsFromPrefs()
         fetchPackageInfos()
     }
 
-    // --- Page and Game Selection ---
     fun selectPage(page: MainScreenPages) {
         _selectedPage.value = page
     }
@@ -86,19 +80,21 @@ class MainScreenViewModel : ViewModel() {
         captureModeModel.to(gameSettingsSharedPreferences)
     }
 
-    // This is now the single source for the selected app package.
+    // ✅ FIXED: Safely handle nullable packageName input.
     fun selectGame(packageName: String?) {
-        _selectedGame.value = packageName
+        // If the incoming package name is null, fall back to the default.
+        // This makes the assignment to the non-nullable `_selectedGame.value` safe.
+        _selectedGame.value = packageName ?: "com.mojang.minecraftpe"
+        
+        // When saving to SharedPreferences, we can save the actual value (which could be null).
         gameSettingsSharedPreferences.edit {
             putString("selected_game", packageName)
         }
-        // Also update the settings preference for consistency
         settingsPrefs.edit {
             putString("selectedAppPackage", packageName)
         }
     }
 
-    // --- Package Info Fetching ---
     fun fetchPackageInfos() {
         viewModelScope.launch(Dispatchers.IO) {
             _packageInfoState.value = PackageInfoState.Loading
@@ -115,8 +111,7 @@ class MainScreenViewModel : ViewModel() {
             }
         }
     }
-    
-    // --- Helper functions for app info ---
+
     fun appName(pkg: String): String = try {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
     } catch (e: Exception) { pkg }
@@ -125,8 +120,6 @@ class MainScreenViewModel : ViewModel() {
         packageManager.getPackageInfo(pkg, 0).versionName ?: "?"
     } catch (e: Exception) { "?" }
 
-
-    // Centralized function to load all settings from SharedPreferences.
     private fun loadSettingsFromPrefs() {
         _settingsState.update {
             it.copy(
@@ -143,8 +136,8 @@ class MainScreenViewModel : ViewModel() {
             )
         }
     }
-
-    // --- Public update functions for every setting to be called from the UI ---
+    
+    // --- Public update functions for every setting ---
 
     fun updateOptimizeNetwork(enabled: Boolean) {
         settingsPrefs.edit().putBoolean("optimizeNetworkEnabled", enabled).apply()
@@ -201,16 +194,15 @@ class MainScreenViewModel : ViewModel() {
         settingsPrefs.edit().putBoolean("musicModeEnabled", enabled).apply()
         _settingsState.update { it.copy(musicModeEnabled = enabled) }
     }
-
+    
     // --- Initializers ---
     private fun initialCaptureModeModel(): CaptureModeModel {
         return CaptureModeModel.from(gameSettingsSharedPreferences)
     }
 
     private fun initialSelectedGame(): String {
-        // Now also check the newer SettingsPrefs for the selected app
         return settingsPrefs.getString("selectedAppPackage", null)
-            ?: gameSettingsSharedPreferences.getString("selected_game", "com.mojang.minecraftpe")
+            ?: gameSettingsSharedPreferences.getString("selected_game", null)
             ?: "com.mojang.minecraftpe"
     }
 }
