@@ -2,6 +2,7 @@
 package com.phoenix.luminacn.phoenix
 
 import android.animation.TimeInterpolator
+import android.content.Context
 import android.graphics.BlurMaskFilter
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
@@ -44,7 +46,7 @@ import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import kotlinx.coroutines.*
 import kotlin.math.max
 
-// --- Constants (Unchanged) ---
+// --- Constants ---
 private const val VALUE_PROGRESS_TIMEOUT_MS = 3000L
 private const val TIME_PROGRESS_GRACE_PERIOD_MS = 1000L
 private const val MUSIC_VISIBILITY_TIMEOUT_MS = 5000L
@@ -62,7 +64,7 @@ private val GLOW_BLUR_RADIUS = 12.dp
 private val GLOW_SPREAD_RADIUS = 4.dp
 private val MUSIC_ART_CORNER_RADIUS = 15.dp
 
-// --- Data Classes and State (With Animation Fixes) ---
+// --- Data Classes and State ---
 public data class TaskItem(
     val type: Type,
     val identifier: String,
@@ -302,7 +304,6 @@ public class DynamicIslandState(private var scope: CoroutineScope, private val t
     }
 }
 
-
 // --- Composable UI ---
 
 fun Modifier.softGlow(color: Color, borderRadius: Dp, blurRadius: Dp, spread: Dp) = this.drawBehind {
@@ -372,20 +373,17 @@ public fun DynamicIslandView(state: DynamicIslandState, modifier: Modifier = Mod
             fun measure(text: String) = textMeasurer.measure(AnnotatedString(text), style = textStyle).size.width.toDp()
             val separatorWidth = measure(" • ") + separatorHorizontalPadding * 2
 
-            // 计算必须显示的固定部分宽度
             val kitasanWidth = iconSize + iconSpacing + measure("Kitasan")
             val persistentWidth = iconSize + iconSpacing + measure(state.persistentText)
-            val fpsWidth = iconSize + iconSpacing + measure("999 FPS") // 使用最大可能的FPS宽度
+            val fpsWidth = iconSize + iconSpacing + measure("999 FPS")
             
-            // 基础宽度：固定部分 + 分隔符 + 边距
             val baseWidth = kitasanWidth + separatorWidth + 
                            persistentWidth + separatorWidth + 
                            fpsWidth + outerHorizontalPadding * 2
 
             val totalWidth = if (musicTask != null) {
-                // 音乐部分：图标 + 间距 + 最多12个字符的文本
                 val musicIconWidth = iconSize + iconSpacing
-                val maxMusicText = "A".repeat(12) // 假设最多12个字符
+                val maxMusicText = "A".repeat(12)
                 val musicTextWidth = measure(maxMusicText)
                 val musicWidth = musicIconWidth + musicTextWidth + separatorWidth
                 
@@ -394,7 +392,6 @@ public fun DynamicIslandView(state: DynamicIslandState, modifier: Modifier = Mod
                 baseWidth
             }
             
-            // Add extra padding to prevent text cutoff
             totalWidth + (8.dp * actualScale)
         }
     }
@@ -443,7 +440,6 @@ public fun DynamicIslandView(state: DynamicIslandState, modifier: Modifier = Mod
             val widthPx = animatedWidth.roundToPx()
             val heightPx = animatedHeight.roundToPx()
             val finalWidthPx = widthPx.coerceAtMost(constraints.maxWidth)
-            // Fix 1: Scale the glow room calculation
             val glowRoomPx = ((GLOW_BLUR_RADIUS + GLOW_SPREAD_RADIUS) * actualScale).roundToPx()
             val placeable = measurable.measure(Constraints.fixed(finalWidthPx, heightPx))
             val x = (constraints.maxWidth - finalWidthPx) / 2
@@ -483,7 +479,7 @@ public fun DynamicIslandView(state: DynamicIslandState, modifier: Modifier = Mod
     Column(modifier = Modifier.fillMaxSize().padding(vertical = VIEW_PADDING * scale)) {
         tasks.forEachIndexed { index, task ->
             AnimatedVisibility(
-                visible = true, // Already filtered, so always visible within this scope
+                visible = true,
                 enter = fadeIn(animationSpec = tween(500, index * 120)) + expandVertically(animationSpec = tween(500, index * 120, easing = FastOutSlowInEasing)),
                 exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(targetOffsetY = { -it / 2 }) + shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing))
             ) { TaskItemRow(task = task, scale = scale) }
@@ -623,19 +619,16 @@ private fun CollapsedContent(
     )
     val iconSize = 16.dp * scale
 
-    // 简化的音乐文本截断逻辑
     val truncatedMusicText = remember(musicTask?.text) {
         musicTask?.let { task ->
-            // 简单截断：最多12个字符
             if (task.text.length <= 12) {
                 task.text
             } else {
-                // 尝试在空格处截断
                 val words = task.text.split(" ")
                 var result = ""
                 for (word in words) {
                     val potential = if (result.isEmpty()) word else "$result $word"
-                    if (potential.length <= 11) { // 留1个字符给省略号
+                    if (potential.length <= 11) {
                         result = potential
                     } else {
                         break
@@ -643,7 +636,6 @@ private fun CollapsedContent(
                 }
                 
                 if (result.isEmpty()) {
-                    // 如果没有合适的单词边界，直接按字符截断
                     "${task.text.take(11)}…"
                 } else if (result.length < task.text.length) {
                     "$result…"
@@ -729,6 +721,21 @@ private fun CollapsedContent(
     )
 }
 
-
-
-
+/**
+ * 创建并记住DynamicIslandState的Composable函数
+ */
+@Composable
+fun rememberDynamicIslandState(): DynamicIslandState {
+    val scope = rememberCoroutineScope()
+    val textMeasurer = rememberTextMeasurer()
+    
+    // 从SharedPreferences读取初始值
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("SettingsPrefs", Context.MODE_PRIVATE) }
+    val initialScale = prefs.getFloat("dynamicIslandScale", 0.7f)
+    val initialPersistentText = prefs.getString("dynamicIslandUsername", "User") ?: "User"
+    
+    return remember {
+        DynamicIslandState(scope, textMeasurer, initialScale, initialPersistentText)
+    }
+}
