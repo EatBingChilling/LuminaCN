@@ -11,6 +11,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.content.res.Configuration
 import android.provider.Settings
@@ -34,7 +36,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
@@ -95,19 +96,14 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     val settingsState by vm.settingsState.collectAsState()
 
     /* 状态 */
-    var isVerifying by remember { mutableStateOf(true) }
-    var step by remember { mutableIntStateOf(1) }
-    var msg by remember { mutableStateOf("正在连接服务器...") }
-    var err by remember { mutableStateOf<String?>(null) }
-    var progress by remember { mutableFloatStateOf(0f) }
-
     var notice by remember { mutableStateOf<NoticeInfo?>(null) }
     var privacy by remember { mutableStateOf<String?>(null) }
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
-
     var tab by remember { mutableIntStateOf(0) }
     // MODIFIED: State to control the accessibility dialog
     var showAccessibilityDialog by remember { mutableStateOf(false) }
+    // MODIFIED: State to control the VPN warning dialog
+    var showVpnDialog by remember { mutableStateOf(false) }
     
     // ================== [新增] 灵动岛控制逻辑 ==================
     // 将控制逻辑从 SettingsScreen 移动到这里，使其生命周期与主屏幕绑定
@@ -136,25 +132,28 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         wallpaperBitmap = WallpaperUtils.getWallpaperBitmap(context)
     }
 
-    /* 验证流程 (FIX: Reworked verification logic to be more robust and correct JSON parsing) */
+    /* 验证流程 (MODIFIED: Runs silently in background, shows Snackbar on critical failure) */
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             var allStepsSuccess = true
 
             // Step 1: Check Server Status
             try {
-                step = 1; msg = "步骤1: 连接服务器..."; progress = 0.2f; delay(500)
                 makeHttp("$BASE_URL/appstatus/a.ini") // We just need a 200 OK
             } catch (e: Exception) {
-                err = "服务器连接失败: ${e.message}"
-                msg = "验证失败，将跳过检查..."
+                // MODIFIED: Show snackbar on failure instead of blocking UI
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "服务器连接失败，部分在线功能可能不可用",
+                        duration = SnackbarDuration.Long
+                    )
+                }
                 allStepsSuccess = false
             }
 
             // Step 2: Fetch Notice
             if (allStepsSuccess) {
                 try {
-                    step = 2; msg = "步骤2: 获取公告..."; progress = 0.4f; delay(500)
                     val resp = makeHttp("$BASE_URL/title/a.json")
                     if (getSHA(resp) != prefs.getString(KEY_NOTICE_HASH, "")) {
                         val j = JSONObject(resp)
@@ -172,15 +171,14 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             // Step 3: Fetch Privacy Policy
             if (allStepsSuccess) {
                 try {
-                    step = 3; msg = "步骤3: 获取隐私协议..."; progress = 0.6f; delay(500)
                     val resp = makeHttp("$BASE_URL/privary/a.txt")
                     if (getSHA(resp) != prefs.getString(KEY_PRIVACY_HASH, "")) {
                         privacy = resp
                     }
                 } catch (e: Exception) {
-                    err = "无法获取隐私协议: ${e.message}"
-                    msg = "验证失败，将跳过检查..."
-                    allStepsSuccess = false
+                    // MODIFIED: This is considered a critical failure in original code, but we will just log it.
+                    println("无法获取隐私协议: ${e.message}")
+                    allStepsSuccess = false // Mark as failed but don't block
                 }
             }
 
@@ -188,7 +186,6 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
             // Step 4: Check for Updates
             if (allStepsSuccess) {
                 try {
-                    step = 4; msg = "步骤4: 检查更新..."; progress = 0.8f; delay(500)
                     val resp = makeHttp("$BASE_URL/update/a.json")
                     val j = JSONObject(resp)
                     val cloudVersion = j.getLong("version")
@@ -206,17 +203,6 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                     // Non-critical error, just log and continue
                     println("Failed to check for updates: ${e.message}")
                 }
-            }
-
-
-            // Finalization
-            progress = 1f
-            msg = if (allStepsSuccess) "验证完成" else "验证流程已跳过"
-            delay(800)
-            isVerifying = false
-
-            if (!allStepsSuccess && err != null) {
-                SimpleOverlayNotification.show(err ?: "验证失败，应用可能工作不正常", NotificationType.ERROR, 3000)
             }
         }
     }
@@ -248,22 +234,27 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         onStartToggle()
     }
 
-    // MODIFIED: Centralized click handler for the FABs
+    // MODIFIED: Centralized click handler for the FABs with VPN check
     val fabOnClick = {
         if (Services.isActive) {
             // If service is running, just stop it.
             onStartToggle()
         } else {
-            // If service is not running, check for accessibility permission before starting.
-            val accessibilityEnabled = isAccessibilityEnabled(context)
-            val dontAskAgain = prefs.getBoolean(KEY_DONT_SHOW_ACCESSIBILITY_PROMPT, false)
-
-            if (!accessibilityEnabled && !dontAskAgain) {
-                // Show the dialog if accessibility is off and the user hasn't opted out.
-                showAccessibilityDialog = true
+            // [新增] VPN检测
+            if (isVpnActive(context)) {
+                showVpnDialog = true
             } else {
-                // Otherwise, start the service directly.
-                startServiceAction()
+                // If service is not running, check for accessibility permission before starting.
+                val accessibilityEnabled = isAccessibilityEnabled(context)
+                val dontAskAgain = prefs.getBoolean(KEY_DONT_SHOW_ACCESSIBILITY_PROMPT, false)
+
+                if (!accessibilityEnabled && !dontAskAgain) {
+                    // Show the dialog if accessibility is off and the user hasn't opted out.
+                    showAccessibilityDialog = true
+                } else {
+                    // Otherwise, start the service directly.
+                    startServiceAction()
+                }
             }
         }
     }
@@ -468,46 +459,7 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         }
     }
 
-    // <<< MODIFIED: 验证遮罩动画化
-    // 1. 使用 `animateFloatAsState` 创建一个 `progress` 的动画版本
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-        label = "VerificationProgressAnimation"
-    )
-
-    // 2. 使用 `AnimatedVisibility` 包裹整个遮罩，实现优雅的淡出效果
-    AnimatedVisibility(
-        visible = isVerifying,
-        exit = fadeOut(animationSpec = tween(durationMillis = 500))
-    ) {
-        Surface(
-            color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-            modifier = Modifier.fillMaxSize(),
-            // 添加 clickable 以阻止下层UI的交互
-            onClick = {}
-        ) {
-            Column(
-                Modifier.fillMaxSize(),
-                Arrangement.Center,
-                Alignment.CenterHorizontally
-            ) {
-                // 3. 将 `LinearProgressIndicator` 的 progress 指向我们创建的 `animatedProgress`
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    Modifier.width(200.dp)
-                )
-                // 注意: 如果你想要的是那种无限循环的波浪线加载动画 (不显示具体进度),
-                // 只需将上面的调用改为不带 progress 参数即可:
-                // LinearProgressIndicator(Modifier.width(200.dp))
-
-                Spacer(Modifier.height(16.dp))
-                Text(msg, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        }
-    }
-    // >>> MODIFIED END
+    // <<< MODIFIED: Verification overlay is removed. >>>
 
     /* 弹窗 */
     privacy?.let {
@@ -565,6 +517,20 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
                             startServiceAction()
                         }
                     ) { Text("不再提示") }
+                }
+            }
+        )
+    }
+
+    // MODIFIED: Added AlertDialog for VPN detection
+    if (showVpnDialog) {
+        AlertDialog(
+            onDismissRequest = { showVpnDialog = false },
+            title = { Text("VPN已连接") },
+            text = { Text("检测到您正在使用VPN连接。为确保服务正常运行，请先断开VPN连接后再启动服务。") },
+            confirmButton = {
+                TextButton(onClick = { showVpnDialog = false }) {
+                    Text("确定")
                 }
             }
         )
@@ -629,8 +595,8 @@ private fun MainDashboard() {
                 ServerConfigSection(vm, model)
                 AnimatedVisibility(model.serverHostName.isNotBlank()) {
                     Surface(
-                        Modifier.fillMaxWidth(), 
-                        RoundedCornerShape(8.dp), 
+                        Modifier.fillMaxWidth(),
+                        RoundedCornerShape(8.dp),
                         colors.surface.copy(alpha = 0.8f)
                     ) {
                         Column(Modifier.padding(12.dp)) {
@@ -649,9 +615,9 @@ private fun MainDashboard() {
         Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = if (Services.isActive) 
-                    colors.tertiaryContainer.copy(alpha = 0.9f) 
-                else 
+                containerColor = if (Services.isActive)
+                    colors.tertiaryContainer.copy(alpha = 0.9f)
+                else
                     colors.errorContainer.copy(alpha = 0.9f)
             ),
             shape = RoundedCornerShape(12.dp)
@@ -874,6 +840,14 @@ private fun UpdateDialog(info: UpdateInfo, onUpdate: () -> Unit, onDismiss: () -
 /* ======================================================
    网络/哈希工具
    ====================================================== */
+// MODIFIED: Added helper function to check for VPN connection
+private fun isVpnActive(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val activeNetwork = connectivityManager.activeNetwork ?: return false
+    val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+    return networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+}
+
 // MODIFIED: Added helper function to check for accessibility service status
 private fun isAccessibilityEnabled(context: Context): Boolean {
     val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager

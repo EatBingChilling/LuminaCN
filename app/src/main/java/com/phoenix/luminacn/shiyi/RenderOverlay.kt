@@ -1,6 +1,9 @@
 package com.phoenix.luminacn.shiyi
 
+import android.content.Context
+import android.graphics.Point
 import android.os.Build
+import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -15,24 +18,53 @@ import com.phoenix.luminacn.overlay.manager.OverlayWindow
 
 class RenderOverlay : OverlayWindow() {
 
+    // --- THE CRITICAL FIX FOR LANDSCAPE FULLSCREEN ---
+    // We override layoutParams to programmatically calculate the true screen size,
+    // ignoring the system's incorrect assumptions for landscape overlays.
     override val layoutParams by lazy {
+        val wm = OverlayManager.currentContext!!.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        
+        // Get the real, physical screen dimensions.
+        val realScreenWidth: Int
+        val realScreenHeight: Int
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val windowMetrics = wm.currentWindowMetrics
+            val bounds = windowMetrics.bounds
+            realScreenWidth = bounds.width()
+            realScreenHeight = bounds.height()
+        } else {
+            @Suppress("DEPRECATION")
+            val display = wm.defaultDisplay
+            val size = Point()
+            @Suppress("DEPRECATION")
+            display.getRealSize(size)
+            realScreenWidth = size.x
+            realScreenHeight = size.y
+        }
+
         WindowManager.LayoutParams().apply {
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                     WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+            
             type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE
             }
-            width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.MATCH_PARENT
+
+            // --- KEY CHANGE: Set exact pixel dimensions instead of MATCH_PARENT ---
+            width = realScreenWidth
+            height = realScreenHeight
+            
             gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
             format = android.graphics.PixelFormat.TRANSLUCENT
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
@@ -42,7 +74,6 @@ class RenderOverlay : OverlayWindow() {
     companion object {
         val overlayInstance by lazy { RenderOverlay() }
         private var shouldShowOverlay = false
-        // --- 修复：恢复 AppContext 需要的 session 变量和 setSession 方法 ---
         private var currentSession: com.phoenix.luminacn.constructors.NetBound? = null
 
         fun showOverlay() {
@@ -89,26 +120,24 @@ class RenderOverlay : OverlayWindow() {
     override fun Content() {
         if (!isOverlayEnabled()) return
 
-        // 检查 session 是否存在，如果 ESP 逻辑需要
-        currentSession?.let { session ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                AndroidView(
-                    factory = { ctx ->
-                        RenderOverlayView(ctx).apply {
-                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    update = { view ->
-                        view.post { setImmersiveMode(view) }
-                        view.invalidate()
+        // We can still use fillMaxSize here because our root window is now correctly sized.
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { ctx ->
+                    RenderOverlayView(ctx).apply {
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
                     }
-                )
-            }
+                },
+                modifier = Modifier.fillMaxSize(),
+                update = { view ->
+                    view.post { setImmersiveMode(view) }
+                    view.invalidate()
+                }
+            )
         }
     }
 }
