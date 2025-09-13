@@ -206,7 +206,7 @@ fun SettingsScreen() {
 
                 // ========================= [新增] 壁纸设置 =========================
                 Text(
-                    text = "壁纸设置",
+                    text = "壁纸设置（重启生效）",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -238,7 +238,7 @@ fun SettingsScreen() {
                 Column(modifier = Modifier.alpha(if (settingsState.wallpaperEnabled) 1f else 0.5f)) {
                     SettingToggle(
                         title = "启用模糊效果",
-                        desc = "对背景壁纸应用高斯模糊",
+                        desc = "对背景壁纸应用高斯模糊（不保证低版本安卓可用）",
                         checked = settingsState.wallpaperBlurEnabled,
                         onChange = { enabled ->
                             if (settingsState.wallpaperEnabled) {
@@ -354,7 +354,7 @@ fun SettingsScreen() {
                     )
                 }
 
-                SettingToggle("音乐模式", "自动显示音乐播放信息", settingsState.musicModeEnabled) {
+                SettingToggle("音乐模式", "自动显示音乐播放信息，修改后重启生效", settingsState.musicModeEnabled) {
                     mainScreenViewModel.updateMusicMode(it)
                 }
             }

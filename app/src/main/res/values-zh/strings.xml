@@ -106,7 +106,7 @@
     <string name="module_weakness">虚弱</string>
     <string name="module_poison">中毒</string>
     <string name="module_wither">凋零</string>
-    <string name="module_esp_display_name">透视</string>
+    <string name="module_esp_display_name">透视（存在问题）</string>
     <string name="module_critbot_display_name">刀刀暴击</string>
     <string name="module_infiniteaura_display_name">无限光环</string>
     <string name="module_reach_display_name">长臂</string>
@@ -194,7 +194,7 @@
     <string name="restart_app">点我好吗求你了</string>
     <string name="copy_crash_log">别点我😭😭😭</string>
     <string name="crash_copied">崩溃日志已复制到剪贴板</string>
-    <string name="crash_description">点重启！！！点重启！！！不要给我日志！！！！能重启解决的一律重启！！！！不解决大众遇不到就你有问题的报错！！！！</string>
+    <string name="crash_description">点重启！！！点重启！！！不要给我日志！！！！能重启解决的一律重启！！！！不解决别人遇不到就你有问题的报错！！！！</string>
     <string name="device_info">设备信息</string>
     <string name="thread_info">线程信息</string>
     <string name="stack_trace">栈追溯（我需要这个）</string>
@@ -237,17 +237,17 @@
     <string name="add_a_gaming_account_to_get_started">添加一个游戏账号以开始</string>
     <string name="no_account_added_yet">还没有添加账号</string>
     <string name="about_lumina">关于 LuminaCN</string>
-    <string name="lumina_introduction">LuminaCN 是一款基于 LuminaCN 的 MITM 客户端</string>
+    <string name="lumina_introduction">LuminaCN 是一款基于 Lumina 的 MITM 客户端</string>
     <string name="lumina_expectation">嗯对</string>
     <string name="lumina_compatibility">建议使用最新的 Minecraft 版本、简体中文以获得最佳体验</string>
-    <string name="lumina_copyright">© 2025 Project LuminaCN — 根据 GNU GPLv3 创作</string>
+    <string name="lumina_copyright">© 2025 Project LuminaCN （原版 Lumina Client）</string>
     <string name="lumina_team">功能来自 Project Lumina，W Client, MuCuteClient, NovaClient, ProtohaxNeo...</string>
     <string name="connect_with_us">联系我们</string>
     
     <!-- 凤凰_ 新增翻译 -->
     
     <!-- 模块名称 -->
-    <string name="module_name_tag_display_name">玩家名称标签</string>
+    <string name="module_name_tag_display_name">玩家名称标签（存在问题）</string>
     <string name="module_anti_blind_display_name">防失明</string>
     <string name="module_dsw_display_name">D键切换</string>
     <string name="module_togglesound">功能音效</string>

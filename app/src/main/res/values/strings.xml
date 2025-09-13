@@ -111,7 +111,7 @@
     <string name="module_weakness">Weakness</string>
     <string name="module_poison">Poison</string>
     <string name="module_wither">Wither</string>
-    <string name="module_esp_display_name">ESP Overlay</string>
+    <string name="module_esp_display_name">ESP Overlay (bugs)</string>
     <string name="module_critbot_display_name">Criticals</string>
     <string name="module_infiniteaura_display_name">Infinite Aura</string>
     <string name="module_reach_display_name">Reach</string>
@@ -128,7 +128,7 @@
     <string name="module_build_denial">Blinder</string>
     <string name="module_hitbox_display_name">Hitbox</string>
     <string name="module_Anti_Ac_fly_display_name">AACFly</string>
-    <string name="module_name_tag_display_name">Nametags</string>
+    <string name="module_name_tag_display_name">Nametags (bugs)</string>
     <string name="module_anti_blind_display_name">AntiBlind</string>
     <string name="module_dsw_display_name">DSwitch</string>
     <string name="module_damage_text_display_name">DamageText</string>

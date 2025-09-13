@@ -52,6 +52,8 @@ class NewMainActivity : ComponentActivity() {
 
     companion object {
         private var currentInstance: NewMainActivity? = null
+        private const val PREFS_NAME = "SettingsPrefs"
+        private const val KEY_DONT_SHOW_NOTIFICATION_PROMPT = "dont_show_notification_prompt"
 
         fun launchConfigImport() {
             if (currentInstance == null) {
@@ -236,39 +238,84 @@ class NewMainActivity : ComponentActivity() {
         }
     }
 
-    // ====================== 【新增：通知权限相关方法】 ======================
+    // ====================== 【MODIFIED: 通知权限相关方法】 ======================
     
-    private fun requestNotificationPermission() {
+    /**
+     * Checks conditions and decides whether to ask for notification permission.
+     * This is the entry point called from onCreate.
+     */
+    private fun checkAndRequestNotificationPermission() {
+        // Step 1: Only required for Android 13 (Tiramisu) and above.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Log.d("NewMainActivity", "Notification permission not required on this Android version")
+            startMusicObserverIfNeeded()
+            return
+        }
+
+        // Step 2: Check if permission is already granted.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            Log.d("NewMainActivity", "Notification permission already granted")
+            startMusicObserverIfNeeded()
+            return
+        }
+
+        // Step 3: Check if the user has previously selected "Don't Ask Again".
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_DONT_SHOW_NOTIFICATION_PROMPT, false)) {
+            Log.d("NewMainActivity", "User has opted out of notification permission prompts.")
+            return
+        }
+
+        // Step 4: If not granted and not opted-out, show our custom informational dialog.
+        showNotificationInfoDialog()
+    }
+
+    /**
+     * Shows a custom dialog explaining why the permission is needed.
+     */
+    private fun showNotificationInfoDialog() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("启用音乐通知？")
+            .setMessage("LuminaCN可以显示当前播放的音乐信息，但这需要通知权限。\n\n授予权限后，您将在灵动岛或通知栏中看到音乐详情。")
+            .setPositiveButton("授予权限") { _, _ ->
+                // User agreed, proceed to the standard permission request flow.
+                requestNotificationPermissionInternal()
+            }
+            .setNegativeButton("忽略") { _, _ ->
+                Log.d("NewMainActivity", "User ignored the notification permission info dialog for this session.")
+            }
+            .setNeutralButton("不再提示") { _, _ ->
+                // Save the preference to not show this dialog again.
+                prefs.edit().putBoolean(KEY_DONT_SHOW_NOTIFICATION_PROMPT, true).apply()
+                Log.d("NewMainActivity", "User chose to never be prompted for notification permission again.")
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    /**
+     * Handles the actual system permission request (rationale or prompt).
+     * This is called after the user agrees in our custom info dialog.
+     */
+    private fun requestNotificationPermissionInternal() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    Log.d("NewMainActivity", "Notification permission already granted")
-                    startMusicObserverIfNeeded()
-                }
-                
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
                     showNotificationPermissionRationaleDialog()
                 }
-                
                 else -> {
                     Log.d("NewMainActivity", "Requesting notification permission")
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
-        } else {
-            // Android 13 以下不需要POST_NOTIFICATIONS权限
-            Log.d("NewMainActivity", "Notification permission not required on this Android version")
-            startMusicObserverIfNeeded()
         }
     }
 
     private fun showNotificationPermissionRationaleDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("需要通知权限")
-            .setMessage("LuminaCN需要通知权限来显示音乐播放信息和系统状态。请授予通知权限以获得完整功能。")
+            .setMessage("LuminaCN 需要通知权限来在灵动岛上显示音乐播放信息。请授予通知权限以获得完整功能。")
             .setPositiveButton("授予权限") { _, _ ->
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -282,7 +329,7 @@ class NewMainActivity : ComponentActivity() {
     private fun showNotificationPermissionDeniedDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("通知权限被拒绝")
-            .setMessage("没有通知权限，音乐播放信息等功能将无法正常工作。您可以稍后在设置中手动授予权限。")
+            .setMessage("没有通知权限，音乐播放信息功能将无法正常工作。您可以稍后在设置中手动授予权限。")
             .setPositiveButton("前往设置") { _, _ ->
                 openAppSettings()
             }
@@ -305,7 +352,7 @@ class NewMainActivity : ComponentActivity() {
     }
 
     private fun startMusicObserverIfNeeded() {
-        val prefs = getSharedPreferences("SettingsPrefs", MODE_PRIVATE)
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val musicModeEnabled = prefs.getBoolean("musicModeEnabled", true)
         
         if (musicModeEnabled) {
@@ -357,7 +404,7 @@ class NewMainActivity : ComponentActivity() {
             if (!isFinishing && !isDestroyed) {
                 MaterialAlertDialogBuilder(this)
                     .setTitle("需要设置壁纸")
-                    .setMessage("由于系统权限限制，需要您手动选择一张图片作为应用壁纸。这只需要设置一次。")
+                    .setMessage("由于系统权限限制，需要您手动选择一张图片作为应用壁纸。这只需要设置一次，如果需要更多自定义，请点击稍后设置后前往设置页设置壁纸。")
                     .setPositiveButton("选择图片") { _, _ ->
                         launchWallpaperPickerInternal()
                     }
@@ -474,7 +521,8 @@ class NewMainActivity : ComponentActivity() {
         requestStoragePermissions()
         requestOverlayPermission()
         
-        requestNotificationPermission()
+        // MODIFIED: Call the new entry point for notification permission
+        checkAndRequestNotificationPermission()
         
         setupWallpaperStatusListener()
 

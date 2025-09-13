@@ -1,6 +1,5 @@
 package com.phoenix.luminacn.game.module.impl.motion
 
-import com.phoenix.luminacn.R
 import com.phoenix.luminacn.game.InterceptablePacket
 import com.phoenix.luminacn.constructors.Element
 import com.phoenix.luminacn.constructors.CheatCategory
@@ -15,7 +14,6 @@ import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityMotionPacket
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAbilitiesPacket
 
-
 class MotionFlyElement(iconResId: Int = AssetManager.getAsset("ic_flash_black_24dp")) : Element(
     name = "MotionFly",
     category = CheatCategory.Motion,
@@ -23,13 +21,14 @@ class MotionFlyElement(iconResId: Int = AssetManager.getAsset("ic_flash_black_24
     displayNameResId = AssetManager.getString("module_motion_fly_display_name")
 ) {
 
-    private val verticalSpeedUp by floatValue("上升速度", 7.0f, 1.0f..20.0f)
-    private val verticalSpeedDown by floatValue("下降速度", 7.0f, 1.0f..20.0f)
-    private val motionInterval by floatValue("间隔", 100.0f, 100.0f..600.0f)
+    private var motionSpeed by floatValue("速度", 0.5f, 0f..3f)
+    private val verticalSpeed by floatValue("垂直移动速度", 1.5f, 1f..3f)
+    private val glideEnabled by boolValue("Glide", true)
+    private val addValue by floatValue("Glide", 0.01f, -0.2f..0.2f)
     private var lastMotionTime = 0L
-    private var jitterState = false
     private var canFly = false
-    private var motionSpeed by floatValue("速度", 0.5f, 0.1f..5.0f)
+
+    private val fixedInterval = 100L
 
     private val flyAbilitiesPacket = UpdateAbilitiesPacket().apply {
         playerPermission = PlayerPermission.OPERATOR
@@ -39,7 +38,7 @@ class MotionFlyElement(iconResId: Int = AssetManager.getAsset("ic_flash_black_24
             abilitiesSet.addAll(Ability.entries.toTypedArray())
             abilityValues.addAll(Ability.entries)
             walkSpeed = 0.1f
-            flySpeed = 2.19f
+            flySpeed = motionSpeed
         })
     }
 
@@ -54,12 +53,16 @@ class MotionFlyElement(iconResId: Int = AssetManager.getAsset("ic_flash_black_24
             flySpeed = 0f
         })
     }
+    private fun updateFlySpeed() {
+        flyAbilitiesPacket.abilityLayers.firstOrNull()?.flySpeed = motionSpeed
+    }
 
     private fun handleFlyAbilities(isEnabled: Boolean) {
         if (canFly != isEnabled) {
             flyAbilitiesPacket.uniqueEntityId = session.localPlayer.uniqueEntityId
             resetAbilitiesPacket.uniqueEntityId = session.localPlayer.uniqueEntityId
             if (isEnabled) {
+                updateFlySpeed()
                 session.clientBound(flyAbilitiesPacket)
             } else {
                 session.clientBound(resetAbilitiesPacket)
@@ -69,27 +72,23 @@ class MotionFlyElement(iconResId: Int = AssetManager.getAsset("ic_flash_black_24
     }
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
-
         val packet = interceptablePacket.packet
-
 
         if (packet is PlayerAuthInputPacket) {
             handleFlyAbilities(isEnabled)
-            if (isEnabled && System.currentTimeMillis() - lastMotionTime >= motionInterval) {
+            if (isEnabled && System.currentTimeMillis() - lastMotionTime >= fixedInterval) {
                 val vertical = when {
-                    packet.inputData.contains(PlayerAuthInputData.WANT_UP) -> verticalSpeedUp
-                    packet.inputData.contains(PlayerAuthInputData.WANT_DOWN) -> -verticalSpeedDown
-                    else -> 0f
+                    packet.inputData.contains(PlayerAuthInputData.WANT_UP) -> verticalSpeed
+                    packet.inputData.contains(PlayerAuthInputData.WANT_DOWN) -> -verticalSpeed
+                    else -> if (glideEnabled) addValue else 0f
                 }
                 val motionPacket = SetEntityMotionPacket().apply {
                     runtimeEntityId = session.localPlayer.runtimeEntityId
-                    motion = Vector3f.from(0f, vertical + (if (jitterState) 0.1f else -0.1f), 0f)
+                    motion = Vector3f.from(0f, vertical, 0f)
                 }
                 session.clientBound(motionPacket)
-                jitterState = !jitterState
                 lastMotionTime = System.currentTimeMillis()
             }
         }
-
     }
 }

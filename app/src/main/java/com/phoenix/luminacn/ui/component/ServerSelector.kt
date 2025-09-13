@@ -68,7 +68,6 @@ fun ServerSelector() {
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
 
     val rawServers = listOf(
-        Triple("NMOTHVH", "node2.yunmc.vip", 20028),
         Triple("EaseCation Test", "ntest.easecation.net", 19132),
         Triple("2b2tpe", "2b2tpe.org", 19132),
         Triple("2b2tmcpe", "2b2tmcpe.org", 19132),

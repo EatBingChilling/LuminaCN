@@ -76,6 +76,8 @@ private const val KEY_NOTICE_HASH = "notice_hash"
 private const val KEY_PRIVACY_HASH = "privacy_hash"
 // MODIFIED: Added key for accessibility prompt preference
 private const val KEY_DONT_SHOW_ACCESSIBILITY_PROMPT = "dont_show_accessibility_prompt"
+// MODIFIED: Added key for VPN warning preference
+private const val KEY_IGNORE_VPN_WARNING = "ignore_vpn_warning"
 
 
 /* ======================================================
@@ -234,27 +236,33 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         onStartToggle()
     }
 
+    // [新增] Extracted procedure for checking permissions and starting the service.
+    val startProcedure = {
+        // If service is not running, check for accessibility permission before starting.
+        val accessibilityEnabled = isAccessibilityEnabled(context)
+        val dontAskAgain = prefs.getBoolean(KEY_DONT_SHOW_ACCESSIBILITY_PROMPT, false)
+
+        if (!accessibilityEnabled && !dontAskAgain) {
+            // Show the dialog if accessibility is off and the user hasn't opted out.
+            showAccessibilityDialog = true
+        } else {
+            // Otherwise, start the service directly.
+            startServiceAction()
+        }
+    }
+
     // MODIFIED: Centralized click handler for the FABs with VPN check
     val fabOnClick = {
         if (Services.isActive) {
             // If service is running, just stop it.
             onStartToggle()
         } else {
-            // [新增] VPN检测
-            if (isVpnActive(context)) {
+            // [新增] VPN检测, respecting user preference
+            val ignoreVpnWarning = prefs.getBoolean(KEY_IGNORE_VPN_WARNING, false)
+            if (isVpnActive(context) && !ignoreVpnWarning) {
                 showVpnDialog = true
             } else {
-                // If service is not running, check for accessibility permission before starting.
-                val accessibilityEnabled = isAccessibilityEnabled(context)
-                val dontAskAgain = prefs.getBoolean(KEY_DONT_SHOW_ACCESSIBILITY_PROMPT, false)
-
-                if (!accessibilityEnabled && !dontAskAgain) {
-                    // Show the dialog if accessibility is off and the user hasn't opted out.
-                    showAccessibilityDialog = true
-                } else {
-                    // Otherwise, start the service directly.
-                    startServiceAction()
-                }
+                startProcedure()
             }
         }
     }
@@ -522,15 +530,36 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
         )
     }
 
-    // MODIFIED: Added AlertDialog for VPN detection
+    // MODIFIED: Added AlertDialog for VPN detection with ignore options
     if (showVpnDialog) {
         AlertDialog(
             onDismissRequest = { showVpnDialog = false },
             title = { Text("VPN已连接") },
-            text = { Text("检测到您正在使用VPN连接。为确保服务正常运行，请先断开VPN连接后再启动服务。") },
+            text = { Text("检测到您正在使用VPN连接。为确保服务正常运行，建议先断开VPN连接后再启动服务。\n另外如果在使用用于 Minecraft 的游戏加速器，那是没有用且没意义的。\n\n您也可以选择忽略此警告。") },
             confirmButton = {
                 TextButton(onClick = { showVpnDialog = false }) {
-                    Text("确定")
+                    Text("知道了")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            showVpnDialog = false
+                            startProcedure() // Ignore for this session
+                        }
+                    ) {
+                        Text("忽略并继续")
+                    }
+                    TextButton(
+                        onClick = {
+                            showVpnDialog = false
+                            prefs.edit().putBoolean(KEY_IGNORE_VPN_WARNING, true).apply()
+                            startProcedure() // Ignore permanently and continue
+                        }
+                    ) {
+                        Text("不再提示")
+                    }
                 }
             }
         )

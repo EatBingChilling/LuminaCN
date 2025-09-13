@@ -18,7 +18,7 @@ import com.phoenix.luminacn.util.AssetManager
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityMotionPacket
 
 class OPFightBotElement(iconResId: Int = AssetManager.getAsset("ic_eye")) : Element(
-    name = "OPFightBot(TEST)",
+    name = "OPFightBot",
     category = CheatCategory.Combat,
     iconResId,
     displayNameResId = AssetManager.getString("module_opfightbot_display_name")
@@ -28,7 +28,7 @@ class OPFightBotElement(iconResId: Int = AssetManager.getAsset("ic_eye")) : Elem
     private var filterInvisible by boolValue("过滤隐形", true)
 
     private var mode by stringValue("模式", "环绕", listOf("随机", "环绕", "锁背", "跳跃"))
-    private var range by floatValue("范围", 1.5f, 1.5f..4.0f)
+    private var range by floatValue("范围", 1.5f, 1.5f..20.0f)
     private var passive by boolValue("被动", false)
 
     private var horizontalSpeed by floatValue("横向速度", 5.0f, 1.0f..7.0f)

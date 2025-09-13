@@ -19,7 +19,7 @@ class KillauraABElement(iconResId: Int = AssetManager.getAsset("ic_sword_cross_b
 ) {
     private val playerOnly by boolValue("玩家", false)
     private val mobsOnly by boolValue("生物", true)
-    private val range by floatValue("范围", 3.7f, 2f..7f)
+    private val range by floatValue("范围", 3.7f, 2f..20f)
     private val delay by intValue("间隔", 5, 1..20)
     private val cps by intValue("CPS", 5, 1..20)
     private val packets by intValue("发包", 1, 1..10)

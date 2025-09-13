@@ -21,18 +21,29 @@ class TPFlyElement(
     iconResId,
     displayNameResId = AssetManager.getString("module_tpfly_display_name")
 ) {
-    private val stepSpeed      by floatValue("水平速度", 0.7f, 0.1f..3.0f)
-    private val verticalSpeed  by floatValue("垂直速度", 0.5f, 0.1f..2.0f)
-    private val sprintFactor   by floatValue("疾跑加速倍率", 2.0f, 1.0f..4.0f)
+    private val stepSpeed by floatValue("水平速度", 0.7f, 0.1f..3.0f)
+    private val verticalSpeed by floatValue("垂直速度", 0.5f, 0.1f..2.0f)
+    private val glideValue by boolValue("Glide", false)
+    private val glideSpeed by floatValue("Glide Speed", -0.02f, -0.2f..0.2f)
+
+    private var launchY = 0f
+    private var decHeight = 0f
 
     override fun onEnabled() {
         super.onEnabled()
+        launchY = session.localPlayer.vec3Position.y + 0.2f
+        decHeight = 0f
+
         session.clientBound(
             SetEntityMotionPacket().apply {
                 runtimeEntityId = session.localPlayer.runtimeEntityId
                 motion = Vector3f.from(0f, 0f, 0f)
             }
         )
+    }
+
+    override fun onDisabled() {
+        super.onDisabled()
     }
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
@@ -55,23 +66,32 @@ class TPFlyElement(
             if (contains(PlayerAuthInputData.DOWN_RIGHT)){ inputZ -= JITTER_VAL; inputX += JITTER_VAL }
         }
 
-        val yaw  = packet.rotation.y
+        val yaw = packet.rotation.y
         val yawRad = Math.toRadians(yaw.toDouble())
-        val speed = stepSpeed * (if (packet.inputData.contains(PlayerAuthInputData.SPRINTING)) sprintFactor else 1f)
+        val speed = stepSpeed
 
         val dx = (-sin(yawRad) * inputZ + cos(yawRad) * inputX) * speed
-        val dz = ( cos(yawRad) * inputZ + sin(yawRad) * inputX) * speed
+        val dz = (cos(yawRad) * inputZ + sin(yawRad) * inputX) * speed
 
-        val dy = when {
-            packet.inputData.contains(PlayerAuthInputData.WANT_UP)   ->  verticalSpeed
-            packet.inputData.contains(PlayerAuthInputData.WANT_DOWN) -> -verticalSpeed
-            else -> 0f
+        val hasVerticalInput = packet.inputData.contains(PlayerAuthInputData.WANT_UP) ||
+                packet.inputData.contains(PlayerAuthInputData.WANT_DOWN)
+
+        if (hasVerticalInput) {
+            decHeight = 0f
+            launchY += when {
+                packet.inputData.contains(PlayerAuthInputData.WANT_UP) -> verticalSpeed
+                packet.inputData.contains(PlayerAuthInputData.WANT_DOWN) -> -verticalSpeed
+                else -> 0f
+            }
+        } else if (glideValue) {
+            decHeight -= glideSpeed
         }
 
+        val newY = if (glideValue) launchY - decHeight else launchY
         val old = session.localPlayer.vec3Position
         val newPos = Vector3f.from(
             (old.x + dx).toFloat(),
-            (old.y + dy).toFloat(),
+            newY,
             (old.z + dz).toFloat()
         )
 
