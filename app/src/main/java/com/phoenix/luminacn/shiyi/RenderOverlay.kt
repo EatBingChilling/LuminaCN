@@ -8,41 +8,23 @@ import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import com.phoenix.luminacn.constructors.GameManager
-import com.phoenix.luminacn.overlay.manager.OverlayWindow
 import com.phoenix.luminacn.overlay.manager.OverlayManager
+import com.phoenix.luminacn.overlay.manager.OverlayWindow
 
 class RenderOverlay : OverlayWindow() {
 
-    private val _layoutParams by lazy {
-        super.layoutParams.apply {
-            // 完整的全屏触摸穿透设置
-            flags = flags or
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+    // --- 关键改动：覆写父类的 layoutParams 以实现真正的全屏 ---
+    override val layoutParams by lazy {
+        // 使用一套干净、无冲突的全屏参数
+        WindowManager.LayoutParams().apply {
+            // 核心标志：允许触摸穿透，硬件加速，并允许绘制到屏幕边缘
+            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION
-            
-            // 全屏设置
-            width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.MATCH_PARENT
-            gravity = Gravity.TOP or Gravity.START
-            x = 0
-            y = 0
-            
+                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+
             // 确保窗口类型正确
             type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -50,24 +32,30 @@ class RenderOverlay : OverlayWindow() {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE
             }
-            
-            // 添加格式设置确保透明度
+
+            // 关键：设置为 MATCH_PARENT 来填满屏幕
+            width = WindowManager.LayoutParams.MATCH_PARENT
+            height = WindowManager.LayoutParams.MATCH_PARENT
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 0
+
+            // 确保透明背景
             format = android.graphics.PixelFormat.TRANSLUCENT
-            
-            // Android P+ 的刘海屏处理
+
+            // 适配刘海屏
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
     }
 
-    override val layoutParams: WindowManager.LayoutParams
-        get() = _layoutParams
-
+    // --- Companion Object 用于管理悬浮窗的显示和隐藏 ---
     companion object {
         val overlayInstance by lazy { RenderOverlay() }
         private var shouldShowOverlay = false
-        private var currentSession: com.phoenix.luminacn.constructors.NetBound? = null
+        // 你代码中原来的 session 逻辑可以按需保留
+        // private var currentSession: com.phoenix.luminacn.constructors.NetBound? = null
 
         fun showOverlay() {
             if (shouldShowOverlay) {
@@ -94,120 +82,46 @@ class RenderOverlay : OverlayWindow() {
 
         fun isOverlayEnabled(): Boolean = shouldShowOverlay
 
-        fun setSession(session: com.phoenix.luminacn.constructors.NetBound?) {
-            currentSession = session
-        }
+        // fun setSession(session: com.phoenix.luminacn.constructors.NetBound?) {
+        //     currentSession = session
+        // }
     }
-
-    private fun getFullscreenSystemUIFlags(): Int {
-        return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                // Android 11+ 使用新的API
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT -> {
-                // Android 4.4+
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            }
-            else -> {
-                // 旧版本Android
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            }
-        }
+    
+    // 辅助函数，用于设置沉浸式全屏模式
+    private fun setImmersiveMode(view: View) {
+        @Suppress("DEPRECATION")
+        view.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN)
     }
 
     @Composable
     override fun Content() {
         if (!isOverlayEnabled()) return
 
-        val context = LocalContext.current
-        val systemUIFlags = remember { getFullscreenSystemUIFlags() }
-        
         Box(modifier = Modifier.fillMaxSize()) {
-            // 渲染层视图 - 需要session
-            currentSession?.let { session ->
-                AndroidView(
-                    factory = { ctx ->
-                        RenderLayerView(ctx, session).apply {
-                            // 确保View透明且全屏
-                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            // 设置完整的全屏UI
-                            systemUiVisibility = systemUIFlags
-                            
-                            // 确保View获得焦点以应用SystemUI设置
-                            isFocusable = true
-                            isFocusableInTouchMode = true
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    update = { view ->
-                        // 强制重新布局以确保全屏
-                        view.requestLayout()
-                        // 重新应用SystemUI设置
-                        view.systemUiVisibility = systemUIFlags
-                        
-                        // 强制进入全屏模式
-                        view.post {
-                            view.systemUiVisibility = systemUIFlags
-                        }
-                    }
-                )
-            }
-            
-            // ESP渲染视图 - 叠加在上层
             AndroidView(
                 factory = { ctx ->
                     RenderOverlayView(ctx).apply {
-                        // 确保View透明且全屏
+                        // 确保 View 背景透明
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        // 设置完整的全屏UI
-                        systemUiVisibility = systemUIFlags
-                        
-                        // 确保View获得焦点以应用SystemUI设置
-                        isFocusable = true
-                        isFocusableInTouchMode = true
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
-                    // 强制重新布局以确保全屏
-                    view.requestLayout()
-                    // 重新应用SystemUI设置
-                    view.systemUiVisibility = systemUIFlags
-                    
-                    // 强制进入全屏模式
-                    view.post {
-                        view.systemUiVisibility = systemUIFlags
-                    }
+                    // 在 update 回调中持续应用沉浸式模式，防止系统UI意外弹出
+                    view.post { setImmersiveMode(view) }
+                    // 手动请求重绘以启动/刷新渲染循环
+                    view.invalidate()
                 }
             )
-        }
-
-        // 确保在组件销毁时清理资源
-        DisposableEffect(Unit) {
-            onDispose {
-                // 清理工作
-            }
         }
     }
 }

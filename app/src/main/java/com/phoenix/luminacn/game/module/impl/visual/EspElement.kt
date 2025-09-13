@@ -40,11 +40,37 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     private val colorRed by intValue("color_red", 255, 0..255)
     private val colorGreen by intValue("color_green", 0, 0..255)
     private val colorBlue by intValue("color_blue", 0, 0..255)
-
     private val showAllEntities by boolValue("show_all_entities", false)
     private val showDistance by boolValue("show_distance", true)
     private val showNames by boolValue("show_names", true)
 
+    // --- 性能优化：将 Paint 和 Rect/RectF 对象提升为成员变量 ---
+    // 避免在 onDraw 中重复创建对象，显著减少GC压力，提高帧率
+    private val boxPaint = Paint().apply { style = Paint.Style.STROKE }
+    private val bgPaint = Paint().apply {
+        color = Color.argb(160, 0, 0, 0)
+        style = Paint.Style.FILL
+    }
+    private val outlinePaint = Paint().apply {
+        color = Color.BLACK
+        textSize = 30f
+        textAlign = Paint.Align.CENTER
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+    private val textPaint = Paint().apply {
+        textSize = 30f
+        textAlign = Paint.Align.CENTER
+        style = Paint.Style.FILL
+    }
+    private val textBounds = android.graphics.Rect()
+    private val bgRect = android.graphics.RectF()
+
+    // --- 性能优化：缓存矩阵 ---
+    private var lastScreenWidth = 0
+    private var lastScreenHeight = 0
+    private var lastFov = 0f
+    private val projectionMatrix = Matrix4f.create() // 创建一次，后续只更新
 
     override fun beforePacketBound(interceptablePacket: InterceptablePacket) {
     }
@@ -63,7 +89,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         return when (mode) {
             "2d" -> "2D"
             "3d" -> "3D"
-            "corner" -> "corner"
+            "corner" -> "Corner"
             else -> mode
         }
     }
@@ -72,7 +98,6 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         val rad = Math.toRadians(angle.toDouble())
         val c = cos(rad).toFloat()
         val s = sin(rad).toFloat()
-
         return Matrix4f.from(
             1f, 0f, 0f, 0f,
             0f, c, -s, 0f,
@@ -85,7 +110,6 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         val rad = Math.toRadians(angle.toDouble())
         val c = cos(rad).toFloat()
         val s = sin(rad).toFloat()
-
         return Matrix4f.from(
             c, 0f, s, 0f,
             0f, 1f, 0f, 0f,
@@ -97,15 +121,9 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     private fun getEntityBoxVertices(entity: Entity): Array<Vector3f> {
         val width = 0.6f
         val height = 1.8f
-
         val pos = entity.vec3Position
         val halfWidth = width / 2f
-
-        val yPos = if (entity is Player) {
-            pos.y - 1.62f
-        } else {
-            pos.y
-        }
+        val yPos = if (entity is Player) pos.y - 1.62f else pos.y
 
         return arrayOf(
             Vector3f.from(pos.x - halfWidth, yPos, pos.z - halfWidth),
@@ -128,12 +146,10 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         if (w < 0.01f) return null
 
         val inverseW = 1f / w
-
         val screenX = screenWidth / 2f + (0.5f * ((viewProjMatrix.get(0, 0) * pos.x +
                 viewProjMatrix.get(0, 1) * pos.y +
                 viewProjMatrix.get(0, 2) * pos.z +
                 viewProjMatrix.get(0, 3)) * inverseW) * screenWidth + 0.5f)
-
         val screenY = screenHeight / 2f - (0.5f * ((viewProjMatrix.get(1, 0) * pos.x +
                 viewProjMatrix.get(1, 1) * pos.y +
                 viewProjMatrix.get(1, 2) * pos.z +
@@ -163,31 +179,36 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         val screenWidth = canvas.width
         val screenHeight = canvas.height
 
-        val viewProjMatrix = Matrix4f.createPerspective(fov,
-            screenWidth.toFloat() / screenHeight, 0.1f, 128f)
-            .mul(Matrix4f.createTranslation(player.vec3Position)
-                .mul(rotateY(-player.rotationYaw - 180))
-                .mul(rotateX(-player.rotationPitch))
-                .invert())
-
-        val paint = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = this@EspElement.strokeWidth
-            color = Color.rgb(colorRed, colorGreen, colorBlue)
+        // --- 性能优化：仅在屏幕尺寸或FOV变化时更新投影矩阵 ---
+        if (screenWidth != lastScreenWidth || screenHeight != lastScreenHeight || fov != lastFov) {
+            Matrix4f.createPerspective(fov, screenWidth.toFloat() / screenHeight, 0.1f, 128f, projectionMatrix)
+            lastScreenWidth = screenWidth
+            lastScreenHeight = screenHeight
+            lastFov = fov
         }
+
+        val viewMatrix = Matrix4f.createTranslation(player.vec3Position)
+            .mul(rotateY(-player.rotationYaw - 180))
+            .mul(rotateX(-player.rotationPitch))
+            .invert()
+
+        val viewProjMatrix = projectionMatrix.mul(viewMatrix) // 注意矩阵乘法顺序 Proj * View
+
+        // --- 性能优化：更新预先创建的 Paint 对象属性，而不是创建新对象 ---
+        boxPaint.strokeWidth = this.strokeWidth
         val colors = ColorUtils.getChromaRainbow(100.0, 10.0)
-        paint.color = if(rainbowValue) Color.rgb(colors.r, colors.g, colors.b) else Color.rgb( colorRed, colorGreen, colorBlue)
+        val currentColor = if (rainbowValue) Color.rgb(colors.r, colors.g, colors.b) else Color.rgb(colorRed, colorGreen, colorBlue)
+        boxPaint.color = currentColor
+        textPaint.color = currentColor // 同步文字颜色
 
         entities.forEach { entity ->
             if (shouldRenderEntity(entity)) {
-                drawEntityBox(entity, viewProjMatrix, screenWidth, screenHeight, canvas, paint)
+                drawEntityBox(entity, viewProjMatrix, screenWidth, screenHeight, canvas)
             }
         }
     }
 
-    private fun drawEntityBox(entity: Entity, viewProjMatrix: Matrix4f,
-                              screenWidth: Int, screenHeight: Int,
-                              canvas: Canvas, paint: Paint) {
+    private fun drawEntityBox(entity: Entity, viewProjMatrix: Matrix4f, screenWidth: Int, screenHeight: Int, canvas: Canvas) {
         val boxVertices = getEntityBoxVertices(entity)
         var minX = screenWidth.toDouble()
         var minY = screenHeight.toDouble()
@@ -207,13 +228,13 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
 
         if (!(minX >= screenWidth || minY >= screenHeight || maxX <= 0 || maxY <= 0)) {
             when (mode) {
-                "2D" -> draw2DBox(canvas, paint, minX, minY, maxX, maxY)
-                "3D" -> draw3DBox(canvas, paint, screenPositions)
-                "corner" -> drawCornerBox(canvas, paint, minX, minY, maxX, maxY)
+                "2D" -> draw2DBox(canvas, boxPaint, minX, minY, maxX, maxY)
+                "3D" -> draw3DBox(canvas, boxPaint, screenPositions)
+                "corner" -> drawCornerBox(canvas, boxPaint, minX, minY, maxX, maxY)
             }
 
             if (showNames || showDistance) {
-                drawEntityInfo(canvas, paint, entity, minX, minY, maxX)
+                drawEntityInfo(canvas, entity, minX, minY, maxX)
             }
         }
     }
@@ -241,9 +262,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         edges.forEach { (start, end) ->
             val startPos = screenPositions[start]
             val endPos = screenPositions[end]
-
             if (isOnScreen(startPos, canvas) && isOnScreen(endPos, canvas)) {
-                //slight padding
                 val padding = paint.strokeWidth / 2
                 canvas.drawLine(
                     startPos.x.coerceIn(padding, canvas.width - padding),
@@ -271,9 +290,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         )
 
         corners.forEachIndexed { i, (x, y) ->
-            val nextCorner = corners[(i + 1) % 4]
-
-            // Horizontal lines
+            // Horizontal lines from corner
             canvas.drawLine(
                 x.toFloat(),
                 y.toFloat(),
@@ -281,8 +298,7 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
                 y.toFloat(),
                 paint
             )
-
-            // Vertical lines
+            // Vertical lines from corner
             canvas.drawLine(
                 x.toFloat(),
                 y.toFloat(),
@@ -290,40 +306,11 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
                 y.toFloat() + if (i < 2) cornerLength else -cornerLength,
                 paint
             )
-
-            // Connect to next corner
-            canvas.drawLine(
-                x.toFloat() + if (i % 2 == 0) cornerLength else -cornerLength,
-                y.toFloat(),
-                nextCorner.first.toFloat(),
-                nextCorner.second.toFloat(),
-                paint
-            )
         }
     }
 
     @SuppressLint("DefaultLocale")
-    private fun drawEntityInfo(canvas: Canvas, paint: Paint, entity: Entity, minX: Double, minY: Double, maxX: Double) {
-        val bgPaint = Paint().apply {
-            color = Color.argb(160, 0, 0, 0) // Semi-transparent black background
-            style = Paint.Style.FILL
-        }
-
-        val outlinePaint = Paint().apply {
-            color = Color.BLACK
-            textSize = 30f
-            textAlign = Paint.Align.CENTER
-            style = Paint.Style.STROKE
-            strokeWidth = 4f
-        }
-
-        val textPaint = Paint().apply {
-            color = paint.color
-            textSize = 30f
-            textAlign = Paint.Align.CENTER
-            style = Paint.Style.FILL
-        }
-
+    private fun drawEntityInfo(canvas: Canvas, entity: Entity, minX: Double, minY: Double, maxX: Double) {
         val info = buildString {
             if (showNames && entity is Player) {
                 append(entity.username)
@@ -338,20 +325,19 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         val textX = (minX + maxX).toFloat() / 2
         val textY = minY.toFloat() - 10
 
-        val bounds = android.graphics.Rect()
-        textPaint.getTextBounds(info, 0, info.length, bounds)
+        // 使用复用对象
+        textPaint.getTextBounds(info, 0, info.length, textBounds)
 
         val padding = 8f
-        val bgRect = android.graphics.RectF(
-            textX - bounds.width() / 2 - padding,
-            textY - bounds.height() - padding,
-            textX + bounds.width() / 2 + padding,
+        // 使用复用对象
+        bgRect.set(
+            textX - textBounds.width() / 2 - padding,
+            textY - textBounds.height() - padding,
+            textX + textBounds.width() / 2 + padding,
             textY + padding
         )
         canvas.drawRoundRect(bgRect, 4f, 4f, bgPaint)
-
         canvas.drawText(info, textX, textY, outlinePaint)
-
         canvas.drawText(info, textX, textY, textPaint)
     }
 }
