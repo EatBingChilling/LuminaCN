@@ -28,7 +28,8 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     companion object {
         private var renderView: RenderOverlayView? = null
 
-        fun setRenderView(view: RenderOverlayView) {
+        // --- 修复：将参数类型修改为可空的 RenderOverlayView? ---
+        fun setRenderView(view: RenderOverlayView?) {
             renderView = view
         }
     }
@@ -44,8 +45,6 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
     private val showDistance by boolValue("show_distance", true)
     private val showNames by boolValue("show_names", true)
 
-    // --- 性能优化：将 Paint 和 Rect/RectF 对象提升为成员变量 ---
-    // 这是最重要的优化，避免在 onDraw 中重复创建对象，显著减少GC压力，提高帧率
     private val boxPaint = Paint().apply { style = Paint.Style.STROKE }
     private val bgPaint = Paint().apply {
         color = Color.argb(160, 0, 0, 0)
@@ -167,7 +166,6 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
         val screenWidth = canvas.width
         val screenHeight = canvas.height
 
-        // --- 修复：恢复到每帧创建新的投影矩阵，因为API不支持目标矩阵优化 ---
         val projectionMatrix = Matrix4f.createPerspective(fov, screenWidth.toFloat() / screenHeight, 0.1f, 128f)
 
         val viewMatrix = Matrix4f.createTranslation(player.vec3Position)
@@ -177,7 +175,6 @@ class EspElement(iconResId: Int = AssetManager.getAsset("ic_eye_black_24dp")) : 
 
         val viewProjMatrix = projectionMatrix.mul(viewMatrix)
 
-        // --- 性能优化：更新预先创建的 Paint 对象属性，而不是创建新对象 ---
         boxPaint.strokeWidth = this.strokeWidth
         val colors = ColorUtils.getChromaRainbow(100.0, 10.0)
         val currentColor = if (rainbowValue) Color.rgb(colors.r, colors.g, colors.b) else Color.rgb(colorRed, colorGreen, colorBlue)
