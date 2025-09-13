@@ -91,6 +91,9 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
+    // [新增] 在父组件中收集设置状态，以便控制灵动岛
+    val settingsState by vm.settingsState.collectAsState()
+
     /* 状态 */
     var isVerifying by remember { mutableStateOf(true) }
     var step by remember { mutableIntStateOf(1) }
@@ -105,6 +108,28 @@ fun NewHomeScreen(onStartToggle: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     // MODIFIED: State to control the accessibility dialog
     var showAccessibilityDialog by remember { mutableStateOf(false) }
+    
+    // ================== [新增] 灵动岛控制逻辑 ==================
+    // 将控制逻辑从 SettingsScreen 移动到这里，使其生命周期与主屏幕绑定
+    val dynamicIslandController = remember { DynamicIslandController(context) }
+
+    LaunchedEffect(settingsState.dynamicIslandUsername) {
+        delay(300) // Debounce
+        dynamicIslandController.setPersistentText(settingsState.dynamicIslandUsername)
+    }
+
+    LaunchedEffect(settingsState.dynamicIslandYOffset) {
+        dynamicIslandController.updateYOffset(settingsState.dynamicIslandYOffset)
+    }
+
+    LaunchedEffect(settingsState.dynamicIslandScale) {
+        dynamicIslandController.updateScale(settingsState.dynamicIslandScale)
+    }
+
+    LaunchedEffect(settingsState.musicModeEnabled) {
+        dynamicIslandController.enableMusicMode(settingsState.musicModeEnabled)
+    }
+    // ================== [新增] 灵动岛控制逻辑结束 ==================
 
     // 获取壁纸
     LaunchedEffect(Unit) {

@@ -1,5 +1,3 @@
-// com/phoenix/luminacn/router/main/SettingsScreen.kt
-
 /*
  * © Project Lumina 2025 — Licensed under GNU GPLv3
  * You are free to use, modify, and redistribute this code under the terms
@@ -62,16 +60,16 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Get the single ViewModel instance. All data is already loaded.
+    // 获取在 NewMainActivity 中创建的 ViewModel 单一实例
     val mainScreenViewModel: MainScreenViewModel = viewModel()
 
-    // Collect all state from the ViewModel.
+    // 从 ViewModel 收集状态
     val settingsState by mainScreenViewModel.settingsState.collectAsState()
     val installedApps by mainScreenViewModel.packageInfos.collectAsState()
     val captureModeModel by mainScreenViewModel.captureModeModel.collectAsState()
     val selectedAppPackage by mainScreenViewModel.selectedGame.collectAsState()
 
-    val dynamicIslandController = remember { DynamicIslandController(context) }
+    // [已移除] 灵动岛控制逻辑已移至 NewHomeScreen.kt
 
     /* ---------- Local UI State (Popups) ---------- */
     var showPermission by remember { mutableStateOf(false) }
@@ -110,23 +108,11 @@ fun SettingsScreen() {
         context.packageManager.getApplicationIcon(pkg)
     } catch (e: Exception) { null }
 
-    /* ---------- Side Effects ---------- */
-    LaunchedEffect(settingsState.dynamicIslandUsername) {
-        delay(300) // Debounce
-        dynamicIslandController.setPersistentText(settingsState.dynamicIslandUsername)
-    }
-
-    LaunchedEffect(settingsState.dynamicIslandYOffset) {
-        dynamicIslandController.updateYOffset(settingsState.dynamicIslandYOffset)
-    }
-
-    LaunchedEffect(settingsState.dynamicIslandScale) {
-        dynamicIslandController.updateScale(settingsState.dynamicIslandScale)
-    }
-
-    LaunchedEffect(settingsState.musicModeEnabled) {
-        dynamicIslandController.enableMusicMode(settingsState.musicModeEnabled)
-    }
+    /* ---------- Side Effects (已移除灵动岛相关) ---------- */
+    // [已移除] LaunchedEffect(settingsState.dynamicIslandUsername)
+    // [已移除] LaunchedEffect(settingsState.dynamicIslandYOffset)
+    // [已移除] LaunchedEffect(settingsState.dynamicIslandScale)
+    // [已移除] LaunchedEffect(settingsState.musicModeEnabled)
 
     /* ---------- Internal Composables ---------- */
     @Composable
