@@ -41,10 +41,10 @@ class PersistentService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Lumina Persistent Service",
+                "LuminaCN Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "确保Lumina核心服务持续运行"
+                description = "保持后台"
                 setShowBadge(false)
             }
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -54,8 +54,8 @@ class PersistentService : Service() {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Lumina 核心服务")
-            .setContentText("服务正在后台运行以支持按键绑定")
+            .setContentTitle("LuminaCN 服务")
+            .setContentText("服务正在后台运行")
             .setSmallIcon(R.drawable.img)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
