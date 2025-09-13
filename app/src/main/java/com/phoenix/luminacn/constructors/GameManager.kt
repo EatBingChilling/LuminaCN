@@ -29,7 +29,6 @@ import com.phoenix.luminacn.game.module.impl.world.AutoWalkElement
 import com.phoenix.luminacn.game.module.impl.motion.BhopElement
 //import com.phoenix.luminacn.game.module.impl.combat.CrystalAuraElement
 import com.phoenix.luminacn.game.module.impl.combat.AntiBotElement
-import com.phoenix.luminacn.game.module.impl.world.ScaffoldElement
 import com.phoenix.luminacn.game.module.impl.combat.DamageBoostElement
 import com.phoenix.luminacn.game.module.impl.combat.HitboxElement
 import com.phoenix.luminacn.game.module.impl.motion.FlyElement
@@ -132,7 +131,7 @@ object GameManager {
             //add(MaceAuraElement())
             //add(CrystalAuraElement())
             add(AntiBotElement())
-            add(ScaffoldElement())
+       
             add(TriggerBotElement())
             add(CritBotElement())
             add(InfiniteAuraElement())
