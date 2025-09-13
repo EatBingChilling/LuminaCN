@@ -33,29 +33,29 @@ LuminaCN 是为中国玩家在 Lumina V4 的基础上进行汉化、美化、功
 
 ### 致谢 (贡献者)
 
-** ShiYi (已退出开发组) **
+**ShiYi (已退出开发组)**
 
 > 移植 KillauraAB, KillauraCD, ESP, WaterMark, Arraylist, Nametag, ToggleSound
 
 > 修改 OverlayShortcutButton, etc.
 
-** KURUMA (不清楚)**
+**KURUMA (不清楚)**
 
 > 添加 MotionFly, TPFly, etc.
 
-** Phoen1x_ (主开发) **
+**Phoen1x_ (主开发)**
 
 > UI 大规模美化, 灵动岛, 汉化, etc.
 
-** QP (灵动岛) **
+**QP (灵动岛)**
 
 > 为灵动岛添加辉光
 
-** [MuCute 沐橙 (?](https://github.com/mucute-qwq)  **
+**[MuCute 沐橙 (?](https://github.com/mucute-qwq)**
 
 > 摆烂精神值得我们学习。
 
-** Gemini, Claude 和别的 LLM **
+**Gemini, Claude 和别的 LLM**
 
 > 功能实现
 
